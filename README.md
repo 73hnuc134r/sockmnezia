@@ -27,6 +27,7 @@ and the response structure. See `docs/` in this order:
 | [`docs/06-risks-and-open-questions.md`](docs/06-risks-and-open-questions.md) | Device slots, CAPTCHA, ToS/licensing, unknowns. |
 | [`docs/07-app-design-brief.md`](docs/07-app-design-brief.md) | Suggested architecture and a build plan for the app. |
 | [`docs/08-source-map.md`](docs/08-source-map.md) | Where to look in the upstream open-source repos. |
+| [`docs/PLAN.md`](docs/PLAN.md) | **Build plan**: Android app, Go core, local proxy hardening, CI. |
 
 `reference/` holds working throw-away implementations of the protocol (Node.js interactive script, Python CLI,
 single-file HTML page, CORS worker) and an offline test-suite with a **mock gateway** that implements the
