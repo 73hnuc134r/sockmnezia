@@ -1,4 +1,4 @@
-# amnezia-socks5
+# sockmnezia
 
 **Goal:** a small app that is both
 
