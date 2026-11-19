@@ -1,6 +1,6 @@
 # Plan: Android local proxy for Amnezia Premium (VLESS)
 
-Status: **draft for review**. Nothing is built yet. Research is in `docs/01…08`; this file is the build plan.
+Status: **agreed draft** (decisions in §9). Nothing is built yet. Research is in `docs/01…08`; this file is the build plan.
 
 ## 1. What we build
 
@@ -9,7 +9,10 @@ An Android app that
 1. takes the user's own Premium Subscription Key (`vpn://…`), fetches the Xray config from the Amnezia gateway
    (doc 03) and keeps the device identity stable (doc 06), and
 2. runs that config in an embedded Xray-core and exposes a **hardened local SOCKS5 (+ optional HTTP) proxy**
-   for other apps (AdGuard, Termux, browsers with proxy settings, …). No VpnService, no TUN.
+   for other apps (AdGuard, Termux, browsers with proxy settings, …). No VpnService, no TUN, and
+3. optionally chains the user's **own Xray-compatible server** as the exit (`own server -> Amnezia -> relay`).
+
+App: **Sockmnezia**, package id `io.nuc134r.sockmnezia`, license **MIT**. Distributed via GitHub releases.
 
 Later: the same core in a Windows/Linux app (tray app or CLI).
 
@@ -93,8 +96,8 @@ not exposing management APIs.
 
 | Area | Behavior |
 |---|---|
-| Authentication | **Always on**, cannot be disabled. SOCKS5 username/password (RFC 1929) and HTTP Basic on the HTTP inbound. **Random 16-char username and 32-char password generated on first run**, stored in `SecretStore`; user can view/copy/regenerate or set their own (min. length enforced). |
-| Port | **Random port chosen on first run** from 20000–60999 (never 1080/10808/10809/7890/2080 or other well-known client ports), kept stable so client apps stay configured. Options: set a fixed port; **"new random port on every start"**. Port-in-use → pick another and tell the user. |
+| Authentication | **Always on**, cannot be disabled. SOCKS5 username/password (RFC 1929) and HTTP Basic on the HTTP inbound. **Random 16-char username and 32-char password generated on first run**, stored in `SecretStore`. The user can **edit both freely** (any printable ASCII, 1–255 bytes as RFC 1929 allows; a strength hint warns below 12 chars, never blocks), view/copy, or regenerate. |
+| Port | **Random port chosen on first run** from 20000–60999 (never 1080/10808/10809/7890/2080 or other well-known client ports), kept stable so client apps stay configured. The user can set any port 1024–65535 or press "random". **Rotation is manual only** (port and credentials change only when the user edits or regenerates them). Port in use → the proxy does not start and the user is told (no silent change). |
 | Bind address | **127.0.0.1 only.** "Share on LAN/hotspot" is an explicit opt-in with a warning, binds to the chosen interface address (not 0.0.0.0), still requires auth. |
 | UDP | **Off.** When on: SOCKS5 UDP ASSOCIATE only after authenticated TCP, per-association ephemeral port (Xray behavior above); clients are told in the UI to send their real source port in the ASSOCIATE request so pinning is exact. |
 | HTTP inbound | **Off** (SOCKS5 only); opt-in, separate random port, Basic auth with the same credentials. |
@@ -129,11 +132,47 @@ blackholed; the generated config must contain no `api`, `stats` or extra inbound
 - **Proxy settings** (§4.4): host/port/username/password with copy buttons and a "copy as `socks5://…`"
   link, regenerate buttons, UDP/HTTP/LAN toggles with warnings.
 - **Countries**: from `available_countries`; switching re-posts `v1/config` with `server_country_code`.
-- **Own VPS exit** (doc 04): import a `vless://` link, chained via `dialerProxy: "proxy"`.
+- **Own server exit** (§5.1), a must-have.
+- **Battery checks** (§5.2).
 - **Errors in plain words**: device limit (409), expired (402/422), CAPTCHA ("open the official app once"),
   gateway unreachable ("route the fetch through another proxy": optional upstream SOCKS for the gateway call).
-- **Battery**: prompt for battery-optimization exemption only when the user enables start-on-boot.
 - In-app update check against GitHub releases (like nux).
+
+### 5.1 Chaining to the user's own server
+
+- Import: share links `vless://` (incl. Reality, xhttp), `vmess://`, `trojan://`, `ss://`, `socks://`/`http://`,
+  or a raw **Xray outbound JSON** object (for anything the links can't express). Parsing lives in the core
+  (`xrayconf/links`), so the desktop app gets it too. Several saved servers, one active; stored encrypted.
+- Chain: the own outbound is put **first** (default outbound) with `streamSettings.sockopt.dialerProxy:
+  "proxy"`, so traffic goes `local proxy -> own server <- via Amnezia proxy <- via Amnezia relay`; exit IP = own
+  server. Core validates tags, removes conflicting `dialerProxy`, rejects tags that clash with the Amnezia ones.
+- Mode switch: **Amnezia only** / **Amnezia → own server**. Fail-closed: if a hop fails, connections fail;
+  there is never a fallback to a shorter chain or to direct.
+- Transports for the own hop: TCP-based ones (raw/tcp, ws, grpc, httpupgrade, xhttp; TLS or Reality) are
+  supported and covered by the loopback test. UDP-based transports (kcp, QUIC/hysteria) cannot be dialed through
+  the chain reliably → import is refused with an explanation. UDP *traffic* (SOCKS UDP, if enabled) goes through
+  VLESS/XUDP; tested.
+- "Test chain" button: connects through the full chain and reports the exit IP and latency (on demand only).
+
+### 5.2 Battery / background checks
+
+A "Background health" card on the main screen and in Settings, re-checked on every resume; each failed item
+explains why it matters and has a button that opens the right system screen:
+
+| Check | API | Fix action |
+|---|---|---|
+| Battery optimization exemption | `PowerManager.isIgnoringBatteryOptimizations` | `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (permission declared; GitHub distribution) |
+| Background restriction ("Restricted" battery mode) | `ActivityManager.isBackgroundRestricted` (28+) | app details settings |
+| Notifications allowed (FGS notification, Android 13+) | `NotificationManagerCompat.areNotificationsEnabled`, `POST_NOTIFICATIONS` | runtime request / notification settings |
+| Data Saver blocking background data | `ConnectivityManager.getRestrictBackgroundStatus` | `ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS` |
+| App hibernation / unused-app permission reset | `PackageManagerCompat.getUnusedAppRestrictionsStatus` | `IntentCompat.createManageUnusedAppRestrictionsIntent` |
+| Battery Saver currently on (info only) | `PowerManager.isPowerSaveMode` | battery saver settings |
+| OEM killers (Xiaomi/MIUI-HyperOS autostart, Huawei/Honor, Samsung sleeping apps, Oppo/Vivo/OnePlus) | `Build.MANUFACTURER` | known OEM intents where they resolve, otherwise instructions + link to dontkillmyapp.com |
+| Start on boot works | flag set by `BOOT_COMPLETED` receiver | — (shown only when the option is on) |
+
+Plus a runtime signal: the service records unexpected deaths (started but not stopped by the user) and the
+card shows "Android stopped the proxy N times in the last 7 days" with the checklist above. Checks are pure
+functions over an injected `DeviceState`, unit-tested with fakes.
 
 ## 6. Testing
 
@@ -156,7 +195,7 @@ blackholed; the generated config must contain no `api`, `stats` or extra inbound
 |---|---|---|
 | `tests.yml` | push to `main`, PRs | `go vet`, `staticcheck`, `go test -race ./...` (incl. loopback Xray test); build AAR; `./gradlew lint testDebugUnitTest assembleDebug` (arm64) |
 | `secrets.yml` | every push/PR, called by release | gitleaks over full history with `.gitleaks.toml` (+ rules for `vpn://AAAA_3ic…` keys and VLESS UUID+host pairs) |
-| `release.yml` | tag `v*` or manual with version | tests + secrets + build AAR → signed universal APK and per-ABI APKs (`amnezia-proxy-<ver>[-abi].apk`) → GitHub release, notes from `CHANGELOG.md`, `-beta` tags as pre-release |
+| `release.yml` | tag `v*` or manual with version | tests + secrets + build AAR → signed universal APK and per-ABI APKs (`sockmnezia-<ver>[-abi].apk`) → GitHub release, notes from `CHANGELOG.md`, `-beta` tags as pre-release |
 | `release-notes.yml` | manual | re-sync notes from `CHANGELOG.md` |
 
 - Same secrets as nux: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
@@ -172,24 +211,22 @@ blackholed; the generated config must contain no `api`, `stats` or extra inbound
    traffic flows through the chain on desktop and in Termux. If it fails, stop and fix before any UI.
 1. **Core**: `vpnkey`, `gateway`, `pubkey`, `account` + Go mock gateway + tests. CI `tests.yml`,
    `secrets.yml` live from the first commit.
-2. **Proxy**: `xrayconf` with the full §4.4 policy, `runner`, loopback integration tests. CLI usable on
+2. **Proxy**: `xrayconf` with the full §4.4 policy, share-link parser and own-server chain (§5.1), `runner`,
+   loopback integration tests (incl. the chain). CLI usable on
    Linux/Termux (this is already the "desktop" fallback).
-3. **Android shell**: AAR build, foreground service, onboarding, main screen, proxy settings, secrets in
-   Keystore. Debug APK in CI.
+3. **Android shell**: AAR build, foreground service, onboarding, main screen, proxy settings (editable
+   credentials/port), own-server chain UI, battery checks, secrets in Keystore. Debug APK in CI.
 4. **Release pipeline**: signing, `release.yml`, CHANGELOG, update check. First `v0.1.0` (beta).
-5. **Polish**: countries, own-VPS exit, QS tile, boot start, error UX, ru translation review, exit-IP check.
+5. **Polish**: countries, QS tile, boot start, error UX, ru translation review, exit-IP check.
 6. **Later**: Windows/Linux app on the same core (tray UI), CAPTCHA UI, gateway-fetch via upstream proxy
    list, optional TUN/VpnService mode with per-UID access control for the proxy, AWG backend.
 
-## 9. Open questions for you
+## 9. Decisions
 
-1. **Gateway public key source** (doc 05): (a) user picks the official Amnezia APK file once and we extract
-   the key (default in the research), (b) the app downloads the latest official APK from Amnezia's GitHub
-   releases and extracts it, (c) paste PEM. Proposal: (a) + (b) as a button, never ship the key.
-2. **App name / package id** (e.g. `Amnezia Proxy`, `io.github.nuc134r.amzproxy`)? The name must not suggest
-   it is an official Amnezia product.
-3. **UI toolkit**: Compose (proposed) vs. classic Views.
-4. **License** of this repo (GPL-3.0 is the natural choice next to amnezia-client; MIT/Apache also possible since
-   no GPL code is copied).
-5. Should the random port and credentials **rotate on every start** by default (more stealth, but every
-   client app must be re-configured each time), or stay stable with rotation as an option (proposed)?
+1. Gateway public key: user picks the official Amnezia APK once (key extracted), plus a button that downloads
+   the latest official APK from Amnezia's GitHub releases and extracts it. The key is never shipped.
+2. Package id `io.nuc134r.sockmnezia`; the UI says it is unofficial and not affiliated with Amnezia.
+3. Jetpack Compose.
+4. License MIT (most permissive common choice; Xray-core MPL-2.0 is compatible when used as a library).
+5. Port and credentials rotate only manually; the user can edit them.
+6. Own-server chaining and battery checks are in scope for v0.1.
