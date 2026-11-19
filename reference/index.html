@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src https: http:; img-src data:;">
+<title>Amnezia Premium → VLESS / 2-hop Xray</title>
+<style>
+  :root { --bg:#fff; --fg:#1c1c1e; --muted:#6b6b70; --card:#f4f4f6; --line:#d8d8de; --accent:#2f6fed; --ok:#1a7f4b; --err:#c0362c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141416; --fg:#ececf0; --muted:#9a9aa3; --card:#1e1e22; --line:#34343b; --accent:#6b9bff; --ok:#4cc38a; --err:#ff7b72; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:780px; margin:0 auto; padding:20px 16px 60px; }
+  h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:15px; margin:0 0 8px; }
+  p.sub { margin:0 0 16px; color:var(--muted); }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin:14px 0; }
+  textarea, input[type=text] { width:100%; font:12.5px/1.4 ui-monospace,Menlo,Consolas,monospace; background:var(--bg); color:var(--fg);
+             border:1px solid var(--line); border-radius:8px; padding:8px; }
+  textarea { min-height:80px; resize:vertical; } textarea.out { min-height:120px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; } @media (max-width:560px){ .grid{grid-template-columns:1fr;} }
+  button { font:inherit; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; } button:disabled { opacity:.45; }
+  .msg { margin-top:8px; min-height:1.4em; font-size:13.5px; white-space:pre-wrap; } .msg.err { color:var(--err); } .msg.ok { color:var(--ok); }
+  .note { font-size:13px; color:var(--muted); } label { font-size:13px; color:var(--muted); display:block; margin:10px 0 4px; }
+  details > summary { cursor:pointer; color:var(--muted); font-size:13px; } [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Amnezia Premium → VLESS / 2-hop Xray</h1>
+  <p class="sub">All crypto runs in your browser. Only the encrypted request goes to the gateway/proxy URL you enter.</p>
+
+  <section>
+    <h2>1 · Subscription Key</h2>
+    <textarea id="key" placeholder="vpn://… (your Amnezia Premium Subscription Key)" spellcheck="false" autocomplete="off"></textarea>
+    <label>Gateway RSA public key(s) (PEM, or base64 of it; several are fine). Get it from your installed app with <code>fetch_vless.py --extract-pubkey</code></label>
+    <textarea id="pem" placeholder="-----BEGIN PUBLIC KEY-----…" spellcheck="false"></textarea>
+    <label>Gateway URL: a CORS proxy you host (see worker.js), or the gateway itself if you run this page with CORS disabled</label>
+    <input type="text" id="gw" placeholder="https://your-worker.example.workers.dev/" spellcheck="false">
+    <div class="grid">
+      <div><label>Location (server_country_code, optional)</label><input type="text" id="country" placeholder="de"></div>
+      <div><label>Protocol</label><input type="text" id="proto" value="vless"></div>
+    </div>
+    <details><summary>Device identity (reused so you don't burn device slots)</summary>
+      <div class="grid">
+        <div><label>installation_uuid</label><input type="text" id="inst"></div>
+        <div><label>client UUID (VLESS user id)</label><input type="text" id="xuuid"></div>
+      </div>
+    </details>
+    <div class="row">
+      <button class="primary" id="fetch">Fetch from gateway</button>
+      <button id="offline">Decode key offline (if it already contains a config)</button>
+      <button id="clear">Clear all</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </section>
+
+  <section id="res" hidden>
+    <h2>2 · Amnezia config</h2>
+    <p class="note">Use the JSON below as a <b>custom config</b> in v2rayN/v2rayNG. Amnezia routes through a relay hop, which a single link can't express; the link is the main hop only.</p>
+    <textarea class="out" id="link" readonly></textarea>
+    <div class="row"><button data-copy="link">Copy link</button></div>
+    <label>Full Xray config (JSON), import as custom config</label>
+    <textarea class="out" id="ob" readonly></textarea>
+    <div class="row"><button data-copy="ob">Copy</button><button data-dl="ob" data-name="amnezia.json">Download amnezia.json</button></div>
+  </section>
+
+  <section id="chainsec" hidden>
+    <h2>3 · 2-hop chain (Amnezia hop → your VPS)</h2>
+    <label>Your own VPS <code>vless://</code> link</label>
+    <textarea id="vps" placeholder="vless://uuid@host:443?type=tcp&security=reality&sni=…&pbk=…&sid=…#vps" spellcheck="false" autocomplete="off"></textarea>
+    <div class="row"><button class="primary" id="build">Build chain config</button></div>
+    <div class="msg" id="chmsg"></div>
+    <textarea class="out" id="chain" readonly hidden></textarea>
+    <div class="row" id="chainbtns" hidden><button data-copy="chain">Copy</button><button data-dl="chain" data-name="chain.json">Download chain.json</button></div>
+    <p class="note">Local SOCKS 127.0.0.1:10808, HTTP 10809. Your VPS connection is dialed through the Amnezia hop, so the exit IP stays your VPS. Keys and configs are secrets.</p>
+  </section>
+</main>
+
+<script>
+'use strict';
+// ================= core (no DOM) =================
+const te = new TextEncoder(), td = new TextDecoder();
+const b64 = u8 => { let s = ''; for (const b of u8) s += String.fromCharCode(b); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s.replace(/\s+/g, '')), c => c.charCodeAt(0));
+const unb64url = s => { s = s.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return unb64(s); };
+const rand = n => crypto.getRandomValues(new Uint8Array(n));
+const uuid4 = () => crypto.randomUUID();
+
+async function inflate(bytes) {
+  const ds = new DecompressionStream('deflate');
+  const w = ds.writable.getWriter(); w.write(bytes); w.close();
+  return new Uint8Array(await new Response(ds.readable).arrayBuffer());
+}
+async function decodeVpn(key) {
+  let s = key.trim(); if (s.startsWith('vpn://')) s = s.slice(6);
+  const raw = unb64url(s);
+  let data; try { data = await inflate(raw.slice(4)); } catch (e) { data = await inflate(raw); }
+  return JSON.parse(td.decode(data));
+}
+
+// --- RSA PKCS#1 v1.5 encryption (WebCrypto lacks it): BigInt modexp over the SPKI key's n, e
+function pemToDer(pem) {
+  pem = pem.trim();
+  if (!pem.includes('BEGIN PUBLIC KEY')) pem = td.decode(unb64(pem));          // base64-of-PEM form
+  if (!pem.includes('BEGIN PUBLIC KEY')) throw new Error('Not an RSA public key PEM');
+  return unb64(pem.replace(/-----[^-]+-----/g, ''));
+}
+async function rsaPublic(pem) {
+  const k = await crypto.subtle.importKey('spki', pemToDer(pem), { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['encrypt']);
+  const jwk = await crypto.subtle.exportKey('jwk', k);
+  const toBig = s => BigInt('0x' + [...unb64url(s)].map(b => b.toString(16).padStart(2, '0')).join(''));
+  return { n: toBig(jwk.n), e: toBig(jwk.e), k: unb64url(jwk.n).length };
+}
+function modexp(b, e, m) { let r = 1n; b %= m; while (e > 0n) { if (e & 1n) r = r * b % m; e >>= 1n; b = b * b % m; } return r; }
+function rsaEncryptPkcs1(pub, msg) {
+  if (msg.length > pub.k - 11) throw new Error('message too long for RSA key');
+  const em = new Uint8Array(pub.k); em[1] = 2;
+  const psLen = pub.k - 3 - msg.length;
+  for (let i = 0; i < psLen; i++) { let b = 0; while (b === 0) b = rand(1)[0]; em[2 + i] = b; }
+  em.set(msg, 3 + psLen);
+  let m = 0n; for (const b of em) m = (m << 8n) | BigInt(b);
+  let hex = modexp(m, pub.e, pub.n).toString(16).padStart(pub.k * 2, '0');
+  return Uint8Array.from(hex.match(/../g).map(h => parseInt(h, 16)));
+}
+async function aesCbc(mode, key, iv16, data) {
+  const k = await crypto.subtle.importKey('raw', key, 'AES-CBC', false, [mode]);
+  return new Uint8Array(await crypto.subtle[mode]({ name: 'AES-CBC', iv: iv16 }, k, data));   // PKCS#7 padding
+}
+async function buildEnvelope(payloadObj, pem) {
+  const pub = await rsaPublic(pem);
+  const key = rand(32), iv = rand(32), salt = rand(8);       // iv: 32 bytes sent, CBC uses first 16; salt sent, unused
+  const keys = JSON.stringify({ aes_key: b64(key), aes_iv: b64(iv), aes_salt: b64(salt) });
+  const encKeys = rsaEncryptPkcs1(pub, te.encode(keys));
+  const ct = await aesCbc('encrypt', key, iv.slice(0, 16), te.encode(JSON.stringify(payloadObj)));
+  return { body: JSON.stringify({ key_payload: b64(encKeys), api_payload: b64(ct) }), key, iv };
+}
+class DecryptFail extends Error {}
+async function gatewayPost(gwBase, path, payloadObj, pem) {
+  const env = await buildEnvelope(payloadObj, pem);
+  const url = gwBase.replace(/\/+$/, '') + '/' + path.replace(/^\/+/, '');
+  let res;
+  try {
+    res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Client-Request-ID': uuid4() }, body: env.body });
+  } catch (e) {
+    throw new Error('Request failed (' + e.message + '). Likely CORS or mixed content: use a CORS proxy over HTTPS (worker.js) in the Gateway URL field.');
+  }
+  const raw = new Uint8Array(await res.arrayBuffer());
+  try { return JSON.parse(td.decode(await aesCbc('decrypt', env.key, env.iv.slice(0, 16), raw))); }
+  catch (e) { throw new DecryptFail('HTTP ' + res.status + ' ' + JSON.stringify([...raw.slice(0, 120)].map(b => b > 31 && b < 127 ? String.fromCharCode(b) : '.').join(''))); }
+}
+
+// --- xray / vless helpers
+function findXrayConfig(cfg) {
+  for (const c of cfg.containers || []) if (c.container === 'amnezia-xray' && c.xray && c.xray.last_config)
+    return typeof c.xray.last_config === 'string' ? JSON.parse(c.xray.last_config) : c.xray.last_config;
+  throw new Error('No amnezia-xray container in the answer. Containers: ' + (cfg.containers || []).map(c => c.container));
+}
+function mainOutbound(x) {
+  const v = (x.outbounds || []).filter(o => o.protocol === 'vless');
+  const o = v.find(o => o.tag === 'proxy') || v[0];
+  if (!o) throw new Error('No vless outbound in the Xray config');
+  return o;
+}
+function outboundToLink(o, name) {
+  const v = o.settings.vnext[0], u = v.users[0], ss = o.streamSettings || {}, q = new URLSearchParams();
+  q.set('encryption', u.encryption || 'none'); q.set('type', ss.network || 'tcp'); q.set('security', ss.security || 'none');
+  if (u.flow) q.set('flow', u.flow);
+  const r = ss.realitySettings;
+  if (r) { q.set('sni', r.serverName || ''); q.set('fp', r.fingerprint || 'chrome'); q.set('pbk', r.publicKey || ''); q.set('sid', r.shortId || ''); if (r.spiderX) q.set('spx', r.spiderX); }
+  return `vless://${u.id}@${v.address}:${v.port}?${q}#${encodeURIComponent(name || 'amnezia')}`;
+}
+function linkToOutbound(link, tag) {
+  const u = new URL(link.trim()); if (u.protocol !== 'vless:') throw new Error('Expected a vless:// link');
+  const q = Object.fromEntries(u.searchParams), net = q.type || 'tcp', sec = q.security || 'none', ss = { network: net, security: sec };
+  if (sec === 'reality') ss.realitySettings = { serverName: q.sni || '', fingerprint: q.fp || 'chrome', publicKey: q.pbk || '', shortId: q.sid || '', spiderX: q.spx || '' };
+  else if (sec === 'tls') { ss.tlsSettings = { serverName: q.sni || u.hostname, fingerprint: q.fp || '' }; if (q.alpn) ss.tlsSettings.alpn = q.alpn.split(','); }
+  if (net === 'ws') ss.wsSettings = { path: q.path || '/', headers: { Host: q.host || '' } };
+  else if (net === 'grpc') ss.grpcSettings = { serviceName: q.serviceName || '', multiMode: q.mode === 'multi' };
+  else if (net === 'xhttp' || net === 'splithttp') ss.xhttpSettings = { path: q.path || '/', host: q.host || '', mode: q.mode || 'auto' };
+  const user = { id: decodeURIComponent(u.username), encryption: q.encryption || 'none' }; if (q.flow) user.flow = q.flow;
+  return { tag, protocol: 'vless', settings: { vnext: [{ address: u.hostname, port: parseInt(u.port || '443', 10), users: [user] }] }, streamSettings: ss };
+}
+// Amnezia's config is itself a chain (proxy -> dialerProxy -> proxy-relay), so keep ALL its outbounds.
+// With vpsLink: your VPS is dialed THROUGH the Amnezia chain, so your exit IP stays the VPS.
+function buildConfig(x, vpsLink) {
+  const outs = JSON.parse(JSON.stringify(x.outbounds || [])), main = mainOutbound({ outbounds: outs });
+  let list = [main, ...outs.filter(o => o !== main)];
+  if (vpsLink) {
+    const vps = linkToOutbound(vpsLink, 'hop-vps');
+    vps.streamSettings.sockopt = { ...(vps.streamSettings.sockopt || {}), dialerProxy: main.tag };
+    list = [vps, ...list];
+  }
+  if (!list.some(o => o.tag === 'direct')) list.push({ tag: 'direct', protocol: 'freedom' });
+  const tags = new Set(list.map(o => o.tag));
+  for (const o of list) { const d = (o.streamSettings && o.streamSettings.sockopt || {}).dialerProxy; if (d && !tags.has(d)) delete o.streamSettings.sockopt.dialerProxy; }
+  return { log: { loglevel: 'warning' },
+    inbounds: [{ tag: 'socks-in', port: 10808, listen: '127.0.0.1', protocol: 'socks', settings: { udp: true }, sniffing: { enabled: true, destOverride: ['http', 'tls'] } },
+               { tag: 'http-in', port: 10809, listen: '127.0.0.1', protocol: 'http' }],
+    outbounds: list };
+}
+// Full flow: subscription key -> gateway -> xray outbound
+async function fetchXrayConfig({ key, pem, gateway, country, protocol, installationUuid, xrayUuid }) {
+  const k = await decodeVpn(key), api = k.api_config || {}, auth = k.auth_data || {};
+  if (!auth.api_key) throw new Error('This key has no auth_data.api_key. Top-level keys: [' + Object.keys(k).join(', ') + ']');
+  const payload = { os_version: 'windows', app_version: '5.1.1.10', cli_name: 'AmneziaVPN', app_language: 'en',
+    installation_uuid: installationUuid, user_country_code: api.user_country_code || '', service_type: api.service_type || '',
+    service_protocol: protocol || 'vless', public_key: xrayUuid, auth_data: { api_key: auth.api_key } };
+  if (country) payload.server_country_code = country;
+  for (const k2 of Object.keys(payload)) if (payload[k2] === '' || payload[k2] == null) delete payload[k2];
+  const text = pem.includes('BEGIN PUBLIC KEY') ? pem : td.decode(unb64(pem));
+  const blocks = text.match(/-----BEGIN PUBLIC KEY-----[\s\S]*?-----END PUBLIC KEY-----/g) || [pem];   // several keys allowed: the right one is picked
+  let resp, lastErr;
+  for (const b of blocks) { try { resp = await gatewayPost(gateway, 'v1/config', payload, b); break; } catch (e) { if (!(e instanceof DecryptFail)) throw e; lastErr = e; } }
+  if (!resp) throw new Error('No gateway key worked: ' + lastErr.message + ' (the app/APK may be old, or something blocked the reply).');
+  if (resp.http_status >= 400 || !resp.config) {
+    const hint = JSON.stringify(resp).toLowerCase().includes('captcha') ? '\nThe gateway asked for a CAPTCHA: connect once in the official app, then retry.' : '';
+    throw new Error('Gateway answer: ' + JSON.stringify(resp) + hint);
+  }
+  return findXrayConfig(await decodeVpn(resp.config));
+}
+
+// ================= UI =================
+if (typeof document !== 'undefined') {
+  const $ = id => document.getElementById(id);
+  let xcfg = null;
+  const say = (t, cls, el) => { (el || $('msg')).textContent = t; (el || $('msg')).className = 'msg ' + (cls || ''); };
+  const pretty = o => JSON.stringify(o, null, 2);
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                  set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  $('inst').value = store.get('inst') || uuid4(); $('xuuid').value = store.get('xuuid') || uuid4();
+  $('gw').value = store.get('gw') || ''; $('pem').value = store.get('pem') || '';   // public values only; the key is never stored
+  const show = x => { xcfg = x; $('link').value = outboundToLink(mainOutbound(x), 'amnezia'); $('ob').value = pretty(buildConfig(x)); $('res').hidden = $('chainsec').hidden = false; };
+
+  $('fetch').onclick = async () => {
+    $('res').hidden = $('chainsec').hidden = true;
+    try {
+      if (!$('key').value.trim() || !$('pem').value.trim() || !$('gw').value.trim()) throw new Error('Need the key, the gateway public key and a Gateway URL.');
+      store.set('inst', $('inst').value); store.set('xuuid', $('xuuid').value); store.set('gw', $('gw').value); store.set('pem', $('pem').value);
+      say('Contacting gateway…');
+      show(await fetchXrayConfig({ key: $('key').value, pem: $('pem').value, gateway: $('gw').value, country: $('country').value.trim(),
+        protocol: $('proto').value.trim(), installationUuid: $('inst').value.trim(), xrayUuid: $('xuuid').value.trim() }));
+      say('Got the config.', 'ok');
+    } catch (e) { say(e.message, 'err'); }
+  };
+  $('offline').onclick = async () => {
+    $('res').hidden = $('chainsec').hidden = true;
+    try { show(findXrayConfig(await decodeVpn($('key').value))); say('Decoded OK.', 'ok'); } catch (e) { say(e.message, 'err'); }
+  };
+  $('build').onclick = () => {
+    try { if (!xcfg) throw new Error('Get a config first.');
+      $('chain').value = pretty(buildConfig(xcfg, $('vps').value)); $('chain').hidden = $('chainbtns').hidden = false; say('Chain config ready.', 'ok', $('chmsg'));
+    } catch (e) { say(e.message, 'err', $('chmsg')); }
+  };
+  $('clear').onclick = () => { for (const id of ['key', 'link', 'ob', 'vps', 'chain']) $(id).value = '';
+    $('res').hidden = $('chainsec').hidden = $('chain').hidden = $('chainbtns').hidden = true; say(''); say('', '', $('chmsg')); xcfg = null; };
+  document.addEventListener('click', async ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.copy) { try { await navigator.clipboard.writeText($(b.dataset.copy).value); const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => b.textContent = t, 1200); } catch (e) { $(b.dataset.copy).select(); } }
+    else if (b.dataset.dl) { const url = URL.createObjectURL(new Blob([$(b.dataset.dl).value], { type: 'application/json' }));
+      const a = document.createElement('a'); a.href = url; a.download = b.dataset.name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  });
+}
+if (typeof module !== 'undefined') module.exports = { decodeVpn, fetchXrayConfig, findXrayConfig, mainOutbound, outboundToLink, buildConfig, rsaEncryptPkcs1, rsaPublic };
+</script>
+</body>
+</html>

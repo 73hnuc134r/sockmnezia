@@ -1,0 +1,8 @@
+# secrets / per-user data, never commit
+state.json
+gateway.pem
+amnezia.json
+chain.json
+key.txt
+*.vpn
+__pycache__/
