@@ -6,8 +6,13 @@ Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (add an entry for every non
 Research and protocol: `docs/01…08`. `reference/` is a frozen executable spec, not product code.
 
 ## Layout
-- `core/` — Go module (`github.com/nuc134r/sockmnezia/core`): `vpnkey`, `gateway`, `pubkey`, `account`;
-  `internal/mockgw` is the mock gateway used by tests.
+- `core/` — Go module (`github.com/nuc134r/sockmnezia/core`):
+  - `vpnkey`, `gateway`, `pubkey`, `account` — subscription key → gateway → Xray config
+  - `links` (own-server share links), `routing` (rules, presets, tester), `geo` (geo files)
+  - `xrayconf` — builds the config and enforces the security policy (`Audit`); `runner` — embedded Xray
+  - `engine` — state, persistence, start/stop (used by the app binding and `cmd/sockmnezia`)
+  - `internal/mockgw` mock gateway, `internal/geotest` tiny geo files for tests
+  - `runner/integration_test.go` runs real Xray upstreams on loopback (chain, auth, UDP, blocking)
 - `.github/workflows/` — `tests.yml`, `secrets.yml` (gitleaks).
 
 ## Rules
@@ -16,6 +21,9 @@ Research and protocol: `docs/01…08`. `reference/` is a frozen executable spec,
 - Never contact the real gateway from tests or CI.
 - Secrets never go into logs, `String()` methods or error messages.
 - User-visible changes get a line in `CHANGELOG.md` under the next version.
+
+- Security behaviour (auth, listen address, locked rules, fail-closed chain) belongs in `xrayconf`, with a test.
+- New Xray features must be imported explicitly in `runner/features.go` (never `main/distro/all`).
 
 ## Commands
 ```bash
