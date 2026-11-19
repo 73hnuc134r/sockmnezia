@@ -1,0 +1,36 @@
+# gitleaks configuration: the default rules plus sockmnezia-specific ones.
+# Run locally: gitleaks git --config .gitleaks.toml --redact .
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "amnezia-subscription-key"
+description = "Amnezia Premium subscription key (vpn:// + base64 of 00 00 00 ff + zlib)"
+regex = '''vpn://AAAA_3ic[A-Za-z0-9_-]{40,}'''
+keywords = ["vpn://aaaa_3ic"]
+
+[[rules]]
+id = "amnezia-vpn-blob"
+description = "Any long vpn:// blob (gateway answers carry full server configs)"
+regex = '''vpn://[A-Za-z0-9_-]{200,}'''
+keywords = ["vpn://"]
+
+[[rules]]
+id = "private-key-block"
+description = "Any PEM/OpenSSH private key block"
+regex = '''-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----'''
+keywords = ["private key"]
+
+[[rules]]
+id = "share-link-with-uuid"
+description = "vless/vmess/trojan link with a real-looking UUID and host"
+regex = '''(?i)(vless|trojan)://[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@[a-z0-9.-]+\.[a-z]{2,}'''
+keywords = ["vless://", "trojan://"]
+
+[[allowlists]]
+description = "Documentation ranges and example domains are synthetic"
+regexTarget = "match"
+regexes = [
+  '''@(192\.0\.2\.|198\.51\.100\.|203\.0\.113\.|[a-z0-9.-]*example\.(com|org|net))''',
+]

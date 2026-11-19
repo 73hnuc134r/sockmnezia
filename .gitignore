@@ -6,3 +6,15 @@ chain.json
 key.txt
 *.vpn
 __pycache__/
+
+# build output
+/core/build/
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/local.properties
+/android/key.properties
+*.jks
+*.keystore
+*.aar
+!/android/gradle/wrapper/gradle-wrapper.jar

@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
