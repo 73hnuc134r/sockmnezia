@@ -150,8 +150,8 @@ Xray dependency (`wlynxg/anet`) uses `go:linkname`. Native libraries are stored 
 The proxy runs in the app process; a `specialUse` foreground service (not exported) keeps the process alive and
 shows address and traffic; its Stop action and the QS tile are the only controls outside the app. If the
 service goes away the proxy is stopped, so it never runs without the notification. "Should run" is remembered;
-a process start with it set but no service, or a sticky restart with a null intent, counts as "Android stopped
-the proxy" for the health screen. Start on boot needs both the setting and "was running".
+a new process while it is set and the boot count (`Settings.Global.BOOT_COUNT`) is the one recorded at start
+counts once as "Android stopped the proxy" for the health screen (reboots do not count). Start on boot needs both the setting and "was running".
 
 ## D20 · Battery/background checks (2026-11-20)
 

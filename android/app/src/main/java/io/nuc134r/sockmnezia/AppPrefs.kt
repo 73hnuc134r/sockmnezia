@@ -12,6 +12,11 @@ class AppPrefs(context: Context) {
         get() = p.getBoolean("should_run", false)
         set(v) = p.edit { putBoolean("should_run", v) }
 
+    /** Settings.Global.BOOT_COUNT when the proxy was started (a different value later means a reboot). */
+    var runBootCount: Int
+        get() = p.getInt("run_boot_count", -1)
+        set(v) = p.edit { putInt("run_boot_count", v) }
+
     var startOnBoot: Boolean
         get() = p.getBoolean("start_on_boot", false)
         set(v) = p.edit { putBoolean("start_on_boot", v) }

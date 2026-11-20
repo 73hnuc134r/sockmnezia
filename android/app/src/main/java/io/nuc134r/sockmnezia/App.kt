@@ -7,6 +7,9 @@ import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.service.GeoUpdateWorker
 import io.nuc134r.sockmnezia.service.ProxyService
 
+fun bootCount(context: android.content.Context): Int =
+    android.provider.Settings.Global.getInt(context.contentResolver, android.provider.Settings.Global.BOOT_COUNT, 0)
+
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -18,8 +21,11 @@ class App : Application() {
         )
         runCatching { Core.init(this) }
         val prefs = AppPrefs(this)
-        // The proxy should be running but the process was started without it: Android killed us.
-        if (prefs.shouldRun && !ProxyService.isRunning) prefs.recordUnexpectedStop()
+        // The proxy should be running, the process is new and the phone did not reboot: Android killed us.
+        if (prefs.shouldRun && prefs.runBootCount == bootCount(this)) {
+            prefs.recordUnexpectedStop()
+            prefs.runBootCount = -1 // count each kill once; the service sets it again when it starts
+        }
         GeoUpdateWorker.schedule(this)
     }
 }

@@ -43,10 +43,9 @@ class ProxyService : LifecycleService() {
             }
             return START_NOT_STICKY
         }
-        // A null intent means Android restarted us after killing the process.
-        if (intent == null) prefs.recordUnexpectedStop()
         goForeground(getString(R.string.notif_starting))
         prefs.shouldRun = true
+        prefs.runBootCount = io.nuc134r.sockmnezia.bootCount(this)
         lifecycleScope.launch {
             try {
                 Core.init(this@ProxyService)
