@@ -13,6 +13,9 @@ concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NDK_VERSION: 29.0.14206865
+
 jobs:
   core:
     runs-on: ubuntu-latest
@@ -30,4 +33,57 @@ jobs:
       - name: gofmt
         run: test -z "$(gofmt -l . | tee /dev/stderr)"
       - run: go vet ./...
+      # Includes the loopback integration tests with real Xray upstreams (core/runner).
       - run: go test -race -count=1 ./...
+      - name: CLI builds for desktop targets
+        run: |
+          for t in linux/amd64 linux/arm64 windows/amd64 darwin/arm64; do
+            GOOS=${t%/*} GOARCH=${t#*/} go build -trimpath -ldflags "-s -w -checklinkname=0" -o /dev/null ./cmd/sockmnezia
+          done
+
+  # Builds the Go core as an AAR and the debug APK; runs lint and the JVM unit tests.
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Strings are generated from tool/strings.py
+        run: python3 tool/strings.py --check
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # The NDK is not on the runner image in this version; cache it instead of downloading it every run.
+      - uses: actions/cache@v6
+        with:
+          path: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
+          key: android-ndk-${{ env.NDK_VERSION }}
+
+      - name: Install NDK and platform
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" "platforms;android-37.0" > /dev/null
+
+      - name: Build the Go core (AAR)
+        env:
+          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
+        run: bash tool/build-aar.sh
+
+      - name: Lint, unit tests, debug APK
+        working-directory: android
+        run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: lint-report
+          path: android/app/build/reports/lint-results-debug.html

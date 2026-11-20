@@ -134,3 +134,41 @@ Exit-IP check (`https://api.ipify.org` by default, configurable) and "Test chain
 them. "Test chain" uses a temporary in-process Xray without any listening port (`xrayconf.BuildDialer` +
 `core.Dial`); the same mechanism sends the gateway request through the own server when "fetch via own server"
 is on.
+
+## D18 · Android stack (2026-11-20)
+
+Kotlin + Jetpack Compose (Material 3, navigation-compose), single activity, no DI framework: one `Core` object
+bridges to Go on `Dispatchers.IO` and exposes a status `StateFlow` and a revision counter screens reload on.
+AGP 9.4 (built-in Kotlin), Kotlin 2.4, Gradle 9.8, compileSdk/targetSdk 37 (current AndroidX requires it),
+minSdk 26. JSON between Kotlin and Go via kotlinx.serialization with the Go field names. The Go core is a
+gomobile AAR built in CI by `tool/build-aar.sh` and never committed; `-checklinkname=0` is needed because an
+Xray dependency (`wlynxg/anet`) uses `go:linkname`. Native libraries are stored compressed in the APK
+(`useLegacyPackaging`): ~12 MB instead of ~34 MB per ABI to download.
+
+## D19 · Android service model (2026-11-20)
+
+The proxy runs in the app process; a `specialUse` foreground service (not exported) keeps the process alive and
+shows address and traffic; its Stop action and the QS tile are the only controls outside the app. If the
+service goes away the proxy is stopped, so it never runs without the notification. "Should run" is remembered;
+a process start with it set but no service, or a sticky restart with a null intent, counts as "Android stopped
+the proxy" for the health screen. Start on boot needs both the setting and "was running".
+
+## D20 · Battery/background checks (2026-11-20)
+
+Checks are a pure function over `DeviceState` (unit-tested), read on every resume: battery-optimization
+exemption (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` is declared — the app is not on Google Play and needs it),
+background restriction (API 28+), notifications, Data Saver, unused-app hibernation, Battery Saver (info), known
+aggressive OEMs (direct intents to their autostart screens with fallback to app details and a link to
+dontkillmyapp.com), and the count of unexpected stops in the last 7 days.
+
+## D21 · Gateway key download (2026-11-20)
+
+"Download from GitHub" asks the GitHub API for the latest `amnezia-vpn/amnezia-client` release, takes the
+arm64 APK (or any APK), streams it to a temp file in the app's private directory (600 MB cap), scans it and
+deletes it. It goes through the proxy when the proxy runs. Choosing a local APK copies it to the cache first
+(the core needs a seekable file) and deletes the copy.
+
+## D22 · Strings (2026-11-20)
+
+UI strings (English, Russian) are generated from `tool/strings.py` into `values*/strings.xml`; CI fails if the
+XML is stale. Russian plurals use one/few/many/other.

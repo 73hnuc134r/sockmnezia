@@ -1,0 +1,160 @@
+name: Release APK
+
+# Push a tag like v1.2.0 to build signed APKs and publish a GitHub release (v1.2.0-beta.1 → pre-release).
+# "Run workflow" from the Actions tab: with a version (e.g. 2.3.1) it tags the commit and publishes the
+# release the same way; without one it only builds the APKs as a downloadable artifact.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version to tag and publish, e.g. 2.3.1 (empty = build only)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  NDK_VERSION: 29.0.14206865
+
+# Tests, the secret scan and the APK build run side by side; the release is published once all pass.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+
+  secrets:
+    uses: ./.github/workflows/secrets.yml
+
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    outputs:
+      name: ${{ steps.version.outputs.name }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tags for tool/version.sh
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - uses: actions/cache@v6
+        with:
+          path: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
+          key: android-ndk-${{ env.NDK_VERSION }}
+
+      - name: Install NDK and platform
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" "platforms;android-37.0" > /dev/null
+
+      - name: Version from tag
+        id: version
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          if [[ -n "$REQUESTED" ]]; then
+            [[ "$REQUESTED" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::Not a version: $REQUESTED"; exit 1; }
+            git rev-parse -q --verify "refs/tags/v$REQUESTED" >/dev/null && { echo "::error::v$REQUESTED already exists"; exit 1; }
+            echo "name=$REQUESTED" >> "$GITHUB_OUTPUT"
+            echo "tag=v$REQUESTED" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=$(bash tool/version.sh)" >> "$GITHUB_OUTPUT"
+            [[ "$GITHUB_REF_TYPE" == "tag" ]] && echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          fi
+          echo "number=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore signing key
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF2
+          storeFile=app/upload-keystore.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF2
+
+      - name: Warn about debug signing
+        if: env.HAS_KEYSTORE != 'true'
+        run: echo "::warning::ANDROID_KEYSTORE_BASE64 is not set — APKs are signed with a throwaway debug key and cannot update each other. See docs/RELEASING.md."
+
+      - name: Build the Go core (AAR)
+        env:
+          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
+        run: bash tool/build-aar.sh
+
+      - name: Build APKs
+        working-directory: android
+        run: |
+          v="${{ steps.version.outputs.name }}"
+          args="--no-daemon -PversionName=$v -PversionCode=${{ steps.version.outputs.number }}"
+          ./gradlew $args assembleRelease
+          mkdir -p ../dist
+          cp app/build/outputs/apk/release/app-release.apk "../dist/sockmnezia-$v.apk"
+          ./gradlew $args -PsplitAbi assembleRelease
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "app/build/outputs/apk/release/app-$abi-release.apk" "../dist/sockmnezia-$v-$abi.apk"
+          done
+          ls -la ../dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sockmnezia-apk-${{ steps.version.outputs.name }}
+          path: dist/*.apk
+
+  publish:
+    needs: [test, secrets, apk]
+    if: needs.apk.outputs.tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: sockmnezia-apk-${{ needs.apk.outputs.name }}
+          path: dist
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.apk.outputs.tag }}
+        run: |
+          bash tool/changelog.sh "${{ needs.apk.outputs.name }}" > notes.md
+          [[ -s notes.md ]] || echo "::warning::CHANGELOG.md has no section for ${{ needs.apk.outputs.name }}"
+          (cd dist && sha256sum *.apk > SHA256SUMS)
+          gh release create "$TAG" dist/*.apk dist/SHA256SUMS \
+            --target "$GITHUB_SHA" \
+            --title "sockmnezia ${{ needs.apk.outputs.name }}" \
+            --notes-file notes.md \
+            --generate-notes \
+            $([[ "$TAG" == *-* ]] && echo --prerelease)

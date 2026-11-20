@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nuc134r/sockmnezia/core/account"
@@ -35,6 +36,7 @@ type Engine struct {
 
 	mu        sync.Mutex
 	st        *State
+	secrets   atomic.Pointer[[]string] // for log redaction; readable without mu
 	inst      *runner.Instance
 	startedAt time.Time
 	lastErr   *Error
@@ -50,6 +52,7 @@ func Open(dir string, box SecretBox, osName string) (*Engine, error) {
 		return nil, err
 	}
 	e := &Engine{dir: dir, box: box, OS: osName, st: st}
+	e.updateSecrets()
 	geo.SetAssetDir(e.GeoDir())
 	runner.SetLevel(st.Options.LogLevel)
 	if err := save(dir, box, st); err != nil { // persist the generated identity/credentials right away
@@ -61,7 +64,29 @@ func Open(dir string, box SecretBox, osName string) (*Engine, error) {
 // GeoDir is where geo files live.
 func (e *Engine) GeoDir() string { return filepath.Join(e.dir, "geo") }
 
-func (e *Engine) persist() error { return save(e.dir, e.box, e.st) }
+func (e *Engine) persist() error {
+	e.updateSecrets()
+	return save(e.dir, e.box, e.st)
+}
+
+func (e *Engine) updateSecrets() {
+	sec := []string{e.st.Amnezia.Key, e.st.Inbound.Pass, e.st.Inbound.User, e.st.Amnezia.Identity.ClientUUID}
+	for _, o := range e.st.Own {
+		sec = append(sec, o.Link)
+		if o.Server != nil {
+			sec = append(sec, o.Server.Address)
+		}
+	}
+	e.secrets.Store(&sec)
+}
+
+// Secrets returns strings that must never appear in logs (does not take the engine lock).
+func (e *Engine) Secrets() []string {
+	if p := e.secrets.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
 
 // Snapshot returns a copy of the state (secrets included; callers decide what to show).
 func (e *Engine) Snapshot() State {

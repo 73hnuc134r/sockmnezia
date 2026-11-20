@@ -13,7 +13,14 @@ Research and protocol: `docs/01…08`. `reference/` is a frozen executable spec,
   - `engine` — state, persistence, start/stop (used by the app binding and `cmd/sockmnezia`)
   - `internal/mockgw` mock gateway, `internal/geotest` tiny geo files for tests
   - `runner/integration_test.go` runs real Xray upstreams on loopback (chain, auth, UDP, blocking)
-- `.github/workflows/` — `tests.yml`, `secrets.yml` (gitleaks).
+  - `mobile` — gomobile API for the app (JSON strings in/out; errors are `engine.Error` JSON)
+  - `cmd/sockmnezia` — CLI
+- `android/` — Kotlin + Jetpack Compose app (`io.nuc134r.sockmnezia`): `core/` (Go bridge, models, Keystore box),
+  `service/` (foreground service, QS tile, boot receiver, geo worker), `health/` (battery checks), `ui/`
+- `tool/` — `build-aar.sh` (Go core → `android/app/libs/*.aar`), `strings.py` (UI strings, en + ru),
+  `version.sh`, `changelog.sh`
+- `.github/workflows/` — `tests.yml`, `secrets.yml` (gitleaks), `release.yml`, `release-notes.yml`;
+  releasing: `docs/RELEASING.md`
 
 ## Rules
 - **No personal data in the repo**: no real keys, subscription keys, UUIDs, hosts or IPs. Use `example.com`,
@@ -21,6 +28,9 @@ Research and protocol: `docs/01…08`. `reference/` is a frozen executable spec,
 - Never contact the real gateway from tests or CI.
 - Secrets never go into logs, `String()` methods or error messages.
 - User-visible changes get a line in `CHANGELOG.md` under the next version.
+- UI strings live in `tool/strings.py` (English and Russian); run `python3 tool/strings.py` after editing.
+  Never hardcode UI text in Kotlin. Error codes from the core are translated in `ui/Common.kt` `errorText`.
+- After changing `core/mobile`, rebuild the AAR (`tool/build-aar.sh`) before building the app.
 
 - Security behaviour (auth, listen address, locked rules, fail-closed chain) belongs in `xrayconf`, with a test.
 - New Xray features must be imported explicitly in `runner/features.go` (never `main/distro/all`).
@@ -28,4 +38,6 @@ Research and protocol: `docs/01…08`. `reference/` is a frozen executable spec,
 ## Commands
 ```bash
 cd core && gofmt -l . && go vet ./... && go test -race ./...
+ANDROID_HOME=… bash tool/build-aar.sh
+cd android && ./gradlew lintDebug testDebugUnitTest assembleDebug
 ```
