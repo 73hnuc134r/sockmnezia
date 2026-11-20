@@ -136,6 +136,13 @@ object Core {
 
     suspend fun updateGeo() = call { it.updateGeo() }.also { changed() }
 
+    // --- updates -------------------------------------------------------------------------------------
+    private val _update = MutableStateFlow<UpdateInfo?>(null)
+    val update: StateFlow<UpdateInfo?> = _update.asStateFlow()
+
+    suspend fun checkUpdate(current: String, beta: Boolean): UpdateInfo =
+        call { CoreJson.decodeFromString(UpdateInfo.serializer(), it.checkUpdateJSON(current, beta)) }.also { _update.value = it }
+
     // --- misc ----------------------------------------------------------------------------------------
     fun logs(): List<LogLine> = CoreJson.decodeFromString(ListSerializer(LogLine.serializer()), Mobile.logsJSON())
     fun clearLogs() = Mobile.clearLogs()

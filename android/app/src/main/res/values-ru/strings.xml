@@ -208,6 +208,14 @@
     <string name="clear">Очистить</string>
     <string name="version">Версия %1$s</string>
     <string name="unofficial">Неофициальное приложение, не связано с Amnezia. Используйте только свой ключ подписки; использование вне официального приложения может противоречить условиям Amnezia.</string>
+    <string name="updates">Обновления</string>
+    <string name="check_updates">Проверять обновления</string>
+    <string name="check_updates_hint">Спрашивает у GitHub о новых версиях при открытии приложения (через прокси, если он запущен).</string>
+    <string name="beta_updates">Бета-версии</string>
+    <string name="check_now">Проверить сейчас</string>
+    <string name="up_to_date">У вас последняя версия</string>
+    <string name="update_available">Доступна версия %1$s</string>
+    <string name="open_release">Открыть страницу версии</string>
     <string name="licenses">Лицензии</string>
     <string name="licenses_text">sockmnezia: лицензия MIT.\nXray-core (github.com/XTLS/Xray-core): Mozilla Public License 2.0.\nGo, AndroidX, Jetpack Compose, Kotlin и kotlinx: BSD-3-Clause / Apache License 2.0.</string>
     <string name="notif_starting">Запуск…</string>

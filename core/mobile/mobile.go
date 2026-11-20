@@ -320,3 +320,14 @@ func (c *Core) Forget() error { return wrap(c.e.Forget()) }
 
 // Version is the Xray-core version linked in.
 func XrayVersion() string { return xrayVersion() }
+
+// CheckUpdateJSON returns {"newer","version","url","notes"} for the newest release.
+func (c *Core) CheckUpdateJSON(current string, beta bool) (string, error) {
+	cx, cancel := ctx(40 * time.Second)
+	defer cancel()
+	u, err := c.e.CheckUpdate(cx, "", current, beta)
+	if err != nil {
+		return "", wrap(err)
+	}
+	return toJSON(u), nil
+}

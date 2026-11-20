@@ -166,3 +166,6 @@ data class FetchRequest(
 
 @Serializable
 data class OfficialImport(val count: Int, val release: String = "")
+
+@Serializable
+data class UpdateInfo(val newer: Boolean = false, val version: String = "", val url: String = "", val notes: String = "")

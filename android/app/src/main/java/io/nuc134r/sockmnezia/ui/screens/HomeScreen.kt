@@ -83,6 +83,12 @@ fun HomeScreen(nav: NavController) {
         runCatching { countries = Core.countries() }
     }
     LaunchedEffect(Unit) {
+        val prefs = io.nuc134r.sockmnezia.AppPrefs(ctx)
+        if (prefs.checkUpdates && Core.update.value == null) {
+            runCatching { Core.checkUpdate(io.nuc134r.sockmnezia.BuildConfig.VERSION_NAME, prefs.betaUpdates) }
+        }
+    }
+    LaunchedEffect(Unit) {
         while (true) {
             Core.refreshStatus()
             delay(3000)
@@ -215,6 +221,9 @@ fun HomeScreen(nav: NavController) {
             Hint(stringResource(R.string.check_hint))
         }
 
+        if (Core.update.collectAsState().value?.newer == true) {
+            Section(stringResource(R.string.updates)) { UpdateCard() }
+        }
         if (health != Severity.OK) {
             Section(stringResource(R.string.title_health)) {
                 Hint(stringResource(R.string.health_summary_bad), warn = health == Severity.PROBLEM)
