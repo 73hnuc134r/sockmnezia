@@ -93,6 +93,29 @@ func TestChecksumMismatchKeepsOldFiles(t *testing.T) {
 	}
 }
 
+func TestLookupCountry(t *testing.T) {
+	dir := t.TempDir()
+	if err := geotest.Write(dir); err != nil {
+		t.Fatal(err)
+	}
+	geo.SetAssetDir(dir) // geodata.IPReg reads geoip.dat from the asset dir env var, not the dir argument
+	if got := geo.LookupCountry(dir, "198.51.100.42"); got != "RU" {
+		t.Fatalf("want RU, got %q", got)
+	}
+	if got := geo.LookupCountry(dir, "203.0.113.7"); got != "TEST" {
+		t.Fatalf("want TEST, got %q", got)
+	}
+	if got := geo.LookupCountry(dir, "8.8.8.8"); got != "" {
+		t.Fatalf("want no match, got %q", got)
+	}
+	if got := geo.LookupCountry(dir, "not-an-ip"); got != "" {
+		t.Fatalf("want empty for unparsable ip, got %q", got)
+	}
+	if got := geo.LookupCountry(t.TempDir(), "198.51.100.42"); got != "" {
+		t.Fatalf("want empty without a downloaded database, got %q", got)
+	}
+}
+
 func TestChecksumRequiredAndJunk(t *testing.T) {
 	f := fixtures(t)
 	delete(f, "/dl/geoip.dat.sha256sum")

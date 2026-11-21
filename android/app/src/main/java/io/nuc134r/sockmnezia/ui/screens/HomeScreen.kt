@@ -173,7 +173,7 @@ private fun CountryPicker(code: String, name: String, countries: List<Country>, 
             Text(if (code.isBlank()) stringResource(R.string.location_default) else "${name.ifBlank { code }} (${code.uppercase()})")
         }
         DropdownMenu(open, onDismissRequest = { open = false }) {
-            countries.forEach { c ->
+            countries.sortedBy { it.name }.forEach { c ->
                 DropdownMenuItem(text = { Text("${c.name} (${c.code.uppercase()})") }, onClick = {
                     open = false
                     onPick(c.code)

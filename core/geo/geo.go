@@ -10,13 +10,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/xtls/xray-core/common/geodata"
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
@@ -176,6 +179,66 @@ func fetch(ctx context.Context, client *http.Client, url, dir string, requireChe
 		return "", err
 	}
 	return f.Name(), nil
+}
+
+// countryMatchers caches the IP matchers built from a geoip.dat so repeated lookups (route display, exit IP
+// checks, polled status) don't re-parse the file every time. Rebuilt when the file's path or mtime changes.
+var countryMatchers struct {
+	sync.Mutex
+	path     string
+	modTime  time.Time
+	tags     []string
+	matchers []geodata.IPMatcher
+}
+
+// LookupCountry returns the uppercase country code whose geoip.dat ranges (if downloaded) contain ip. It
+// returns "" (never an error) when there's no geo database yet, ip doesn't parse, or no tag matches: callers
+// just omit the "[country]" hint in that case. dir must be the directory passed to SetAssetDir (Xray's
+// geodata loader reads geoip.dat relative to that global asset dir, not from dir directly).
+func LookupCountry(dir, ipStr string) string {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return ""
+	}
+	path := filepath.Join(dir, GeoIP)
+	fi, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+
+	countryMatchers.Lock()
+	if countryMatchers.path != path || !countryMatchers.modTime.Equal(fi.ModTime()) {
+		tags, err := Tags(path)
+		if err != nil {
+			countryMatchers.Unlock()
+			return ""
+		}
+		matchers := make([]geodata.IPMatcher, 0, len(tags))
+		kept := tags[:0]
+		for _, tag := range tags {
+			rules, err := geodata.ParseIPRules([]string{"geoip:" + tag})
+			if err != nil {
+				continue
+			}
+			m, err := geodata.IPReg.BuildIPMatcher(rules)
+			if err != nil {
+				continue
+			}
+			kept = append(kept, tag)
+			matchers = append(matchers, m)
+		}
+		countryMatchers.path, countryMatchers.modTime = path, fi.ModTime()
+		countryMatchers.tags, countryMatchers.matchers = kept, matchers
+	}
+	tags, matchers := countryMatchers.tags, countryMatchers.matchers
+	countryMatchers.Unlock()
+
+	for i, m := range matchers {
+		if m.Match(ip) {
+			return strings.ToUpper(tags[i])
+		}
+	}
+	return ""
 }
 
 // Tags lists the country codes / categories in a geoip.dat or geosite.dat (lowercase, sorted). It streams the
