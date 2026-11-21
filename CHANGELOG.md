@@ -3,6 +3,15 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 0.3.1
+
+- Long-pressing the Quick Settings tile opens the app.
+- No fade animation when switching tabs.
+- Notification shows upload speed first, then download.
+- Settings: the last block is now tiles.
+- Update check now finds the latest GitHub releases.
+- Sharper, centred app icon and a tidier notification icon.
+
 ## 0.3.0
 
 - Home screen: modes as a list with the own server picker inside; a bottom bar with connection state, the full route (every server address), exit address, ping and the start/stop button.

@@ -10,6 +10,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -161,17 +163,13 @@ fun SettingsScreen(nav: NavController) {
             ) { lvl -> scope.act(ctx, snackbar) { Core.setSettings(s.copy(options = s.options.copy(logLevel = lvl))) } }
         }
 
-        Section {
-            listOf(
-                Routes.AMNEZIA to R.string.title_amnezia,
-                Routes.HEALTH to R.string.title_health,
-                Routes.LOGS to R.string.title_logs,
-                Routes.ABOUT to R.string.title_about,
-            ).forEach { (r, label) ->
-                TextButton(onClick = { nav.navigate(r) }) { Text(stringResource(label)) }
-            }
-            TextButton(onClick = { forget = true }) { Text(stringResource(R.string.forget)) }
-        }
+        listOf(
+            Routes.AMNEZIA to R.string.title_amnezia,
+            Routes.HEALTH to R.string.title_health,
+            Routes.LOGS to R.string.title_logs,
+            Routes.ABOUT to R.string.title_about,
+        ).forEach { (r, label) -> Tile(stringResource(label)) { nav.navigate(r) } }
+        Tile(stringResource(R.string.forget), danger = true) { forget = true }
     }
 
     if (forget) {
@@ -187,6 +185,16 @@ fun SettingsScreen(nav: NavController) {
                 }) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = { TextButton(onClick = { forget = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
+@Composable
+private fun Tile(title: String, danger: Boolean = false, onClick: () -> Unit) {
+    Card(onClick, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+        Text(
+            title, Modifier.padding(horizontal = 16.dp, vertical = 20.dp), style = MaterialTheme.typography.titleMedium,
+            color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         )
     }
 }

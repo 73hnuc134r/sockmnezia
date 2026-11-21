@@ -83,7 +83,7 @@ class ProxyService : LifecycleService() {
                 val upSpeed = if (lastUp < 0) 0L else ((s.up - lastUp).coerceAtLeast(0) / secs).toLong()
                 val downSpeed = if (lastUp < 0) 0L else ((s.down - lastDown).coerceAtLeast(0) / secs).toLong()
                 lastUp = s.up; lastDown = s.down; lastAt = now
-                val title = getString(R.string.notif_title, formatBytes(downSpeed), formatBytes(upSpeed), formatBytes(s.up + s.down))
+                val title = getString(R.string.notif_title, formatBytes(upSpeed), formatBytes(downSpeed), formatBytes(s.up + s.down))
                 val mode = when (s.mode) {
                     Modes.AMNEZIA_OWN -> R.string.mode_amnezia_own
                     Modes.OWN -> R.string.mode_own

@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -137,7 +139,13 @@ fun AppRoot() {
             },
             snackbarHost = { SnackbarHost(snackbar) },
         ) { pad ->
-            NavHost(nav, startDestination = Routes.HOME, modifier = Modifier.padding(pad)) {
+            NavHost(
+                nav, startDestination = Routes.HOME, modifier = Modifier.padding(pad),
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None },
+            ) {
                 composable(Routes.HOME) { HomeScreen(nav) }
                 composable(Routes.SERVERS) { ServersScreen() }
                 composable(Routes.ROUTING) { RoutingScreen(nav) }

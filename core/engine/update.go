@@ -12,7 +12,7 @@ import (
 )
 
 // ReleasesAPI lists this app's releases.
-const ReleasesAPI = "https://api.github.com/repos/nuc134r/sockmnezia/releases?per_page=20"
+const ReleasesAPI = "https://api.github.com/repos/73hnuc134r/sockmnezia/releases?per_page=20"
 
 // Update describes the newest release.
 type Update struct {
