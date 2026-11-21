@@ -6,6 +6,7 @@ import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.nuc134r.sockmnezia.R
@@ -44,6 +46,7 @@ import io.nuc134r.sockmnezia.ui.Hint
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Section
 import io.nuc134r.sockmnezia.ui.act
+import io.nuc134r.sockmnezia.ui.copy
 import io.nuc134r.sockmnezia.ui.paste
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -130,6 +133,13 @@ fun AmneziaScreen() {
                 }
             }) { Text(stringResource(R.string.download_official_apk)) }
             TextButton(onClick = { pemDialog = true }) { Text(stringResource(R.string.paste_pem)) }
+        }
+
+        if (status.deviceId.isNotBlank()) {
+            Section(stringResource(R.string.device_id)) {
+                Text(status.deviceId, fontFamily = FontFamily.Monospace, modifier = Modifier.clickable { copy(ctx, "device id", status.deviceId) })
+                Hint(stringResource(R.string.device_id_hint))
+            }
         }
 
         Section(stringResource(R.string.config)) {

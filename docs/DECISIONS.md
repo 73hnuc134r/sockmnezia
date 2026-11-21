@@ -172,3 +172,11 @@ deletes it. It goes through the proxy when the proxy runs. Choosing a local APK 
 
 UI strings (English, Russian) are generated from `tool/strings.py` into `values*/strings.xml`; CI fails if the
 XML is stale. Russian plurals use one/few/many/other.
+
+## D23 · Connection bar, route and device ID (2026-11-21)
+
+Home has a bottom bar (state, route, exit address, ping, start/stop). The route is `xrayconf.Hops` (server
+addresses, phone first) in `Status.chain`. Exit address and ping are NOT polled: one "tap the bar" check
+(`TestChain`, which uses the running instance when the proxy runs) so the IP lookup service is contacted only on
+demand, as before. The device ID shown is the installation UUID (what Amnezia's device list shows); the client
+UUID is the Xray user id and stays secret. The notification title is live speed • total traffic.

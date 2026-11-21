@@ -54,6 +54,8 @@ data class Status(
     @SerialName("fetched_at") val fetchedAt: String? = null,
     @SerialName("subscription_to") val subscriptionTo: String? = null,
     @SerialName("own_server") val ownServer: String? = null,
+    @SerialName("device_id") val deviceId: String = "",
+    val chain: List<String> = emptyList(),
     @SerialName("last_error") val lastError: CoreError? = null,
 )
 

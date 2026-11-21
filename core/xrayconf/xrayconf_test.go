@@ -240,3 +240,16 @@ func TestBuildDialer(t *testing.T) {
 		t.Fatal(string(b))
 	}
 }
+
+func TestHops(t *testing.T) {
+	link := "vless://" + uid + "@vps.example.com:443?type=tcp&security=reality&pbk=K&sni=www.example.com"
+	h, err := Hops(ModeOwn, nil, own(t, link))
+	if err != nil || len(h) != 1 || h[0] != "vps.example.com" {
+		t.Fatal(h, err)
+	}
+	a, _ := Hops(ModeAmnezia, amz(t), nil)
+	c, err := Hops(ModeAmneziaOwn, amz(t), own(t, link))
+	if err != nil || len(c) != len(a)+1 || c[len(c)-1] != "vps.example.com" {
+		t.Fatal(a, c, err)
+	}
+}

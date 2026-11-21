@@ -269,6 +269,51 @@ func Outbounds(mode Mode, amnezia json.RawMessage, own links.Outbound) ([]map[st
 	return outs, head, nil
 }
 
+// Hops lists the server addresses a connection passes, from the phone outwards (the last one is the exit).
+func Hops(mode Mode, amnezia json.RawMessage, own links.Outbound) ([]string, error) {
+	outs, head, err := Outbounds(mode, amnezia, own)
+	if err != nil {
+		return nil, err
+	}
+	byTag := map[string]map[string]any{}
+	for _, o := range outs {
+		byTag[o["tag"].(string)] = o
+	}
+	var hops []string
+	seen := map[string]bool{}
+	for t := head; t != "" && !seen[t]; {
+		seen[t] = true
+		o := byTag[t]
+		if o == nil {
+			break
+		}
+		if a := outboundAddress(o); a != "" {
+			hops = append([]string{a}, hops...)
+		}
+		ss, _ := o["streamSettings"].(map[string]any)
+		so, _ := ss["sockopt"].(map[string]any)
+		t, _ = so["dialerProxy"].(string)
+	}
+	return hops, nil
+}
+
+func outboundAddress(o map[string]any) string {
+	st, _ := o["settings"].(map[string]any)
+	if a, _ := st["address"].(string); a != "" {
+		return a
+	}
+	for _, k := range []string{"vnext", "servers"} {
+		if l, _ := st[k].([]any); len(l) > 0 {
+			if m, _ := l[0].(map[string]any); m != nil {
+				if a, _ := m["address"].(string); a != "" {
+					return a
+				}
+			}
+		}
+	}
+	return ""
+}
+
 var logLevels = map[string]bool{"debug": true, "info": true, "warning": true, "error": true, "none": true}
 
 // Build returns the full Xray JSON config.

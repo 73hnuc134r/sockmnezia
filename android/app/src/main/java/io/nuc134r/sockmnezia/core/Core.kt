@@ -96,6 +96,12 @@ object Core {
     suspend fun exitIp(): String = call { it.exitIP() }
     suspend fun testChain(): ChainResult = call { CoreJson.decodeFromString(ChainResult.serializer(), it.testChainJSON()) }
 
+    private val _probe = MutableStateFlow<ChainResult?>(null)
+    /** Last exit address / ping check (on demand only; cleared when the proxy starts or stops). */
+    val probe: StateFlow<ChainResult?> = _probe.asStateFlow()
+    suspend fun runProbe() { _probe.value = testChain() }
+    fun clearProbe() { _probe.value = null }
+
     // --- own servers ---------------------------------------------------------------------------------
     suspend fun ownServers(): List<OwnServer> =
         call { CoreJson.decodeFromString(ListSerializer(OwnServer.serializer()), it.ownServersJSON()) }

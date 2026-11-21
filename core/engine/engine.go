@@ -517,6 +517,8 @@ type Status struct {
 	FetchedAt      time.Time `json:"fetched_at,omitempty"`
 	SubscriptionTo string    `json:"subscription_to,omitempty"`
 	OwnServer      string    `json:"own_server,omitempty"`
+	DeviceID       string    `json:"device_id,omitempty"` // installation UUID, as listed in Amnezia's device list
+	Chain          []string  `json:"chain,omitempty"`     // server addresses, phone first, exit last
 	LastError      *Error    `json:"last_error,omitempty"`
 }
 
@@ -529,7 +531,7 @@ func (e *Engine) Status() Status {
 		SocksPort: e.st.Inbound.SocksPort, HTTPPort: e.st.Inbound.HTTPPort,
 		AuthFailures: runner.AuthFailures(), HasKey: e.st.Amnezia.Key != "",
 		HasGatewayKey: len(e.st.Amnezia.GatewayPEMs) > 0, HasConfig: e.st.Amnezia.Last != nil,
-		FetchedAt: e.st.Amnezia.FetchedAt, LastError: e.lastErr,
+		FetchedAt: e.st.Amnezia.FetchedAt, LastError: e.lastErr, DeviceID: e.st.Amnezia.Identity.InstallationUUID,
 	}
 	if e.inst != nil {
 		s.StartedAt = e.startedAt
@@ -540,6 +542,17 @@ func (e *Engine) Status() Status {
 	}
 	if o := e.activeOwnLocked(); o != nil {
 		s.OwnServer = o.Name
+	}
+	var amz json.RawMessage
+	if e.st.Amnezia.Last != nil {
+		amz = e.st.Amnezia.Last.XrayConfig
+	}
+	if mode := e.st.Mode; mode == xrayconf.ModeOwn || amz != nil {
+		var own links.Outbound
+		if o := e.activeOwnLocked(); o != nil {
+			own = o.Server.Outbound
+		}
+		s.Chain, _ = xrayconf.Hops(mode, amz, own)
 	}
 	return s
 }
@@ -569,10 +582,19 @@ func (e *Engine) ExitIP(ctx context.Context) (string, error) {
 	return ip, nil
 }
 
-// TestChain measures a request through the chain without the local proxy running: it starts a temporary
-// in-process instance (no listening port) for the current mode and fetches the exit IP.
+// TestChain measures a request through the chain. While the proxy runs it uses the running instance;
+// otherwise it starts a temporary in-process instance (no listening port) for the current mode.
 func (e *Engine) TestChain(ctx context.Context) (ip string, ms int64, err error) {
 	e.mu.Lock()
+	if running, url := e.inst, e.st.Options.ExitIPURL; running != nil {
+		e.mu.Unlock()
+		t0 := time.Now()
+		ip, err = running.ExitIP(ctx, url)
+		if err != nil {
+			return "", 0, newErr(CodeNetwork, err)
+		}
+		return ip, time.Since(t0).Milliseconds(), nil
+	}
 	var amz json.RawMessage
 	if e.st.Amnezia.Last != nil {
 		amz = e.st.Amnezia.Last.XrayConfig

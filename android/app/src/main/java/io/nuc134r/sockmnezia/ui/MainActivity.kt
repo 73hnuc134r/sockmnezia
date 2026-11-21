@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -108,6 +109,8 @@ fun AppRoot() {
             },
             bottomBar = {
                 if (route in Routes.tabs) {
+                  Column {
+                    if (route == Routes.HOME) ConnectionBar()
                     NavigationBar {
                         listOf(
                             Triple(Routes.HOME, Icons.Default.Home, R.string.tab_home),
@@ -129,6 +132,7 @@ fun AppRoot() {
                             )
                         }
                     }
+                  }
                 }
             },
             snackbarHost = { SnackbarHost(snackbar) },

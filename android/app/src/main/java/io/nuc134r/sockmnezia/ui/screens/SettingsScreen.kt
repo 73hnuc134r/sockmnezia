@@ -41,6 +41,7 @@ import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
 import io.nuc134r.sockmnezia.ui.SwitchRow
 import io.nuc134r.sockmnezia.ui.act
+import io.nuc134r.sockmnezia.ui.copy
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
@@ -131,6 +132,9 @@ fun SettingsScreen(nav: NavController) {
                 Choice(lan.map { it to it }.ifEmpty { listOf(listen to listen) }, listen) { listen = it }
                 Hint(stringResource(R.string.share_lan_warning), warn = true)
             }
+            OutlinedButton(onClick = {
+                copy(ctx, "proxy", "socks5://${s.inbound.user}:${s.inbound.pass}@${s.inbound.listen}:${s.inbound.socksPort}", sensitive = true)
+            }) { Text(stringResource(R.string.copy_link)) }
             Button(enabled = dirty, onClick = {
                 val ns = s.copy(
                     inbound = s.inbound.copy(

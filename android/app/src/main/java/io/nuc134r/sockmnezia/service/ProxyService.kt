@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.SystemClock
 import android.service.quicksettings.TileService
 import android.content.ComponentName
 import androidx.core.app.NotificationCompat
@@ -17,6 +18,7 @@ import io.nuc134r.sockmnezia.AppPrefs
 import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.core.CoreException
+import io.nuc134r.sockmnezia.core.Modes
 import io.nuc134r.sockmnezia.ui.MainActivity
 import io.nuc134r.sockmnezia.ui.errorText
 import io.nuc134r.sockmnezia.ui.formatBytes
@@ -43,7 +45,7 @@ class ProxyService : LifecycleService() {
             }
             return START_NOT_STICKY
         }
-        goForeground(getString(R.string.notif_starting))
+        goForeground()
         prefs.shouldRun = true
         prefs.runBootCount = io.nuc134r.sockmnezia.bootCount(this)
         lifecycleScope.launch {
@@ -67,15 +69,28 @@ class ProxyService : LifecycleService() {
     private fun startTicker() {
         ticker?.cancel()
         ticker = lifecycleScope.launch {
+            var lastUp = -1L
+            var lastDown = 0L
+            var lastAt = 0L
             while (isActive) {
                 val s = Core.refreshStatus()
                 if (!s.running) {
                     stopSelf()
                     return@launch
                 }
-                val text = getString(R.string.notif_running, s.listen, s.socksPort, formatBytes(s.up), formatBytes(s.down))
-                ServiceCompat.startForeground(this@ProxyService, NOTIF_ID, notification(text, true), fgsType())
-                delay(5000)
+                val now = SystemClock.elapsedRealtime()
+                val secs = (now - lastAt).coerceAtLeast(1) / 1000.0
+                val upSpeed = if (lastUp < 0) 0L else ((s.up - lastUp).coerceAtLeast(0) / secs).toLong()
+                val downSpeed = if (lastUp < 0) 0L else ((s.down - lastDown).coerceAtLeast(0) / secs).toLong()
+                lastUp = s.up; lastDown = s.down; lastAt = now
+                val title = getString(R.string.notif_title, formatBytes(downSpeed), formatBytes(upSpeed), formatBytes(s.up + s.down))
+                val mode = when (s.mode) {
+                    Modes.AMNEZIA_OWN -> R.string.mode_amnezia_own
+                    Modes.OWN -> R.string.mode_own
+                    else -> R.string.mode_amnezia
+                }
+                ServiceCompat.startForeground(this@ProxyService, NOTIF_ID, notification(title, getString(mode), true), fgsType())
+                delay(2000)
             }
         }
     }
@@ -83,19 +98,20 @@ class ProxyService : LifecycleService() {
     private fun fgsType() =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
 
-    private fun goForeground(text: String) {
-        ServiceCompat.startForeground(this, NOTIF_ID, notification(text, true), fgsType())
+    private fun goForeground() {
+        ServiceCompat.startForeground(this, NOTIF_ID, notification(getString(R.string.app_name), getString(R.string.notif_starting), true), fgsType())
     }
 
-    private fun notification(text: String, withStop: Boolean): Notification {
+    private fun notification(title: String, text: String, withStop: Boolean): Notification {
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val b = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(getString(R.string.app_name))
+            .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(open)
+            .setShowWhen(false)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -111,7 +127,7 @@ class ProxyService : LifecycleService() {
 
     private fun showFailure(text: String) {
         val nm = getSystemService(android.app.NotificationManager::class.java)
-        nm.notify(NOTIF_FAIL_ID, notification(getString(R.string.notif_failed, text), false).also {
+        nm.notify(NOTIF_FAIL_ID, notification(getString(R.string.app_name), getString(R.string.notif_failed, text), false).also {
             it.flags = it.flags and Notification.FLAG_ONGOING_EVENT.inv()
         })
     }
