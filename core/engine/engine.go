@@ -517,8 +517,8 @@ type Status struct {
 	FetchedAt      time.Time `json:"fetched_at,omitempty"`
 	SubscriptionTo string    `json:"subscription_to,omitempty"`
 	OwnServer      string    `json:"own_server,omitempty"`
-	DeviceID       string    `json:"device_id,omitempty"` // installation UUID, as listed in Amnezia's device list
-	Chain          []string  `json:"chain,omitempty"`     // server addresses, phone first, exit last
+	DeviceID       string    `json:"device_id,omitempty"`       // installation UUID, as listed in Amnezia's device list
+	Chain          []string  `json:"chain,omitempty"`           // server addresses, phone first, exit last
 	ChainCountries []string  `json:"chain_countries,omitempty"` // geoip.dat country code per Chain entry, "" if unknown
 	LastError      *Error    `json:"last_error,omitempty"`
 }
