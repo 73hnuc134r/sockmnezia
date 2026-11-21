@@ -172,15 +172,15 @@ func (c *Core) ExitIP() (string, error) {
 	return ip, wrap(err)
 }
 
-// TestChainJSON runs a one-off request through the chain: {"ip","ms"}.
+// TestChainJSON runs a one-off request through the chain: {"ip","ms","country"}.
 func (c *Core) TestChainJSON() (string, error) {
 	cx, cancel := ctx(30 * time.Second)
 	defer cancel()
-	ip, ms, err := c.e.TestChain(cx)
+	ip, ms, country, err := c.e.TestChain(cx)
 	if err != nil {
 		return "", wrap(err)
 	}
-	return toJSON(map[string]any{"ip": ip, "ms": ms}), nil
+	return toJSON(map[string]any{"ip": ip, "ms": ms, "country": country}), nil
 }
 
 // --- own servers ----------------------------------------------------------------------------------------

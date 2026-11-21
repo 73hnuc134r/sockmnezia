@@ -27,7 +27,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -39,7 +38,7 @@ import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.service.ProxyService
 
-/** Bottom bar of the home screen: connection state, route, exit address, ping and the start/stop button. */
+/** Bottom bar of the home screen: start/stop button, connection state, route, exit address and ping. */
 @Composable
 fun ConnectionBar() {
     val ctx = LocalContext.current
@@ -54,13 +53,29 @@ fun ConnectionBar() {
     LaunchedEffect(status.running) { Core.clearProbe() }
 
     Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
-        Row(
+        Column(
             Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        if (status.running) {
+                            ProxyService.stop(ctx)
+                        } else if (Build.VERSION.SDK_INT >= 33 &&
+                            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            ProxyService.start(ctx)
+                        }
+                    },
+                    icon = { Icon(if (status.running) Icons.Default.Close else Icons.Default.PlayArrow, null) },
+                    text = { Text(stringResource(if (status.running) R.string.action_stop else R.string.action_start)) },
+                )
+            }
             Column(
-                Modifier.weight(1f).clickable(enabled = !testing) {
+                Modifier.fillMaxWidth().clickable(enabled = !testing) {
                     testing = true
                     scope.act(ctx, snackbar) { try { Core.runProbe() } finally { testing = false } }
                 },
@@ -71,8 +86,11 @@ fun ConnectionBar() {
                     style = MaterialTheme.typography.titleMedium,
                 )
                 if (status.chain.isNotEmpty()) {
+                    val route = status.chain.mapIndexed { i, addr ->
+                        withCountry(addr, status.chainCountries.getOrNull(i))
+                    }.joinToString(" → ")
                     Text(
-                        stringResource(R.string.conn_route, status.chain.joinToString(" → ")),
+                        stringResource(R.string.conn_route, route),
                         style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace,
                         maxLines = 3, overflow = TextOverflow.Ellipsis,
                     )
@@ -81,28 +99,17 @@ fun ConnectionBar() {
                 Text(
                     when {
                         testing -> stringResource(R.string.conn_testing)
-                        p != null -> stringResource(R.string.conn_exit, p.ip) + " · " + stringResource(R.string.conn_ping, p.ms.toInt())
+                        p != null -> stringResource(R.string.conn_exit, withCountry(p.ip, p.country)) + " · " + stringResource(R.string.conn_ping, p.ms.toInt())
                         else -> stringResource(R.string.conn_tap_to_test)
                     },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontFamily = if (p != null && !testing) FontFamily.Monospace else null,
                 )
             }
-            ExtendedFloatingActionButton(
-                onClick = {
-                    if (status.running) {
-                        ProxyService.stop(ctx)
-                    } else if (Build.VERSION.SDK_INT >= 33 &&
-                        ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        ProxyService.start(ctx)
-                    }
-                },
-                icon = { Icon(if (status.running) Icons.Default.Close else Icons.Default.PlayArrow, null) },
-                text = { Text(stringResource(if (status.running) R.string.action_stop else R.string.action_start)) },
-            )
         }
     }
 }
+
+/** "addr [XX]" when the geo database resolved a country for addr, otherwise just addr. */
+private fun withCountry(addr: String, country: String?) =
+    if (country.isNullOrBlank()) addr else "$addr [$country]"

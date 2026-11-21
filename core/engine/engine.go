@@ -517,8 +517,9 @@ type Status struct {
 	FetchedAt      time.Time `json:"fetched_at,omitempty"`
 	SubscriptionTo string    `json:"subscription_to,omitempty"`
 	OwnServer      string    `json:"own_server,omitempty"`
-	DeviceID       string    `json:"device_id,omitempty"` // installation UUID, as listed in Amnezia's device list
-	Chain          []string  `json:"chain,omitempty"`     // server addresses, phone first, exit last
+	DeviceID       string    `json:"device_id,omitempty"`       // installation UUID, as listed in Amnezia's device list
+	Chain          []string  `json:"chain,omitempty"`           // server addresses, phone first, exit last
+	ChainCountries []string  `json:"chain_countries,omitempty"` // geoip.dat country code per Chain entry, "" if unknown
 	LastError      *Error    `json:"last_error,omitempty"`
 }
 
@@ -553,6 +554,12 @@ func (e *Engine) Status() Status {
 			own = o.Server.Outbound
 		}
 		s.Chain, _ = xrayconf.Hops(mode, amz, own)
+		if len(s.Chain) > 0 {
+			s.ChainCountries = make([]string, len(s.Chain))
+			for i, addr := range s.Chain {
+				s.ChainCountries[i] = geo.LookupCountry(e.GeoDir(), addr)
+			}
+		}
 	}
 	return s
 }
@@ -583,46 +590,47 @@ func (e *Engine) ExitIP(ctx context.Context) (string, error) {
 }
 
 // TestChain measures a request through the chain. While the proxy runs it uses the running instance;
-// otherwise it starts a temporary in-process instance (no listening port) for the current mode.
-func (e *Engine) TestChain(ctx context.Context) (ip string, ms int64, err error) {
+// otherwise it starts a temporary in-process instance (no listening port) for the current mode. country is
+// the geoip.dat country code for ip ("" if the database isn't downloaded or has no match).
+func (e *Engine) TestChain(ctx context.Context) (ip string, ms int64, country string, err error) {
 	e.mu.Lock()
-	if running, url := e.inst, e.st.Options.ExitIPURL; running != nil {
+	if running, url, dir := e.inst, e.st.Options.ExitIPURL, e.GeoDir(); running != nil {
 		e.mu.Unlock()
 		t0 := time.Now()
 		ip, err = running.ExitIP(ctx, url)
 		if err != nil {
-			return "", 0, newErr(CodeNetwork, err)
+			return "", 0, "", newErr(CodeNetwork, err)
 		}
-		return ip, time.Since(t0).Milliseconds(), nil
+		return ip, time.Since(t0).Milliseconds(), geo.LookupCountry(dir, ip), nil
 	}
 	var amz json.RawMessage
 	if e.st.Amnezia.Last != nil {
 		amz = e.st.Amnezia.Last.XrayConfig
 	}
-	mode, url := e.st.Mode, e.st.Options.ExitIPURL
+	mode, url, dir := e.st.Mode, e.st.Options.ExitIPURL, e.GeoDir()
 	var own links.Outbound
 	if o := e.activeOwnLocked(); o != nil {
 		own = o.Server.Outbound
 	}
 	e.mu.Unlock()
 	if mode != xrayconf.ModeOwn && amz == nil {
-		return "", 0, newErr(CodeNoConfig, nil)
+		return "", 0, "", newErr(CodeNoConfig, nil)
 	}
 	cfg, err := xrayconf.BuildDialer(mode, amz, own)
 	if err != nil {
-		return "", 0, Classify(err)
+		return "", 0, "", Classify(err)
 	}
 	inst, err := runner.Start(cfg)
 	if err != nil {
-		return "", 0, Classify(err)
+		return "", 0, "", Classify(err)
 	}
 	defer inst.Close()
 	t0 := time.Now()
 	ip, err = inst.ExitIP(ctx, url)
 	if err != nil {
-		return "", 0, newErr(CodeNetwork, err)
+		return "", 0, "", newErr(CodeNetwork, err)
 	}
-	return ip, time.Since(t0).Milliseconds(), nil
+	return ip, time.Since(t0).Milliseconds(), geo.LookupCountry(dir, ip), nil
 }
 
 // --- routing and geo ------------------------------------------------------------------------------------

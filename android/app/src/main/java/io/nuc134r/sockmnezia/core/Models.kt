@@ -56,6 +56,7 @@ data class Status(
     @SerialName("own_server") val ownServer: String? = null,
     @SerialName("device_id") val deviceId: String = "",
     val chain: List<String> = emptyList(),
+    @SerialName("chain_countries") val chainCountries: List<String> = emptyList(),
     @SerialName("last_error") val lastError: CoreError? = null,
 )
 
@@ -158,7 +159,7 @@ data class Preset(val id: String, val rules: List<Rule>? = null)
 data class LogLine(val t: Long, val level: String, val msg: String)
 
 @Serializable
-data class ChainResult(val ip: String, val ms: Long)
+data class ChainResult(val ip: String, val ms: Long, val country: String = "")
 
 @Serializable
 data class FetchRequest(
