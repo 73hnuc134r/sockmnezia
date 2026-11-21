@@ -55,7 +55,8 @@ func (s *Session) Seal(pub *rsa.PublicKey, payload []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	encKeys, err := rsa.EncryptPKCS1v15(rand.Reader, pub, kj) //nolint:staticcheck // the gateway requires PKCS#1 v1.5
+	//lint:ignore SA1019 the Amnezia gateway protocol requires RSA PKCS#1 v1.5 encryption
+	encKeys, err := rsa.EncryptPKCS1v15(rand.Reader, pub, kj)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +137,8 @@ func OpenRequest(priv *rsa.PrivateKey, body []byte) (*Session, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	kjRaw, err := rsa.DecryptPKCS1v15(nil, priv, ek) //nolint:staticcheck // protocol requirement
+	//lint:ignore SA1019 the mock gateway and Amnezia protocol require RSA PKCS#1 v1.5 encryption
+	kjRaw, err := rsa.DecryptPKCS1v15(nil, priv, ek)
 	if err != nil {
 		return nil, nil, err
 	}

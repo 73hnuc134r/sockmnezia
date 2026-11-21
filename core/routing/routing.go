@@ -174,7 +174,7 @@ func checkDomain(d string) error {
 		return errors.New("empty")
 	}
 	if strings.HasPrefix(d, "ext:") || strings.HasPrefix(d, "ext-domain:") {
-		return errors.New("ext: files are not supported; use geosite:")
+		return errors.New("ext: files are not supported; use geosite")
 	}
 	if tag, ok := strings.CutPrefix(strings.TrimLeft(d, "!"), "geosite:"); ok {
 		if tag == "" {
@@ -200,7 +200,7 @@ func checkIP(ip string) error {
 		return nil
 	}
 	if strings.HasPrefix(ip, "ext:") || strings.HasPrefix(ip, "ext-ip:") {
-		return errors.New("ext: files are not supported; use geoip:")
+		return errors.New("ext: files are not supported; use geoip")
 	}
 	if strings.Contains(ip, "/") {
 		_, err := netip.ParsePrefix(ip)
