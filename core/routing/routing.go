@@ -51,6 +51,15 @@ type Settings struct {
 	Rules          []Rule `json:"rules"`
 }
 
+// MarshalJSON always emits rules as an array, never null.
+func (s Settings) MarshalJSON() ([]byte, error) {
+	type plain Settings
+	if s.Rules == nil {
+		s.Rules = []Rule{}
+	}
+	return json.Marshal(plain(s))
+}
+
 // Default is "everything through the proxy".
 func Default() Settings { return Settings{DomainStrategy: AsIs} }
 

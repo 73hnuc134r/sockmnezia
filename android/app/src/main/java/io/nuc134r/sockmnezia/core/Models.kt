@@ -9,6 +9,7 @@ val CoreJson = Json {
     ignoreUnknownKeys = true
     encodeDefaults = true
     explicitNulls = false
+    coerceInputValues = true
 }
 
 object Modes {
