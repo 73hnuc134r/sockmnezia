@@ -31,7 +31,7 @@ import io.nuc134r.sockmnezia.ui.Section
 import io.nuc134r.sockmnezia.ui.SwitchRow
 import io.nuc134r.sockmnezia.ui.act
 
-const val REPO_URL = "https://github.com/nuc134r/sockmnezia"
+const val REPO_URL = "https://github.com/73hnuc134r/sockmnezia"
 
 @Composable
 fun AboutScreen() {
