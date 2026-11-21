@@ -22,18 +22,7 @@ env:
 # Tests, the secret scan and the APK build run side by side; the release is published once all pass.
 jobs:
   test:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: core
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: core/go.mod
-          cache-dependency-path: core/go.sum
-      - run: go vet ./...
-      - run: go test -race -count=1 ./...
+    uses: ./.github/workflows/tests.yml
 
   secrets:
     uses: ./.github/workflows/secrets.yml
@@ -87,6 +76,14 @@ jobs:
             [[ "$GITHUB_REF_TYPE" == "tag" ]] && echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
           fi
           echo "number=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Require signing key for a published release
+        if: github.ref_type == 'tag' || inputs.version != ''
+        run: |
+          if [[ "$HAS_KEYSTORE" != "true" ]]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 and the signing key secrets are required for published releases."
+            exit 1
+          fi
 
       - name: Restore signing key
         if: env.HAS_KEYSTORE == 'true'

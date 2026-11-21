@@ -2,6 +2,8 @@ module github.com/nuc134r/sockmnezia/core
 
 go 1.27.4
 
+toolchain go1.27.4
+
 require (
 	github.com/xtls/xray-core v1.260327.1-0.20261109052709-676eaf66f8f0
 	golang.org/x/net v0.63.0

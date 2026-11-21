@@ -172,3 +172,9 @@ deletes it. It goes through the proxy when the proxy runs. Choosing a local APK 
 
 UI strings (English, Russian) are generated from `tool/strings.py` into `values*/strings.xml`; CI fails if the
 XML is stale. Russian plurals use one/few/many/other.
+
+## D23 · Release signing gate (2026-11-21)
+
+Published tags and versioned workflow releases require the upload keystore secrets. Debug signing is retained
+only for artifact-only/manual builds and local development, because a debug-signed APK can neither update a
+release-signed installation nor be mistaken for a stable signed release.
