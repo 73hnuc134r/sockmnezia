@@ -223,7 +223,7 @@
     <string name="licenses">Licenses</string>
     <string name="licenses_text">sockmnezia: MIT License.\nXray-core (github.com/XTLS/Xray-core): Mozilla Public License 2.0.\nGo, AndroidX, Jetpack Compose, Kotlin and kotlinx libraries: BSD-3-Clause / Apache License 2.0.</string>
     <string name="notif_starting">Starting…</string>
-    <string name="notif_title">↑ %1$s/s  ↓ %2$s/s • %3$s</string>
+    <string name="notif_title">↓ %1$s/s  ↑ %2$s/s • %3$s</string>
     <string name="notif_failed">Could not start: %1$s</string>
     <string name="err_invalid_key">This is not a Premium subscription key.</string>
     <string name="err_no_gateway_key">No gateway key yet: pick the official Amnezia APK in Subscription.</string>

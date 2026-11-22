@@ -61,63 +61,66 @@ fun ConnectionBar() {
     }
     LaunchedEffect(status.running) { Core.clearProbe() }
 
-    Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = StartStopButtonHeight / 2)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable(enabled = !testing) {
-                        testing = true
-                        scope.act(ctx, snackbar) { try { Core.runProbe() } finally { testing = false } }
-                    }
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    stringResource(if (status.running) R.string.conn_connected else R.string.conn_stopped),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                if (status.chain.isNotEmpty()) {
-                    val route = status.chain.mapIndexed { i, addr ->
-                        withCountry(addr, status.chainCountries.getOrNull(i))
-                    }.joinToString(" → ")
+    // The FAB must live outside the Surface: Surface clips its content to its bounds, which cropped the
+    // half of the button meant to stick out above it.
+    Box(Modifier.fillMaxWidth()) {
+        Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+            Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = StartStopButtonHeight / 2, bottom = 12.dp)) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable(enabled = !testing) {
+                            testing = true
+                            scope.act(ctx, snackbar) { try { Core.runProbe() } finally { testing = false } }
+                        }
+                        .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     Text(
-                        stringResource(R.string.conn_route, route),
-                        style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace,
-                        maxLines = 3, overflow = TextOverflow.Ellipsis,
+                        stringResource(if (status.running) R.string.conn_connected else R.string.conn_stopped),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    if (status.chain.isNotEmpty()) {
+                        val route = status.chain.mapIndexed { i, addr ->
+                            withCountry(addr, status.chainCountries.getOrNull(i))
+                        }.joinToString(" → ")
+                        Text(
+                            stringResource(R.string.conn_route, route),
+                            style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace,
+                            maxLines = 3, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    val p = probe
+                    Text(
+                        when {
+                            testing -> stringResource(R.string.conn_testing)
+                            p != null -> stringResource(R.string.conn_exit, withCountry(p.ip, p.country)) + " · " + stringResource(R.string.conn_ping, p.ms.toInt())
+                            else -> stringResource(R.string.conn_tap_to_test)
+                        },
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = if (p != null && !testing) FontFamily.Monospace else null,
                     )
                 }
-                val p = probe
-                Text(
-                    when {
-                        testing -> stringResource(R.string.conn_testing)
-                        p != null -> stringResource(R.string.conn_exit, withCountry(p.ip, p.country)) + " · " + stringResource(R.string.conn_ping, p.ms.toInt())
-                        else -> stringResource(R.string.conn_tap_to_test)
-                    },
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = if (p != null && !testing) FontFamily.Monospace else null,
-                )
             }
-            ExtendedFloatingActionButton(
-                onClick = {
-                    if (status.running) {
-                        ProxyService.stop(ctx)
-                    } else if (Build.VERSION.SDK_INT >= 33 &&
-                        ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        ProxyService.start(ctx)
-                    }
-                },
-                icon = { Icon(if (status.running) Icons.Default.Close else Icons.Default.PlayArrow, null) },
-                text = { Text(stringResource(if (status.running) R.string.action_stop else R.string.action_start)) },
-                modifier = Modifier.align(Alignment.TopEnd).offset(y = -(StartStopButtonHeight / 2)),
-            )
         }
+        ExtendedFloatingActionButton(
+            onClick = {
+                if (status.running) {
+                    ProxyService.stop(ctx)
+                } else if (Build.VERSION.SDK_INT >= 33 &&
+                    ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    ProxyService.start(ctx)
+                }
+            },
+            icon = { Icon(if (status.running) Icons.Default.Close else Icons.Default.PlayArrow, null) },
+            text = { Text(stringResource(if (status.running) R.string.action_stop else R.string.action_start)) },
+            modifier = Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = -(StartStopButtonHeight / 2)),
+        )
     }
 }
 

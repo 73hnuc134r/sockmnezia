@@ -10,6 +10,9 @@ shown in the app's update card. Write for people using the app, not for develope
 - Snackbars can now be dismissed.
 - Home screen: the start/stop button now floats half over the connection-check block instead of sitting
   fully inside it.
+- Home screen: the start/stop button no longer gets cropped where it overlaps the connection-check block.
+- Notification: title and subtitle are swapped (title now shows the exit country or your own server name
+  instead of a generic mode label), and shows download speed first, then upload.
 
 ## 0.4.0
 
