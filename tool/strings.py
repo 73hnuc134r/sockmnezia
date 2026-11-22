@@ -149,7 +149,7 @@ S = {  # key: (english, russian)
  "licenses": ("Licenses", "Лицензии"),
  "licenses_text": ("sockmnezia: MIT License.\nXray-core (github.com/XTLS/Xray-core): Mozilla Public License 2.0.\nGo, AndroidX, Jetpack Compose, Kotlin and kotlinx libraries: BSD-3-Clause / Apache License 2.0.", "sockmnezia: лицензия MIT.\nXray-core (github.com/XTLS/Xray-core): Mozilla Public License 2.0.\nGo, AndroidX, Jetpack Compose, Kotlin и kotlinx: BSD-3-Clause / Apache License 2.0."),
  "notif_starting": ("Starting…", "Запуск…"),
- "notif_title": ("↑ %1$s/s  ↓ %2$s/s • %3$s", "↑ %1$s/с  ↓ %2$s/с • %3$s"),
+ "notif_title": ("↓ %1$s/s  ↑ %2$s/s • %3$s", "↓ %1$s/с  ↑ %2$s/с • %3$s"),
  "notif_failed": ("Could not start: %1$s", "Не удалось запустить: %1$s"),
  "err_invalid_key": ("This is not a Premium subscription key.", "Это не ключ подписки Premium."),
  "err_no_gateway_key": ("No gateway key yet: pick the official Amnezia APK in Subscription.", "Нет ключа шлюза: выберите официальный APK Amnezia в разделе «Подписка»."),
