@@ -633,6 +633,60 @@ func (e *Engine) TestChain(ctx context.Context) (ip string, ms int64, country st
 	return ip, time.Since(t0).Milliseconds(), geo.LookupCountry(dir, ip), nil
 }
 
+// PingCountry fetches a one-off Amnezia config for country and measures a request through it (chained to
+// the active own server when the mode calls for it, like TestChain). It does not touch the saved state: the
+// fetched config is discarded after the measurement, and a running proxy keeps using its current config.
+func (e *Engine) PingCountry(ctx context.Context, country string) (ms int64, err error) {
+	e.mu.Lock()
+	st := e.st
+	key, pems, id, url := st.Amnezia.Key, st.Amnezia.GatewayPEMs, st.Amnezia.Identity, st.Amnezia.GatewayURL
+	mode, exitURL := st.Mode, st.Options.ExitIPURL
+	var own links.Outbound
+	if o := e.activeOwnLocked(); o != nil {
+		own = o.Server.Outbound
+	}
+	e.mu.Unlock()
+
+	if key == "" {
+		return 0, newErr(CodeInvalidKey, errors.New("no subscription key"))
+	}
+	sub, err := vpnkey.ParseSubscription(key)
+	if err != nil {
+		return 0, Classify(err)
+	}
+	if len(pems) == 0 {
+		return 0, newErr(CodeNoGatewayKey, errors.New("no gateway public key"))
+	}
+	var pubs []*rsa.PublicKey
+	for _, p := range pems {
+		k, err := pubkey.Parse([]byte(p))
+		if err != nil {
+			return 0, Classify(err)
+		}
+		pubs = append(pubs, k[0].Pub)
+	}
+	res, err := account.Fetch(ctx, &gateway.Client{BaseURL: url}, pubs, account.Request{
+		Key: sub, Identity: id, Country: country, OS: e.OS,
+	})
+	if err != nil {
+		return 0, Classify(err)
+	}
+	cfg, err := xrayconf.BuildDialer(mode, res.XrayConfig, own)
+	if err != nil {
+		return 0, Classify(err)
+	}
+	inst, err := runner.Start(cfg)
+	if err != nil {
+		return 0, Classify(err)
+	}
+	defer inst.Close()
+	t0 := time.Now()
+	if _, err = inst.ExitIP(ctx, exitURL); err != nil {
+		return 0, newErr(CodeNetwork, err)
+	}
+	return time.Since(t0).Milliseconds(), nil
+}
+
 // --- routing and geo ------------------------------------------------------------------------------------
 
 // TestRoute answers "where does host:port go" with the saved rules.

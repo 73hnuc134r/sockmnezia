@@ -86,7 +86,7 @@ fun AmneziaScreen() {
                     ctx.contentResolver.openInputStream(uri)!!.use { i -> tmp.outputStream().use { o -> i.copyTo(o) } }
                 }
                 val n = try { Core.importGatewayKeysFromFile(tmp.absolutePath) } finally { tmp.delete() }
-                snackbar.showSnackbar(res.getQuantityString(R.plurals.gateway_keys_found, n.toInt(), n.toInt()))
+                snackbar.showSnackbar(res.getQuantityString(R.plurals.gateway_keys_found, n.toInt(), n.toInt()), withDismissAction = true)
             } finally {
                 busy = null
             }
@@ -128,7 +128,7 @@ fun AmneziaScreen() {
                 scope.act(ctx, snackbar) {
                     try {
                         val r = Core.importGatewayKeysFromOfficialRelease()
-                        snackbar.showSnackbar(res.getQuantityString(R.plurals.gateway_keys_found_release, r.count, r.count, r.release))
+                        snackbar.showSnackbar(res.getQuantityString(R.plurals.gateway_keys_found_release, r.count, r.count, r.release), withDismissAction = true)
                     } finally { busy = null }
                 }
             }) { Text(stringResource(R.string.download_official_apk)) }
@@ -198,7 +198,7 @@ fun AmneziaScreen() {
                     pemDialog = false
                     scope.act(ctx, snackbar) {
                         val n = Core.setGatewayKeysPem(text)
-                        snackbar.showSnackbar(res.getQuantityString(R.plurals.gateway_keys_found, n.toInt(), n.toInt()))
+                        snackbar.showSnackbar(res.getQuantityString(R.plurals.gateway_keys_found, n.toInt(), n.toInt()), withDismissAction = true)
                     }
                 }) { Text(stringResource(R.string.save)) }
             },

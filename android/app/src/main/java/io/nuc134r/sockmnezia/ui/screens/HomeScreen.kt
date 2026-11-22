@@ -1,10 +1,15 @@
 package io.nuc134r.sockmnezia.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.RadioButton
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Box
@@ -52,7 +57,11 @@ import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
 import io.nuc134r.sockmnezia.ui.act
 import io.nuc134r.sockmnezia.ui.errorText
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 @Composable
 fun HomeScreen(nav: NavController) {
@@ -134,11 +143,25 @@ fun HomeScreen(nav: NavController) {
                     Hint(stringResource(R.string.amnezia_not_set_up))
                     FilledTonalButton(onClick = { nav.navigate(Routes.AMNEZIA) }) { Text(stringResource(R.string.amnezia_set_up)) }
                 } else {
-                    CountryPicker(status.country, status.countryName, countries, enabled = !busy) { code ->
+                    var showPingDialog by remember { mutableStateOf(false) }
+                    val onPick: (String) -> Unit = { code ->
                         busy = true
                         scope.act(ctx, snackbar, ok = res.getString(R.string.config_updated)) {
                             try { Core.fetch(FetchRequest(country = code)) } finally { busy = false }
                         }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CountryPicker(status.country, status.countryName, countries, enabled = !busy, onPick = onPick)
+                        OutlinedButton(enabled = !busy && countries.isNotEmpty(), onClick = { showPingDialog = true }) {
+                            Text(stringResource(R.string.location_find_fastest))
+                        }
+                    }
+                    if (showPingDialog) {
+                        LocationPingDialog(
+                            countries = countries,
+                            onPick = { code -> showPingDialog = false; onPick(code) },
+                            onDismiss = { showPingDialog = false },
+                        )
                     }
                     status.subscriptionTo?.takeIf { it.isNotBlank() }?.let { Hint(stringResource(R.string.subscription_until, it.take(10))) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -181,4 +204,64 @@ private fun CountryPicker(code: String, name: String, countries: List<Country>, 
             }
         }
     }
+}
+
+/** One location's ping measurement: up to 3 attempts, the lowest successful ms kept so far. */
+private data class LocationPing(val bestMs: Long? = null, val attempts: Int = 0) {
+    val failed get() = attempts >= PingAttempts && bestMs == null
+}
+
+private const val PingAttempts = 3
+private const val PingConcurrency = 4
+
+/** Pings every available location (up to [PingAttempts] times each, [PingConcurrency] at once) and lists them
+ * sorted by the lowest ping found so far, updating live as attempts complete. Tapping a location with a
+ * successful ping applies it and closes the dialog. */
+@Composable
+private fun LocationPingDialog(countries: List<Country>, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val results = remember { mutableStateMapOf<String, LocationPing>() }
+    LaunchedEffect(countries) {
+        val semaphore = Semaphore(PingConcurrency)
+        countries.map { c ->
+            async {
+                semaphore.withPermit {
+                    var best: Long? = null
+                    repeat(PingAttempts) { attempt ->
+                        val ms = runCatching { Core.pingCountry(c.code) }.getOrNull()
+                        if (ms != null) best = best?.let { minOf(it, ms) } ?: ms
+                        results[c.code] = LocationPing(best, attempt + 1)
+                    }
+                }
+            }
+        }.awaitAll()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) } },
+        title = { Text(stringResource(R.string.location_fastest_title)) },
+        text = {
+            val sorted = countries.sortedWith(
+                compareBy({ results[it.code]?.bestMs == null }, { results[it.code]?.bestMs ?: Long.MAX_VALUE }),
+            )
+            LazyColumn {
+                items(sorted, key = { it.code }) { c ->
+                    val r = results[c.code] ?: LocationPing()
+                    Row(
+                        Modifier.fillMaxWidth().clickable(enabled = r.bestMs != null) { onPick(c.code) }.padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("${c.name} (${c.code.uppercase()})", Modifier.weight(1f))
+                        Text(
+                            when {
+                                r.bestMs != null -> stringResource(R.string.conn_ping, r.bestMs.toInt())
+                                r.failed -> stringResource(R.string.location_ping_failed)
+                                else -> stringResource(R.string.location_ping_testing)
+                            },
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+    )
 }
