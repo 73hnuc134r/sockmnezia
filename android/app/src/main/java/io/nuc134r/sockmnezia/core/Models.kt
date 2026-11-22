@@ -162,6 +162,9 @@ data class LogLine(val t: Long, val level: String, val msg: String)
 data class ChainResult(val ip: String, val ms: Long, val country: String = "")
 
 @Serializable
+data class PingResult(val ms: Long)
+
+@Serializable
 data class FetchRequest(
     val country: String? = null,
     @SerialName("captcha_id") val captchaId: String? = null,

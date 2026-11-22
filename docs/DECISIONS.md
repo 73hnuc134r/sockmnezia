@@ -180,3 +180,14 @@ addresses, phone first) in `Status.chain`. Exit address and ping are NOT polled:
 (`TestChain`, which uses the running instance when the proxy runs) so the IP lookup service is contacted only on
 demand, as before. The device ID shown is the installation UUID (what Amnezia's device list shows); the client
 UUID is the Xray user id and stays secret. The notification title is live speed • total traffic.
+
+## D24 · Fastest-location ping (2026-11-22)
+
+"Find fastest" pings every location returned by the last Amnezia answer. Each ping is a real, one-off
+`account.Fetch` for that country followed by a request through a temporary Xray instance built from the
+result (`Engine.PingCountry`/`mobile.PingCountryJSON`), chained to the active own server like `TestChain`
+when the mode calls for it — a plain network ping would not reflect the actual exit path. It never writes
+`Amnezia.Last`/`Amnezia.Country` or restarts the running proxy; only picking a result from the dialog does
+that (the existing `Fetch` call). Up to 3 attempts per location run concurrently (bounded) in the app; the
+lowest successful round trip is shown as soon as the first attempt succeeds and keeps improving until all 3
+finish, so a slow or failing gateway for one location doesn't block the others.

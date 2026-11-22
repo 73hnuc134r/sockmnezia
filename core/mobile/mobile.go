@@ -183,6 +183,18 @@ func (c *Core) TestChainJSON() (string, error) {
 	return toJSON(map[string]any{"ip": ip, "ms": ms, "country": country}), nil
 }
 
+// PingCountryJSON fetches a one-off config for country and measures a request through it, without changing
+// the saved config: {"ms"}.
+func (c *Core) PingCountryJSON(country string) (string, error) {
+	cx, cancel := ctx(30 * time.Second)
+	defer cancel()
+	ms, err := c.e.PingCountry(cx, country)
+	if err != nil {
+		return "", wrap(err)
+	}
+	return toJSON(map[string]any{"ms": ms}), nil
+}
+
 // --- own servers ----------------------------------------------------------------------------------------
 
 type ownView struct {

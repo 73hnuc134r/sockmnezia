@@ -32,6 +32,10 @@
     <string name="amnezia_set_up">Настроить</string>
     <string name="amnezia_settings">Подписка</string>
     <string name="location_default">Локация по умолчанию</string>
+    <string name="location_find_fastest">Найти самую быструю</string>
+    <string name="location_fastest_title">Самая быстрая локация</string>
+    <string name="location_ping_testing">Проверка…</string>
+    <string name="location_ping_failed">Недоступна</string>
     <string name="subscription_until">Подписка до %1$s</string>
     <string name="refresh_config">Обновить конфигурацию</string>
     <string name="fetch_config">Получить конфигурацию</string>

@@ -3,6 +3,14 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## Unreleased
+
+- Home screen: a "Find fastest" button opens a dialog that pings every available location (up to 3 tries
+  each) and lists them sorted by the lowest ping found.
+- Snackbars can now be dismissed.
+- Home screen: the start/stop button now floats half over the connection-check block instead of sitting
+  fully inside it.
+
 ## 0.4.0
 
 - Premium country picker is now sorted alphabetically.

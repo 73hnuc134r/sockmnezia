@@ -95,10 +95,10 @@ fun CoroutineScope.act(
 ) = launch {
     try {
         block()
-        if (ok != null) snackbar.showSnackbar(ok)
+        if (ok != null) snackbar.showSnackbar(ok, withDismissAction = true)
     } catch (e: Exception) {
         val ce = Core.asCoreException(e).error
-        if (!onError(ce)) snackbar.showSnackbar(errorText(ctx, ce))
+        if (!onError(ce)) snackbar.showSnackbar(errorText(ctx, ce), withDismissAction = true)
     }
 }
 

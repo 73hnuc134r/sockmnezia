@@ -33,6 +33,10 @@
     <string name="amnezia_set_up">Set up</string>
     <string name="amnezia_settings">Subscription</string>
     <string name="location_default">Default location</string>
+    <string name="location_find_fastest">Find fastest</string>
+    <string name="location_fastest_title">Fastest location</string>
+    <string name="location_ping_testing">Testing…</string>
+    <string name="location_ping_failed">Unreachable</string>
     <string name="subscription_until">Subscription until %1$s</string>
     <string name="refresh_config">Refresh config</string>
     <string name="fetch_config">Get config</string>

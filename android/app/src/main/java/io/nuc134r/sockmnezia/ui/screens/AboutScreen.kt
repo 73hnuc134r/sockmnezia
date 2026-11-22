@@ -66,7 +66,7 @@ fun AboutScreen() {
                 scope.act(ctx, snackbar) {
                     try {
                         val u = Core.checkUpdate(BuildConfig.VERSION_NAME, beta)
-                        if (!u.newer) snackbar.showSnackbar(res.getString(R.string.up_to_date))
+                        if (!u.newer) snackbar.showSnackbar(res.getString(R.string.up_to_date), withDismissAction = true)
                     } finally { busy = false }
                 }
             }) { Text(stringResource(R.string.check_now)) }

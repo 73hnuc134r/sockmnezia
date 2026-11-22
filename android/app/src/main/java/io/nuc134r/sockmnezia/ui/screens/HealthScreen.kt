@@ -75,7 +75,7 @@ fun HealthScreen() {
                 if (!c.ok && c.fix != Fix.NONE) {
                     FilledTonalButton(onClick = {
                         if (!DeviceStateReader.open(ctx, DeviceStateReader.intentFor(ctx, c.fix))) {
-                            scope.launch { snackbar.showSnackbar(noScreen) }
+                            scope.launch { snackbar.showSnackbar(noScreen, withDismissAction = true) }
                         }
                     }) { Text(stringResource(R.string.health_fix)) }
                 }

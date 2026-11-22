@@ -181,6 +181,23 @@ func TestGatewayErrorsAreClassified(t *testing.T) {
 	}
 }
 
+// PingCountry does not touch the saved config and fails like Fetch would before making any network
+// request, when the subscription key or gateway keys are missing.
+func TestPingCountryValidatesBeforeFetching(t *testing.T) {
+	e, _ := Open(t.TempDir(), nil, "android")
+	if _, err := e.PingCountry(context.Background(), "nl"); code(err) != CodeInvalidKey {
+		t.Fatalf("no key: %v", err)
+	}
+	e.SetKey(mockgw.SubscriptionKey())
+	if _, err := e.PingCountry(context.Background(), "nl"); code(err) != CodeNoGatewayKey {
+		t.Fatalf("no gateway key: %v", err)
+	}
+	// It never persists Amnezia.Last or the active country, unlike Fetch.
+	if e.Snapshot().Amnezia.Last != nil || e.Snapshot().Amnezia.Country != "" {
+		t.Fatal("PingCountry changed the saved state")
+	}
+}
+
 func TestOwnServersAndSettings(t *testing.T) {
 	e, _ := Open(t.TempDir(), nil, "linux")
 	if _, err := e.AddOwnServer("hy2://x@example.com:443", ""); code(err) != CodeUnsupportedLink {
