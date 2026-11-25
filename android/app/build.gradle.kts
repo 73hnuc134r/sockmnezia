@@ -49,7 +49,7 @@ android {
             isEnable = project.hasProperty("splitAbi")
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = false
+            isUniversalApk = true // the universal APK comes from the same pass as the per-ABI ones
         }
     }
 

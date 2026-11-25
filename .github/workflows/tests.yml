@@ -62,18 +62,33 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      # The Go core AAR only depends on the core's Go sources, the build script and the NDK: when none of them
+      # changed (app-only changes), reuse the AAR and skip the NDK and the ~1.5 min gomobile build.
+      - name: Cached Go core (AAR)
+        id: aar
+        uses: actions/cache@v6
+        with:
+          path: android/app/libs/sockmnezia-core.aar
+          key: aar-${{ env.NDK_VERSION }}-${{ hashFiles('core/**/*.go', '!core/**/*_test.go', 'core/go.mod', 'core/go.sum', 'tool/build-aar.sh') }}
+
       # The NDK is not on the runner image in this version; cache it instead of downloading it every run.
       - uses: actions/cache@v6
+        if: steps.aar.outputs.cache-hit != 'true'
         with:
           path: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
           key: android-ndk-${{ env.NDK_VERSION }}
 
-      - name: Install NDK and platform
+      - name: Install SDK platform (and the NDK when the AAR is rebuilt)
+        env:
+          NEED_NDK: ${{ steps.aar.outputs.cache-hit != 'true' }}
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" "platforms;android-37.0" > /dev/null
+          pkgs=("platforms;android-37.0")
+          [[ "$NEED_NDK" == "true" ]] && pkgs+=("ndk;$NDK_VERSION")
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "${pkgs[@]}" > /dev/null
 
       - name: Build the Go core (AAR)
+        if: steps.aar.outputs.cache-hit != 'true'
         env:
           ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
         run: bash tool/build-aar.sh

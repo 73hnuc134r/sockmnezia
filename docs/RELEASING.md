@@ -77,6 +77,11 @@ or Actions → **Release APK** → Run workflow → version `0.1.0`. The workflo
 builds a universal APK plus one per ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`) and publishes them with
 `SHA256SUMS`. Most phones want `arm64-v8a`.
 
+CI caches: Go modules/build cache (`setup-go`), Gradle (`setup-gradle`), the NDK, and the built Go core AAR,
+keyed on the core's non-test Go sources, `go.mod`/`go.sum`, `tool/build-aar.sh` and the NDK version. When only
+app code changed, the AAR and the NDK are reused and the gomobile build is skipped. All APKs come from one
+Gradle pass (`-PsplitAbi` with a universal APK).
+
 ## Local builds
 
 ```bash
