@@ -145,6 +145,9 @@ blackholed; the generated config must contain no `api`, `stats` or extra inbound
 
 ### 5.1 Chaining to the user's own server
 
+> Superseded by `docs/09-multihop-redesign.md` (2026-11-25): the three modes below became saved chains of
+> hops in which Amnezia is one hop kind, at any position. Kept for history.
+
 - Import: share links `vless://` (incl. Reality, xhttp), `vmess://`, `trojan://`, `ss://`, `socks://`/`http://`,
   or a raw **Xray outbound JSON** object (for anything the links can't express). Parsing lives in the core
   (`xrayconf/links`), so the desktop app gets it too. Several saved servers, one active; stored encrypted.

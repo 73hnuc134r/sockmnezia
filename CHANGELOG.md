@@ -12,6 +12,9 @@ shown in the app's update card. Write for people using the app, not for develope
   chain uses cannot be deleted until it is removed from that chain.
 - Settings: "Reach the Amnezia gateway through" picks a server (or direct). When the chain has hops before
   Amnezia, the gateway request always goes through them.
+- Share a saved server (link, QR code) or a whole chain (links or Xray JSON). Amnezia is shared as a
+  placeholder: whoever imports the chain uses their own subscription. "Add server" also accepts several links
+  or a shared chain, shows what will be imported, and reuses servers you already have.
 - Fixed: "Find fastest" while connected could leave the running proxy broken until it was restarted.
 - Home screen: the connection-check block is more compact (state and ping on one line, the full route below,
   wrapped instead of cut) and the start/stop button overlaps its corner.

@@ -191,3 +191,48 @@ when the mode calls for it — a plain network ping would not reflect the actual
 that (the existing `Fetch` call). Up to 3 attempts per location run concurrently (bounded) in the app; the
 lowest successful round trip is shown as soon as the first attempt succeeds and keeps improving until all 3
 finish, so a slow or failing gateway for one location doesn't block the others.
+
+## D25 · Chains replace the three modes (2026-11-25)
+
+Plan: `docs/09-multihop-redesign.md`. The state (v2) keeps named chains of hops, phone first; a hop is
+Amnezia or an own server by ID, and one chain is active. `xrayconf.Outbounds` dials hop i+1 through hop i
+(`sockopt.dialerProxy`); for Amnezia that is the outbound its relay chain dials first (the "tail"), so Amnezia
+can be the entry, in the middle or the exit. Rules, each in `xrayconf` with a test: 1–5 hops; Amnezia at most
+once (one subscription, one config, one device slot); a hop that is not the entry must be TCP-dialable
+(`links.CheckChainable`). Own servers are tagged `hop<N>` by position, never by name or address.
+
+- Migration: v1 modes become "Amnezia", "Amnezia → <server>", "<server>" built from the server that was
+  active; the one matching the old mode is active. "Fetch through my own server" becomes "fetch through
+  <that server>" (`Options.FetchVia`).
+- Gateway requests (fetch, location ping) go through the active chain's hops before Amnezia when there are any:
+  fetching around them would expose what the user put in front of Amnezia. Otherwise `FetchVia`, otherwise
+  direct.
+- A server used by a chain cannot be deleted (owner's choice): the error lists the chains.
+- Known upstream issue: an xhttp outbound dialed through another hop (Amnezia's relay with a hop before it)
+  trips two data races inside Xray (`splithttp`'s `httptrace` hook reaching the inner dial, and `redirect()`
+  appending to a shared session slice). Both writers store the same values, so they are harmless in practice,
+  but `go test -race` reports them; the 3-hop integration test uses a TCP relay, and the gateway-shaped
+  config with the xhttp relay in the middle is load-checked by Xray in `TestGatewayShapedConfigLoads`.
+
+## D26 · One dialer registry for all Xray instances (2026-11-25)
+
+Xray resolves `dialerProxy` through process-wide globals (`internet.InitSystemDialer`: outbound manager and
+DNS client) that every `core.New` overwrites. A temporary instance next to the running proxy (location ping,
+connection check when stopped, gateway fetch through earlier hops) therefore took over the proxy's hop
+lookups, and after it closed they pointed at a closed instance: "Find fastest" while connected left the proxy
+broken until a restart. `runner` now registers every live instance and installs a manager that looks a tag up
+in all of them (re-installed after each `core.New`); `xrayconf.BuildDialer` gives temporary configs a unique
+tag prefix (`t<N>-`) so a lookup never lands in the wrong instance. `TestTemporaryInstanceDoesNotHijackTheChain`
+fails without it. The globals are still written without a lock by `core.New` itself (Xray's own behaviour).
+
+## D27 · Sharing servers and chains (2026-11-25)
+
+A server is shared as a standard link made by `links.Format`, which only returns a link that `links.Parse`
+turns back into exactly the same outbound (otherwise the outbound JSON is shared): a link never describes a
+different server than the one that runs. A chain is text: `sockmnezia://chain?v=1&name=…`, then one line per
+hop (phone first), Amnezia as `sockmnezia://amnezia` (owner's choice). Its config is never exported: it holds
+this subscription's per-device credentials; the receiver's subscription fills the hop. Other apps import the
+links as separate servers. "Xray JSON" (outbounds with `dialerProxy`) is offered only for chains without
+Amnezia. QR codes encode the same text (ZXing core, encoder only). Import previews first (dry run), reuses saved
+servers with the same outbound instead of duplicating them, and validates the chain before writing anything.
+Shared text contains credentials: the clipboard entry is marked sensitive and it never goes to logs.

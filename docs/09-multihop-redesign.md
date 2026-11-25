@@ -1,6 +1,8 @@
 # Plan: multihop config builder
 
-Status: proposal (2026-11-25). Supersedes the three fixed modes of `PLAN.md` §5.1 once implemented.
+Status: implemented (2026-11-25), milestones M0–M5 below. Supersedes the three fixed modes of `PLAN.md` §5.1.
+Decisions: `DECISIONS.md` D25 (chains), D26 (Xray's process-wide dialer registry), D27 (sharing).
+§8 lists where the implementation differs from this plan.
 
 ## 0. Goal
 
@@ -94,7 +96,7 @@ hop picker and the compact connection bar.
   refresh, subscription date — unchanged), with a note of its position ("hop 1 of 3").
 - Background work / update cards unchanged.
 
-### Chain editor (new screen `Routes.CHAIN_EDIT`)
+### Chain editor (new screen `Routes.CHAIN`)
 - Name field; ordered hop list with drag handle (plus ↑/↓ buttons for accessibility) and remove.
 - "Add hop" → bottom sheet: Amnezia (disabled if already used, or "set up first" if no key) + saved servers
   + "Add new server…" (existing import flow).
@@ -177,10 +179,30 @@ overlapping the top edge by half:
 - Card padding 12 dp horizontal / 8 dp vertical, `spacedBy(0.dp)`, band bottom padding 8 dp.
 - Keep: tap = test, `StartStopButtonHeight / 2` overlap, FAB outside the `Surface` (cropping fix from #5).
 
-## 7. Open questions for the owner
+## 7. Owner's answers (2026-11-25)
 
-1. Should Amnezia be allowed as the **exit** (today's "Amnezia only")? Plan assumes yes.
-2. Deleting a server that chains use: block with a list of chains (assumed), or drop the hop silently?
-3. Chain text with a `sockmnezia://amnezia` placeholder line: OK, or should Amnezia chains not be shareable
-   at all?
-4. Keep a quick "switch chain" in the notification / QS tile (cycles through chains)? Not planned for M3.
+1. Amnezia can be the exit (e.g. "Amnezia only", or own server → Amnezia). **Yes.**
+2. Deleting a server that chains use is **blocked**, with the chain names in the error.
+3. Sharing a chain with Amnezia as a `sockmnezia://amnezia` placeholder line is **OK**.
+4. Later addition: individual saved servers are shareable too (link + QR).
+5. Later addition: the connection block may grow to show the whole chain and ping, never cut text.
+
+## 8. As built: differences from the plan
+
+- **Reordering** uses ↑/↓ buttons per hop instead of drag handles: accessible by default and no extra
+  dependency. Drag can be added later without changing the model.
+- **QR** encodes the same text as "Copy" (header line + links). The separate `sockmnezia://chain?d=<base64>`
+  form was dropped: a QR code holds ~2.9 KB, enough for 5 hops, and one format means one import path. Import is
+  by pasting the text (the phone's camera app reads the QR); the app has no camera scanner.
+- **`config_rev` was not needed**: the app clears the exit address/ping on every core change (`Core.changed()`),
+  before every check, and drops a result that arrives after a change.
+- **Connection block** wraps the whole route instead of cutting it (owner's request): line 1 is state and
+  ping, then every hop, with the exit address appended (or "· exit ✓" when it is the last hop).
+- **UDP transports** (kcp, QUIC, HTTP/3) cannot be imported at all (`links.Parse` refuses them and they are
+  not linked into Xray, D7), so "UDP only as the first hop" is a second line of defence in `xrayconf`.
+- **A new chain becomes active** when saved, and the very first own server added gets a one-hop chain of its
+  own (active when Amnezia is not set up), so an own-server-only user needs no extra step.
+- **Found on the way**: Xray resolves `dialerProxy` through one process-wide registry that the last created
+  instance takes over. "Find fastest" while connected left the running proxy broken; fixed in `runner` (D26).
+- **Not done**: presets on "New chain" and per-hop ping in the editor (M5 polish in §5); the notification/QS
+  tile has no chain switcher.

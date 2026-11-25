@@ -3,14 +3,16 @@
 Android app (Windows/Linux later): a hardened local SOCKS5/HTTP proxy that runs an Amnezia Premium
 subscription's VLESS config in embedded Xray-core, optionally chained to the user's own server.
 Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (add an entry for every non-obvious choice).
-Research and protocol: `docs/01…08`. `reference/` is a frozen executable spec, not product code.
+Research and protocol: `docs/01…08`; chains (multihop) and sharing: `docs/09`. `reference/` is a frozen executable spec, not product code.
 
 ## Layout
 - `core/` — Go module (`github.com/nuc134r/sockmnezia/core`):
   - `vpnkey`, `gateway`, `pubkey`, `account` — subscription key → gateway → Xray config
-  - `links` (own-server share links), `routing` (rules, presets, tester), `geo` (geo files)
-  - `xrayconf` — builds the config and enforces the security policy (`Audit`); `runner` — embedded Xray
-  - `engine` — state, persistence, start/stop (used by the app binding and `cmd/sockmnezia`)
+  - `links` (own-server share links: parse and `Format`), `routing` (rules, presets, tester), `geo` (geo files)
+  - `xrayconf` — builds the config from a chain of hops and enforces the security policy (`Audit`);
+    `runner` — embedded Xray (one dialer registry for all live instances, D26)
+  - `engine` — state (chains, servers), persistence, start/stop, share/import (used by the app binding and
+    `cmd/sockmnezia`)
   - `internal/mockgw` mock gateway, `internal/geotest` tiny geo files for tests
   - `runner/integration_test.go` runs real Xray upstreams on loopback (chain, auth, UDP, blocking)
   - `mobile` — gomobile API for the app (JSON strings in/out; errors are `engine.Error` JSON)
