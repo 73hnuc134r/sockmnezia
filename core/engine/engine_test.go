@@ -17,7 +17,6 @@ import (
 
 	"github.com/nuc134r/sockmnezia/core/internal/mockgw"
 	"github.com/nuc134r/sockmnezia/core/routing"
-	"github.com/nuc134r/sockmnezia/core/xrayconf"
 )
 
 // xorBox stands in for the Android Keystore box.
@@ -212,17 +211,19 @@ func TestOwnServersAndSettings(t *testing.T) {
 	}
 	id2, _ := e.AddOwnServer("trojan://p@two.example.com:443", "Second")
 	s := e.Snapshot()
-	if s.ActiveOwn != id1 || s.Own[1].Name != "Second" {
-		t.Fatalf("%+v", s.Own)
+	// The first server gets a chain of its own, active because Amnezia is not set up.
+	if s.Own[1].Name != "Second" || len(s.Chains) != 2 || s.ActiveChain != s.Chains[1].ID ||
+		s.Chains[1].Hops[0].Server != id1 || s.Chains[1].Name != "one" {
+		t.Fatalf("%+v", s)
 	}
-	e.SetActiveOwnServer(id2)
-	e.RemoveOwnServer(id2)
-	if e.Snapshot().ActiveOwn != id1 {
-		t.Fatal("active not moved")
+	if err := e.RemoveOwnServer(id2); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.RemoveOwnServer(id1); code(err) != CodeServerInUse || !strings.Contains(err.(*Error).Detail, "one") {
+		t.Fatal("a server used by a chain was deleted", err)
 	}
 
 	set := e.GetSettings()
-	set.Mode = xrayconf.ModeOwn
 	set.Inbound.UDP = true
 	set.Inbound.User = "my-own-user"
 	set.Inbound.Pass = "my-own-password!"
@@ -286,7 +287,6 @@ func TestPortInUse(t *testing.T) {
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer l.Close()
 	set := e.GetSettings()
-	set.Mode = xrayconf.ModeOwn
 	set.Inbound.SocksPort = l.Addr().(*net.TCPAddr).Port
 	e.SetSettings(set)
 	err := e.Start(context.Background())

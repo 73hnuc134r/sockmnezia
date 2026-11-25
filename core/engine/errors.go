@@ -35,6 +35,12 @@ const (
 	CodeUnsupportedLink       = "unsupported_link"
 	CodeInvalidLink           = "invalid_link"
 	CodeNotRunning            = "not_running"
+	CodeNoChain               = "no_chain"      // no chain saved/selected
+	CodeServerInUse           = "server_in_use" // Detail: names of the chains using it
+	CodeChainEmpty            = "chain_empty"
+	CodeChainTooLong          = "chain_too_long"
+	CodeChainAmneziaTwice     = "chain_amnezia_twice"
+	CodeHopNotChainable       = "hop_not_chainable" // UDP transport anywhere but the first hop; Field hop<N>
 	CodeNetwork               = "network"
 	CodeInternal              = "internal"
 )
@@ -88,7 +94,16 @@ func Classify(err error) *Error {
 	var xe *xrayconf.Error
 	if errors.As(err, &xe) {
 		code := CodeInvalidSettings
-		if errors.Is(err, links.ErrUnsupported) {
+		switch {
+		case errors.Is(err, xrayconf.ErrChainEmpty):
+			code = CodeChainEmpty
+		case errors.Is(err, xrayconf.ErrChainTooLong):
+			code = CodeChainTooLong
+		case errors.Is(err, xrayconf.ErrAmneziaTwice):
+			code = CodeChainAmneziaTwice
+		case errors.Is(err, xrayconf.ErrNotChainable):
+			code = CodeHopNotChainable
+		case errors.Is(err, links.ErrUnsupported):
 			code = CodeUnsupportedLink
 		}
 		return &Error{Code: code, Field: xe.Field, Detail: xe.Err.Error()}

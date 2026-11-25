@@ -171,8 +171,7 @@ func (e *Engine) Fetch(ctx context.Context, req FetchRequest) error {
 	if country == "" {
 		country = st.Amnezia.Country
 	}
-	viaOwn := st.Options.FetchViaOwn
-	own := e.activeOwnLocked()
+	via, viaErr := e.fetchHopsLocked()
 	e.mu.Unlock()
 
 	if key == "" {
@@ -193,12 +192,12 @@ func (e *Engine) Fetch(ctx context.Context, req FetchRequest) error {
 		}
 		pubs = append(pubs, k[0].Pub)
 	}
+	if viaErr != nil {
+		return Classify(viaErr)
+	}
 	client := &gateway.Client{BaseURL: url}
-	if viaOwn {
-		if own == nil {
-			return newErr(CodeNoOwnServer, errors.New("fetching through the own server is on, but none is selected"))
-		}
-		cfg, err := xrayconf.BuildDialer([]xrayconf.Hop{xrayconf.OwnHop(own.Server.Outbound)})
+	if len(via) > 0 {
+		cfg, err := xrayconf.BuildDialer(via)
 		if err != nil {
 			return Classify(err)
 		}
@@ -236,7 +235,7 @@ func (e *Engine) Fetch(ctx context.Context, req FetchRequest) error {
 	if err := e.persist(); err != nil {
 		return newErr(CodeInternal, err)
 	}
-	if e.inst != nil {
+	if e.inst != nil && amneziaIndex(e.activeChainLocked()) >= 0 {
 		return e.restartLocked()
 	}
 	return nil
@@ -244,7 +243,8 @@ func (e *Engine) Fetch(ctx context.Context, req FetchRequest) error {
 
 // --- own servers ----------------------------------------------------------------------------------------
 
-// AddOwnServer parses a link/JSON and saves it; the first server becomes active. Returns its ID.
+// AddOwnServer parses a link/JSON and saves it. Returns its ID. The very first server also gets a chain of
+// its own, which becomes active when Amnezia is not set up (so an own-server-only user is ready to go).
 func (e *Engine) AddOwnServer(link, name string) (string, error) {
 	s, err := links.Parse(link)
 	if err != nil {
@@ -260,16 +260,24 @@ func (e *Engine) AddOwnServer(link, name string) (string, error) {
 	defer e.mu.Unlock()
 	id := gateway.NewUUID()
 	e.st.Own = append(e.st.Own, OwnServer{ID: id, Name: s.Name, Link: strings.TrimSpace(link), Server: s})
-	if e.st.ActiveOwn == "" {
-		e.st.ActiveOwn = id
+	if len(e.st.Own) == 1 {
+		c := Chain{ID: newID(), Name: s.Name, Hops: []ChainHop{{Kind: HopServer, Server: id}}}
+		e.st.Chains = append(e.st.Chains, c)
+		if e.st.Amnezia.Key == "" && e.inst == nil {
+			e.st.ActiveChain = c.ID
+		}
 	}
 	return id, e.persist()
 }
 
-// RemoveOwnServer deletes a saved server.
+// RemoveOwnServer deletes a saved server. A server used by a chain is not deleted (CodeServerInUse, the
+// chain names in Detail): the user removes it from those chains first.
 func (e *Engine) RemoveOwnServer(id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if used := e.chainsUsingLocked(id); len(used) > 0 {
+		return &Error{Code: CodeServerInUse, Detail: strings.Join(used, ", ")}
+	}
 	out := e.st.Own[:0]
 	for _, s := range e.st.Own {
 		if s.ID != id {
@@ -277,11 +285,8 @@ func (e *Engine) RemoveOwnServer(id string) error {
 		}
 	}
 	e.st.Own = out
-	if e.st.ActiveOwn == id {
-		e.st.ActiveOwn = ""
-		if len(out) > 0 {
-			e.st.ActiveOwn = out[0].ID
-		}
+	if e.st.Options.FetchVia == id {
+		e.st.Options.FetchVia = ""
 	}
 	return e.persist()
 }
@@ -298,39 +303,10 @@ func (e *Engine) RenameOwnServer(id, name string) error {
 	return e.persist()
 }
 
-// SetActiveOwnServer selects the server used in the own modes (restarts a running proxy).
-func (e *Engine) SetActiveOwnServer(id string) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	found := false
-	for _, s := range e.st.Own {
-		found = found || s.ID == id
-	}
-	if !found {
-		return newErr(CodeNoOwnServer, errors.New("unknown server"))
-	}
-	e.st.ActiveOwn = id
-	if err := e.persist(); err != nil {
-		return err
-	}
-	return e.restartIfRunningLocked()
-}
-
-func (e *Engine) activeOwnLocked() *OwnServer {
-	for i := range e.st.Own {
-		if e.st.Own[i].ID == e.st.ActiveOwn {
-			s := e.st.Own[i]
-			return &s
-		}
-	}
-	return nil
-}
-
 // --- settings -------------------------------------------------------------------------------------------
 
 // Settings is the editable part of the state.
 type Settings struct {
-	Mode    xrayconf.Mode    `json:"mode"`
 	Inbound xrayconf.Inbound `json:"inbound"`
 	Routing routing.Settings `json:"routing"`
 	Options Options          `json:"options"`
@@ -340,7 +316,7 @@ type Settings struct {
 func (e *Engine) GetSettings() Settings {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return Settings{Mode: e.st.Mode, Inbound: e.st.Inbound, Routing: e.st.Routing, Options: e.st.Options}
+	return Settings{Inbound: e.st.Inbound, Routing: e.st.Routing, Options: e.st.Options}
 }
 
 // SetSettings validates and stores settings; a running proxy is restarted.
@@ -350,11 +326,6 @@ func (e *Engine) SetSettings(s Settings) error {
 	}
 	if err := xrayconf.ValidateInbound(s.Inbound); err != nil {
 		return Classify(err)
-	}
-	switch s.Mode {
-	case xrayconf.ModeAmnezia, xrayconf.ModeAmneziaOwn, xrayconf.ModeOwn:
-	default:
-		return &Error{Code: CodeInvalidSettings, Field: "mode", Detail: "unknown mode"}
 	}
 	if s.Routing.DomainStrategy == "" {
 		s.Routing.DomainStrategy = routing.AsIs
@@ -368,9 +339,13 @@ func (e *Engine) SetSettings(s Settings) error {
 	if _, ok := geo.SourceByID(s.Options.GeoSource); !ok && s.Options.GeoSource != "custom" {
 		return &Error{Code: CodeInvalidSettings, Field: "geo_source", Detail: "unknown source"}
 	}
+	s.Options.LegacyFetchViaOwn = false
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.st.Mode, e.st.Inbound, e.st.Routing, e.st.Options = s.Mode, s.Inbound, s.Routing, s.Options
+	if id := s.Options.FetchVia; id != "" && e.serverLocked(id) == nil {
+		return &Error{Code: CodeNoOwnServer, Field: "fetch_via", Detail: "unknown server"}
+	}
+	e.st.Inbound, e.st.Routing, e.st.Options = s.Inbound, s.Routing, s.Options
 	runner.SetLevel(s.Options.LogLevel)
 	if err := e.persist(); err != nil {
 		return err
@@ -380,36 +355,12 @@ func (e *Engine) SetSettings(s Settings) error {
 
 // --- proxy ----------------------------------------------------------------------------------------------
 
-// modeHops maps the legacy mode to a chain.
-func modeHops(mode xrayconf.Mode, amz json.RawMessage, own links.Outbound) []xrayconf.Hop {
-	switch mode {
-	case xrayconf.ModeAmnezia:
-		return []xrayconf.Hop{xrayconf.AmneziaHop(amz)}
-	case xrayconf.ModeAmneziaOwn:
-		return []xrayconf.Hop{xrayconf.AmneziaHop(amz), xrayconf.OwnHop(own)}
-	default:
-		return []xrayconf.Hop{xrayconf.OwnHop(own)}
-	}
-}
-
 func (e *Engine) buildLocked() ([]byte, error) {
-	spec := xrayconf.Spec{Inbound: e.st.Inbound, Routing: e.st.Routing, LogLevel: e.st.Options.LogLevel}
-	var amz json.RawMessage
-	var own links.Outbound
-	if e.st.Mode != xrayconf.ModeOwn {
-		if e.st.Amnezia.Last == nil {
-			return nil, newErr(CodeNoConfig, errors.New("no Amnezia config fetched yet"))
-		}
-		amz = e.st.Amnezia.Last.XrayConfig
+	hops, err := e.hopsLocked(e.activeChainLocked(), e.amneziaConfigLocked())
+	if err != nil {
+		return nil, err
 	}
-	if e.st.Mode != xrayconf.ModeAmnezia {
-		o := e.activeOwnLocked()
-		if o == nil {
-			return nil, newErr(CodeNoOwnServer, errors.New("no own server selected"))
-		}
-		own = o.Server.Outbound
-	}
-	spec.Hops = modeHops(e.st.Mode, amz, own)
+	spec := xrayconf.Spec{Hops: hops, Inbound: e.st.Inbound, Routing: e.st.Routing, LogLevel: e.st.Options.LogLevel}
 	if site, ip := e.st.Routing.UsesGeo(); site || ip {
 		gs := geo.Stat(e.GeoDir())
 		if (site && !gs.HasGeoSite) || (ip && !gs.HasGeoIP) {
@@ -423,7 +374,7 @@ func (e *Engine) buildLocked() ([]byte, error) {
 func (e *Engine) NeedsRefresh() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.st.Mode == xrayconf.ModeOwn || e.st.Amnezia.Key == "" {
+	if amneziaIndex(e.activeChainLocked()) < 0 || e.st.Amnezia.Key == "" {
 		return false
 	}
 	if e.st.Amnezia.Last == nil {
@@ -481,7 +432,11 @@ func (e *Engine) startLocked() error {
 	}
 	e.inst = inst
 	e.startedAt = time.Now()
-	runner.Record("info", fmt.Sprintf("proxy started on %s:%d (%s)", e.st.Inbound.Listen, e.st.Inbound.SocksPort, e.st.Mode))
+	hops := 0
+	if c := e.activeChainLocked(); c != nil {
+		hops = len(c.Hops)
+	}
+	runner.Record("info", fmt.Sprintf("proxy started on %s:%d (%d hops)", e.st.Inbound.Listen, e.st.Inbound.SocksPort, hops))
 	return nil
 }
 
@@ -506,6 +461,10 @@ func (e *Engine) restartIfRunningLocked() error {
 func (e *Engine) Stop() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	e.stopLocked()
+}
+
+func (e *Engine) stopLocked() {
 	if e.inst != nil {
 		e.inst.Close()
 		e.inst = nil
@@ -516,7 +475,6 @@ func (e *Engine) Stop() {
 // Status is shown on the main screen and in the notification.
 type Status struct {
 	Running        bool      `json:"running"`
-	Mode           string    `json:"mode"`
 	Listen         string    `json:"listen"`
 	SocksPort      int       `json:"socks_port"`
 	HTTPPort       int       `json:"http_port"`
@@ -531,7 +489,12 @@ type Status struct {
 	CountryName    string    `json:"country_name"`
 	FetchedAt      time.Time `json:"fetched_at,omitempty"`
 	SubscriptionTo string    `json:"subscription_to,omitempty"`
-	OwnServer      string    `json:"own_server,omitempty"`
+	OwnServer      string    `json:"own_server,omitempty"` // name of the exit hop when it is an own server
+	ChainID        string    `json:"chain_id,omitempty"`
+	ChainName      string    `json:"chain_name,omitempty"`
+	Hops           []HopInfo `json:"hops,omitempty"`            // hops of the active chain, phone first
+	AmneziaHop     int       `json:"amnezia_hop,omitempty"`     // 1-based position of Amnezia in the chain, 0 = none
+	ChainError     *Error    `json:"chain_error,omitempty"`     // why the active chain cannot run
 	DeviceID       string    `json:"device_id,omitempty"`       // installation UUID, as listed in Amnezia's device list
 	Chain          []string  `json:"chain,omitempty"`           // server addresses, phone first, exit last
 	ChainCountries []string  `json:"chain_countries,omitempty"` // geoip.dat country code per Chain entry, "" if unknown
@@ -543,7 +506,7 @@ func (e *Engine) Status() Status {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	s := Status{
-		Running: e.inst != nil, Mode: string(e.st.Mode), Listen: e.st.Inbound.Listen,
+		Running: e.inst != nil, Listen: e.st.Inbound.Listen,
 		SocksPort: e.st.Inbound.SocksPort, HTTPPort: e.st.Inbound.HTTPPort,
 		AuthFailures: runner.AuthFailures(), HasKey: e.st.Amnezia.Key != "",
 		HasGatewayKey: len(e.st.Amnezia.GatewayPEMs) > 0, HasConfig: e.st.Amnezia.Last != nil,
@@ -556,19 +519,19 @@ func (e *Engine) Status() Status {
 	if l := e.st.Amnezia.Last; l != nil {
 		s.Country, s.CountryName, s.SubscriptionTo = l.Country, l.CountryName, l.SubscriptionEnd
 	}
-	if o := e.activeOwnLocked(); o != nil {
-		s.OwnServer = o.Name
-	}
-	var amz json.RawMessage
-	if e.st.Amnezia.Last != nil {
-		amz = e.st.Amnezia.Last.XrayConfig
-	}
-	if mode := e.st.Mode; mode == xrayconf.ModeOwn || amz != nil {
-		var own links.Outbound
-		if o := e.activeOwnLocked(); o != nil {
-			own = o.Server.Outbound
+	c := e.activeChainLocked()
+	if c != nil {
+		s.ChainID, s.ChainName, s.AmneziaHop = c.ID, c.Name, amneziaIndex(c)+1
+		for _, h := range c.Hops {
+			s.Hops = append(s.Hops, e.hopInfoLocked(h))
 		}
-		s.Chain, _ = xrayconf.Hops(modeHops(mode, amz, own))
+		if n := len(s.Hops); n > 0 && s.Hops[n-1].Kind == HopServer {
+			s.OwnServer = s.Hops[n-1].Name
+		}
+	}
+	s.ChainError = e.validateLocked(c)
+	if hops, err := e.hopsLocked(c, e.amneziaConfigLocked()); err == nil {
+		s.Chain, _ = xrayconf.Hops(hops)
 		if len(s.Chain) > 0 {
 			s.ChainCountries = make([]string, len(s.Chain))
 			for i, addr := range s.Chain {
@@ -605,7 +568,7 @@ func (e *Engine) ExitIP(ctx context.Context) (string, error) {
 }
 
 // TestChain measures a request through the chain. While the proxy runs it uses the running instance;
-// otherwise it starts a temporary in-process instance (no listening port) for the current mode. country is
+// otherwise it starts a temporary in-process instance (no listening port) for the active chain. country is
 // the geoip.dat country code for ip ("" if the database isn't downloaded or has no match).
 func (e *Engine) TestChain(ctx context.Context) (ip string, ms int64, country string, err error) {
 	e.mu.Lock()
@@ -618,20 +581,13 @@ func (e *Engine) TestChain(ctx context.Context) (ip string, ms int64, country st
 		}
 		return ip, time.Since(t0).Milliseconds(), geo.LookupCountry(dir, ip), nil
 	}
-	var amz json.RawMessage
-	if e.st.Amnezia.Last != nil {
-		amz = e.st.Amnezia.Last.XrayConfig
-	}
-	mode, url, dir := e.st.Mode, e.st.Options.ExitIPURL, e.GeoDir()
-	var own links.Outbound
-	if o := e.activeOwnLocked(); o != nil {
-		own = o.Server.Outbound
-	}
+	url, dir := e.st.Options.ExitIPURL, e.GeoDir()
+	hops, err := e.hopsLocked(e.activeChainLocked(), e.amneziaConfigLocked())
 	e.mu.Unlock()
-	if mode != xrayconf.ModeOwn && amz == nil {
-		return "", 0, "", newErr(CodeNoConfig, nil)
+	if err != nil {
+		return "", 0, "", Classify(err)
 	}
-	cfg, err := xrayconf.BuildDialer(modeHops(mode, amz, own))
+	cfg, err := xrayconf.BuildDialer(hops)
 	if err != nil {
 		return "", 0, "", Classify(err)
 	}
@@ -648,19 +604,27 @@ func (e *Engine) TestChain(ctx context.Context) (ip string, ms int64, country st
 	return ip, time.Since(t0).Milliseconds(), geo.LookupCountry(dir, ip), nil
 }
 
-// PingCountry fetches a one-off Amnezia config for country and measures a request through it (chained to
-// the active own server when the mode calls for it, like TestChain). It does not touch the saved state: the
+// PingCountry fetches a one-off Amnezia config for country and measures a request through the active chain
+// with that config in the Amnezia hop (like TestChain). It does not touch the saved state: the
 // fetched config is discarded after the measurement, and a running proxy keeps using its current config.
 func (e *Engine) PingCountry(ctx context.Context, country string) (ms int64, err error) {
 	e.mu.Lock()
 	st := e.st
 	key, pems, id, url := st.Amnezia.Key, st.Amnezia.GatewayPEMs, st.Amnezia.Identity, st.Amnezia.GatewayURL
-	mode, exitURL := st.Mode, st.Options.ExitIPURL
-	var own links.Outbound
-	if o := e.activeOwnLocked(); o != nil {
-		own = o.Server.Outbound
+	exitURL := st.Options.ExitIPURL
+	chain := e.activeChainLocked()
+	if chain != nil {
+		c := *chain
+		chain = &c
 	}
+	via, viaErr := e.fetchHopsLocked()
 	e.mu.Unlock()
+	if amneziaIndex(chain) < 0 {
+		return 0, &Error{Code: CodeInvalidSettings, Field: "chain", Detail: "the active chain has no Amnezia hop"}
+	}
+	if viaErr != nil {
+		return 0, Classify(viaErr)
+	}
 
 	if key == "" {
 		return 0, newErr(CodeInvalidKey, errors.New("no subscription key"))
@@ -680,13 +644,32 @@ func (e *Engine) PingCountry(ctx context.Context, country string) (ms int64, err
 		}
 		pubs = append(pubs, k[0].Pub)
 	}
-	res, err := account.Fetch(ctx, &gateway.Client{BaseURL: url}, pubs, account.Request{
+	client := &gateway.Client{BaseURL: url}
+	if len(via) > 0 {
+		cfg, err := xrayconf.BuildDialer(via)
+		if err != nil {
+			return 0, Classify(err)
+		}
+		d, err := runner.Start(cfg)
+		if err != nil {
+			return 0, Classify(err)
+		}
+		defer d.Close()
+		client.Dial = d.Dial
+	}
+	res, err := account.Fetch(ctx, client, pubs, account.Request{
 		Key: sub, Identity: id, Country: country, OS: e.OS,
 	})
 	if err != nil {
 		return 0, Classify(err)
 	}
-	cfg, err := xrayconf.BuildDialer(modeHops(mode, res.XrayConfig, own))
+	e.mu.Lock()
+	hops, err := e.hopsLocked(chain, res.XrayConfig)
+	e.mu.Unlock()
+	if err != nil {
+		return 0, Classify(err)
+	}
+	cfg, err := xrayconf.BuildDialer(hops)
 	if err != nil {
 		return 0, Classify(err)
 	}

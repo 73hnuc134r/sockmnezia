@@ -198,14 +198,14 @@ func (c *Core) PingCountryJSON(country string) (string, error) {
 // --- own servers ----------------------------------------------------------------------------------------
 
 type ownView struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Protocol string `json:"protocol"`
-	Address  string `json:"address"`
-	Port     int    `json:"port"`
-	Network  string `json:"network"`
-	Security string `json:"security"`
-	Active   bool   `json:"active"`
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Protocol string   `json:"protocol"`
+	Address  string   `json:"address"`
+	Port     int      `json:"port"`
+	Network  string   `json:"network"`
+	Security string   `json:"security"`
+	UsedIn   []string `json:"used_in"` // names of the chains that use this server
 }
 
 // OwnServersJSON lists saved servers (without credentials).
@@ -213,7 +213,7 @@ func (c *Core) OwnServersJSON() string {
 	st := c.e.Snapshot()
 	out := []ownView{}
 	for _, o := range st.Own {
-		v := ownView{ID: o.ID, Name: o.Name, Active: o.ID == st.ActiveOwn}
+		v := ownView{ID: o.ID, Name: o.Name, UsedIn: c.e.ChainsUsing(o.ID)}
 		if o.Server != nil {
 			v.Protocol, v.Address, v.Port, v.Network, v.Security = o.Server.Protocol, o.Server.Address, o.Server.Port, o.Server.Network, o.Server.Security
 		}
@@ -234,8 +234,38 @@ func (c *Core) RemoveOwnServer(id string) error { return wrap(c.e.RemoveOwnServe
 // RenameOwnServer renames a server.
 func (c *Core) RenameOwnServer(id, name string) error { return wrap(c.e.RenameOwnServer(id, name)) }
 
-// SetActiveOwnServer selects a server.
-func (c *Core) SetActiveOwnServer(id string) error { return wrap(c.e.SetActiveOwnServer(id)) }
+// --- chains ---------------------------------------------------------------------------------------------
+
+// ChainsJSON lists the saved chains ([]engine.ChainInfo).
+func (c *Core) ChainsJSON() string { return toJSON(c.e.Chains()) }
+
+// SaveChainJSON adds (no "id") or replaces an engine.Chain; returns its ID.
+func (c *Core) SaveChainJSON(s string) (string, error) {
+	var ch engine.Chain
+	if err := json.Unmarshal([]byte(s), &ch); err != nil {
+		return "", wrap(&engine.Error{Code: engine.CodeInvalidSettings, Detail: err.Error()})
+	}
+	id, err := c.e.SaveChain(ch)
+	return id, wrap(err)
+}
+
+// ValidateChainJSON returns the engine.Error JSON explaining why the chain cannot run, or "" when it can.
+func (c *Core) ValidateChainJSON(s string) string {
+	var ch engine.Chain
+	if err := json.Unmarshal([]byte(s), &ch); err != nil {
+		return toJSON(&engine.Error{Code: engine.CodeInvalidSettings, Detail: err.Error()})
+	}
+	if err := c.e.ValidateChain(ch); err != nil {
+		return toJSON(err)
+	}
+	return ""
+}
+
+// DeleteChain removes a chain.
+func (c *Core) DeleteChain(id string) error { return wrap(c.e.DeleteChain(id)) }
+
+// SetActiveChain selects the chain the proxy runs.
+func (c *Core) SetActiveChain(id string) error { return wrap(c.e.SetActiveChain(id)) }
 
 // --- routing and geo ------------------------------------------------------------------------------------
 

@@ -20,7 +20,6 @@ import (
 	"github.com/nuc134r/sockmnezia/core/engine"
 	"github.com/nuc134r/sockmnezia/core/routing"
 	"github.com/nuc134r/sockmnezia/core/runner"
-	"github.com/nuc134r/sockmnezia/core/xrayconf"
 )
 
 const usage = `sockmnezia — local SOCKS5/HTTP proxy for Amnezia Premium (VLESS), optionally via your own server
@@ -34,10 +33,14 @@ Amnezia:
   countries                  list locations from the last answer
 Own server:
   own add LINK [NAME]        add vless/vmess/trojan/ss/socks/http link or Xray outbound JSON
-  own list | own use ID | own rm ID
+  own list | own rm ID
+Chains (phone first, exit last; a hop is "amnezia" or an own server ID or name):
+  chain list                 list chains, * = active
+  chain add NAME HOP...      e.g. chain add work amnezia my-vps
+  chain set ID NAME HOP...   replace a chain
+  chain use ID | chain rm ID
 Settings:
-  mode amnezia|amnezia_own|own
-  set port N | user U | pass P | udp on|off | http PORT|off | listen IP | fetch-via-own on|off
+  set port N | user U | pass P | udp on|off | http PORT|off | listen IP | fetch-via SERVER|off
   regen                      new random port, username and password
   routing show | routing preset ID [--append] | routing import FILE | routing test HOST [PORT] [tcp|udp]
   geo update | geo tags site|ip
@@ -76,11 +79,14 @@ func explain(e *engine.Error) string {
 		engine.CodeCaptchaRequired:     "the gateway wants a CAPTCHA; connect once in the official Amnezia app, then retry",
 		engine.CodeSubscriptionExpired: "the subscription is not active or has expired",
 		engine.CodeGatewayWrongKey:     "no gateway key worked (old APK?) or something on the network answered instead of the gateway",
-		engine.CodeGatewayUnreachable:  "the gateway is unreachable; try 'set fetch-via-own on' with an own server",
+		engine.CodeGatewayUnreachable:  "the gateway is unreachable; try 'set fetch-via SERVER' or put an own server before Amnezia in the chain",
 		engine.CodeNoGatewayKey:        "run 'sockmnezia gateway-key <official APK or binary>' first",
 		engine.CodeNoConfig:            "run 'sockmnezia fetch' first",
 		engine.CodeGeoMissing:          "routing rules need geo files: run 'sockmnezia geo update'",
 		engine.CodePortInUse:           "the port is in use; 'sockmnezia set port N' or 'sockmnezia regen'",
+		engine.CodeServerInUse:         "remove it from these chains first",
+		engine.CodeHopNotChainable:     "a UDP transport can only be the first hop",
+		engine.CodeNoChain:             "add one with 'sockmnezia chain add'",
 	}[e.Code]
 	s := e.Code
 	if e.Field != "" {
@@ -181,28 +187,59 @@ func main() {
 			}
 			fmt.Println("added", id)
 		case "list":
-			s := e.Snapshot()
-			for _, o := range s.Own {
-				mark := " "
-				if o.ID == s.ActiveOwn {
-					mark = "*"
-				}
-				fmt.Printf("%s %s  %s  %s %s:%d %s/%s\n", mark, o.ID, o.Name, o.Server.Protocol, o.Server.Address, o.Server.Port, o.Server.Network, o.Server.Security)
-			}
-		case "use":
-			if err := e.SetActiveOwnServer(arg(2)); err != nil {
-				die(err)
+			for _, o := range e.Snapshot().Own {
+				fmt.Printf("%s  %s  %s %s:%d %s/%s\n", o.ID, o.Name, o.Server.Protocol, o.Server.Address, o.Server.Port, o.Server.Network, o.Server.Security)
 			}
 		case "rm":
-			if err := e.RemoveOwnServer(arg(2)); err != nil {
+			if err := e.RemoveOwnServer(parseHops(e, []string{arg(2)})[0].Server); err != nil {
 				die(err)
 			}
 		default:
-			die(fmt.Errorf("own add|list|use|rm"))
+			die(fmt.Errorf("own add|list|rm"))
 		}
-	case "mode":
-		set.Mode = xrayconf.Mode(arg(1))
-		saveSet()
+	case "chain":
+		switch arg(1) {
+		case "list":
+			for _, c := range e.Chains() {
+				mark := " "
+				if c.Active {
+					mark = "*"
+				}
+				var hops []string
+				for _, h := range c.Hops {
+					hops = append(hops, h.Name)
+				}
+				line := fmt.Sprintf("%s %s  %s  [%s]", mark, c.ID, c.Name, strings.Join(hops, " → "))
+				if c.Error != nil {
+					line += "  (" + explain(c.Error) + ")"
+				}
+				fmt.Println(line)
+			}
+		case "add", "set":
+			id, rest := "", args[2:]
+			if arg(1) == "set" {
+				id, rest = arg(2), args[3:]
+			}
+			if len(rest) < 2 {
+				die(fmt.Errorf("chain %s needs a name and at least one hop", arg(1)))
+			}
+			c := engine.Chain{ID: id, Name: rest[0], Hops: parseHops(e, rest[1:])}
+			id, err := e.SaveChain(c)
+			if err != nil {
+				die(err)
+			}
+			fmt.Println("saved", id)
+		case "use":
+			if err := e.SetActiveChain(arg(2)); err != nil {
+				die(err)
+			}
+		case "rm":
+			if err := e.DeleteChain(arg(2)); err != nil {
+				die(err)
+			}
+		default:
+			die(fmt.Errorf("chain list|add|set|use|rm"))
+		}
 	case "set":
 		v := arg(2)
 		switch arg(1) {
@@ -222,8 +259,11 @@ func main() {
 			}
 		case "listen":
 			set.Inbound.Listen = v
-		case "fetch-via-own":
-			set.Options.FetchViaOwn = onOff(v)
+		case "fetch-via":
+			set.Options.FetchVia = ""
+			if v != "off" {
+				set.Options.FetchVia = parseHops(e, []string{v})[0].Server
+			}
 		default:
 			die(fmt.Errorf("unknown setting %q", args[1]))
 		}
@@ -327,6 +367,30 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+}
+
+// parseHops turns "amnezia" and own server IDs or names into chain hops.
+func parseHops(e *engine.Engine, args []string) []engine.ChainHop {
+	own := e.Snapshot().Own
+	var hops []engine.ChainHop
+	for _, a := range args {
+		if strings.EqualFold(a, "amnezia") {
+			hops = append(hops, engine.ChainHop{Kind: engine.HopAmnezia})
+			continue
+		}
+		id := ""
+		for _, o := range own {
+			if o.ID == a || o.Name == a {
+				id = o.ID
+				break
+			}
+		}
+		if id == "" {
+			die(fmt.Errorf("no own server %q (see 'own list')", a))
+		}
+		hops = append(hops, engine.ChainHop{Kind: engine.HopServer, Server: id})
+	}
+	return hops
 }
 
 func printProxy(e *engine.Engine) {

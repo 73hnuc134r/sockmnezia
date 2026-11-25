@@ -24,15 +24,25 @@ func TestErrorsAreJSON(t *testing.T) {
 	if _, err := c.AddOwnServer("trojan://p@vps.example.com:443#v", ""); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(c.OwnServersJSON(), `"active":true`) || strings.Contains(c.OwnServersJSON(), "trojan://") {
+	if !strings.Contains(c.OwnServersJSON(), `"used_in":["v"]`) || strings.Contains(c.OwnServersJSON(), "trojan://") {
 		t.Fatal(c.OwnServersJSON())
 	}
+	// An older app sending "mode" is ignored.
 	var set map[string]any
 	json.Unmarshal([]byte(c.SettingsJSON()), &set)
 	set["mode"] = "own"
 	b, _ := json.Marshal(set)
 	if err := c.SetSettingsJSON(string(b)); err != nil {
 		t.Fatal(err)
+	}
+	if v := c.ValidateChainJSON(`{"hops":[{"kind":"amnezia"},{"kind":"amnezia"}]}`); !strings.Contains(v, `"chain_amnezia_twice"`) {
+		t.Fatal(v)
+	}
+	if v := c.ValidateChainJSON(`{"hops":[{"kind":"amnezia"}]}`); v != "" {
+		t.Fatal(v)
+	}
+	if !strings.Contains(c.ChainsJSON(), `"active":true`) {
+		t.Fatal(c.ChainsJSON())
 	}
 	if err := c.Start(); err != nil {
 		t.Fatal(err)

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/nuc134r/sockmnezia/core/account"
+	"github.com/nuc134r/sockmnezia/core/gateway"
 	"github.com/nuc134r/sockmnezia/core/links"
 	"github.com/nuc134r/sockmnezia/core/routing"
 	"github.com/nuc134r/sockmnezia/core/xrayconf"
@@ -39,15 +40,37 @@ type OwnServer struct {
 	Server *links.Server `json:"server"`
 }
 
+// Hop kinds in a saved chain.
+const (
+	HopAmnezia = "amnezia"
+	HopServer  = "server"
+)
+
+// ChainHop is one hop of a saved chain: Amnezia, or an own server by ID.
+type ChainHop struct {
+	Kind   string `json:"kind"`
+	Server string `json:"server,omitempty"` // OwnServer.ID when Kind is HopServer
+}
+
+// Chain is a saved, named chain of hops (phone first, exit last).
+type Chain struct {
+	ID   string     `json:"id"`
+	Name string     `json:"name"`
+	Hops []ChainHop `json:"hops"`
+}
+
 // Options are the remaining settings.
 type Options struct {
-	FetchViaOwn     bool   `json:"fetch_via_own"`     // send gateway requests through the active own server
-	GeoSource       string `json:"geo_source"`        // geo.Sources ID or "custom"
-	GeoCustomURL    string `json:"geo_custom_url"`    // https base URL when GeoSource is "custom"
-	GeoAutoUpdate   bool   `json:"geo_auto_update"`   // weekly, scheduled by the app
-	LogLevel        string `json:"log_level"`         // warning by default
-	ExitIPURL       string `json:"exit_ip_url"`       // plain-text "what is my IP" endpoint
-	RefreshAfterHrs int    `json:"refresh_after_hrs"` // re-fetch the Amnezia config on start when older (0 = never)
+	// FetchVia is an own server ID the gateway request goes through when the active chain has no hops
+	// before Amnezia ("" = direct). Hops before Amnezia are always used when there are any.
+	FetchVia          string `json:"fetch_via,omitempty"`
+	LegacyFetchViaOwn bool   `json:"fetch_via_own,omitempty"` // state v1; migrated to FetchVia
+	GeoSource         string `json:"geo_source"`              // geo.Sources ID or "custom"
+	GeoCustomURL      string `json:"geo_custom_url"`          // https base URL when GeoSource is "custom"
+	GeoAutoUpdate     bool   `json:"geo_auto_update"`         // weekly, scheduled by the app
+	LogLevel          string `json:"log_level"`               // warning by default
+	ExitIPURL         string `json:"exit_ip_url"`             // plain-text "what is my IP" endpoint
+	RefreshAfterHrs   int    `json:"refresh_after_hrs"`       // re-fetch the Amnezia config on start when older (0 = never)
 }
 
 // Amnezia is the subscription side of the state.
@@ -63,15 +86,21 @@ type Amnezia struct {
 
 // State is everything persisted.
 type State struct {
-	Version   int              `json:"version"`
-	Mode      xrayconf.Mode    `json:"mode"`
-	Amnezia   Amnezia          `json:"amnezia"`
-	Own       []OwnServer      `json:"own"`
-	ActiveOwn string           `json:"active_own,omitempty"`
-	Inbound   xrayconf.Inbound `json:"inbound"`
-	Routing   routing.Settings `json:"routing"`
-	Options   Options          `json:"options"`
+	Version     int              `json:"version"`
+	Amnezia     Amnezia          `json:"amnezia"`
+	Own         []OwnServer      `json:"own"`
+	Chains      []Chain          `json:"chains"`
+	ActiveChain string           `json:"active_chain,omitempty"`
+	Inbound     xrayconf.Inbound `json:"inbound"`
+	Routing     routing.Settings `json:"routing"`
+	Options     Options          `json:"options"`
+
+	// State v1 (three fixed modes); migrated to Chains on load.
+	LegacyMode      xrayconf.Mode `json:"mode,omitempty"`
+	LegacyActiveOwn string        `json:"active_own,omitempty"`
 }
+
+const stateVersion = 2
 
 const stateFile = "state.bin"
 
@@ -131,11 +160,19 @@ func RandomUser() string { return randString(userAlphabet, 16) }
 // RandomPassword returns a 32-character password (~187 bits).
 func RandomPassword() string { return randString(passAlphabet, 32) }
 
+func newID() string { return gateway.NewUUID() }
+
+func amneziaChain() Chain {
+	return Chain{ID: newID(), Name: "Amnezia", Hops: []ChainHop{{Kind: HopAmnezia}}}
+}
+
 func defaultState() *State {
+	amz := amneziaChain()
 	return &State{
-		Version: 1,
-		Mode:    xrayconf.ModeAmnezia,
-		Amnezia: Amnezia{Identity: account.NewIdentity()},
+		Version:     stateVersion,
+		Chains:      []Chain{amz},
+		ActiveChain: amz.ID,
+		Amnezia:     Amnezia{Identity: account.NewIdentity()},
 		Inbound: xrayconf.Inbound{
 			Listen:    "127.0.0.1",
 			SocksPort: RandomPort("127.0.0.1"),
@@ -165,13 +202,51 @@ func load(dir string, box SecretBox) (*State, error) {
 		return nil, fmt.Errorf("state cannot be decrypted: %w", err)
 	}
 	st := defaultState()
+	st.Version, st.Chains, st.ActiveChain = 0, nil, "" // the file says what it has; a v1 file has no chains
 	if err := json.Unmarshal(plain, st); err != nil {
 		return nil, fmt.Errorf("state is corrupt: %w", err)
 	}
+	migrate(st)
 	if !st.Amnezia.Identity.Valid() {
 		st.Amnezia.Identity = account.NewIdentity()
 	}
 	return st, nil
+}
+
+// migrate upgrades an older state in place. v1 -> v2: the three modes become saved chains built from the
+// server that was active ("Amnezia", "Amnezia → <server>", "<server>"), and the chain matching the old mode
+// becomes active. "Fetch through my own server" becomes "fetch through <that server>".
+func migrate(st *State) {
+	if st.Version < 2 {
+		amz := amneziaChain()
+		st.Chains, st.ActiveChain = []Chain{amz}, amz.ID
+		var own *OwnServer
+		for i := range st.Own {
+			if st.Own[i].ID == st.LegacyActiveOwn {
+				own = &st.Own[i]
+			}
+		}
+		if own == nil && len(st.Own) > 0 {
+			own = &st.Own[0]
+		}
+		if own != nil {
+			srv := ChainHop{Kind: HopServer, Server: own.ID}
+			via := Chain{ID: newID(), Name: "Amnezia → " + own.Name, Hops: []ChainHop{{Kind: HopAmnezia}, srv}}
+			only := Chain{ID: newID(), Name: own.Name, Hops: []ChainHop{srv}}
+			st.Chains = append(st.Chains, via, only)
+			switch st.LegacyMode {
+			case xrayconf.ModeAmneziaOwn:
+				st.ActiveChain = via.ID
+			case xrayconf.ModeOwn:
+				st.ActiveChain = only.ID
+			}
+			if st.Options.LegacyFetchViaOwn {
+				st.Options.FetchVia = own.ID
+			}
+		}
+	}
+	st.LegacyMode, st.LegacyActiveOwn, st.Options.LegacyFetchViaOwn = "", "", false
+	st.Version = stateVersion
 }
 
 func save(dir string, box SecretBox, st *State) error {
