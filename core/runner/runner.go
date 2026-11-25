@@ -34,14 +34,18 @@ func Start(cfg []byte) (*Instance, error) {
 	}
 	inst, err := core.New(pb)
 	if err != nil {
+		reinstall()
 		return nil, fmt.Errorf("config: %w", err)
 	}
+	i := &Instance{inst: inst}
+	register(i) // before Start: core.New replaced the dialer globals
 	if err := inst.Start(); err != nil {
+		unregister(i)
 		inst.Close()
 		return nil, err
 	}
 	attachLog()
-	return &Instance{inst: inst}, nil
+	return i, nil
 }
 
 // Check loads cfg without starting anything (config validation by Xray itself).
@@ -51,6 +55,7 @@ func Check(cfg []byte) error {
 		return err
 	}
 	inst, err := core.New(pb)
+	reinstall() // core.New replaced the dialer globals
 	if err != nil {
 		return err
 	}
@@ -62,6 +67,7 @@ func (i *Instance) Close() error {
 	if i.closed.Swap(true) {
 		return nil
 	}
+	unregister(i)
 	return i.inst.Close()
 }
 

@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
+	"sync/atomic"
 
 	"github.com/nuc134r/sockmnezia/core/links"
 	"github.com/nuc134r/sockmnezia/core/routing"
@@ -457,14 +459,31 @@ func Build(s Spec) ([]byte, error) {
 	return b, nil
 }
 
+var dialerSeq atomic.Uint64
+
 // BuildDialer returns a config with no inbounds whose only route is the given chain; used for in-process
 // requests (connection check, location ping, gateway fetch through earlier hops) with no listening port.
+// Its tags get a unique prefix ("t<N>-"): Xray resolves dialerProxy through one process-wide registry of
+// live instances (see runner), so a temporary instance must not reuse the running proxy's tags.
 func BuildDialer(hops []Hop) ([]byte, error) {
 	outs, head, err := Outbounds(hops)
 	if err != nil {
 		return nil, err
 	}
+	ns := fmt.Sprintf("t%d-", dialerSeq.Add(1))
+	for _, o := range outs {
+		o["tag"] = ns + o["tag"].(string)
+		if d := dialerProxy(o); d != "" {
+			setDialerProxy(o, ns+d)
+		}
+	}
+	head = ns + head
 	rules, _ := routing.Default().Compile(head)
+	for _, r := range rules {
+		if t, _ := r["outboundTag"].(string); t != "" && !strings.HasPrefix(t, ns) {
+			r["outboundTag"] = ns + t
+		}
+	}
 	l := make([]any, len(outs))
 	for i, o := range outs {
 		l[i] = o

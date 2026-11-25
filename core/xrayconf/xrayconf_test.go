@@ -312,8 +312,26 @@ func TestBuildDialer(t *testing.T) {
 	}
 	var m map[string]any
 	json.Unmarshal(b, &m)
-	if m["inbounds"] != nil || outs(m)[0]["tag"] != "hop1" {
+	first := outs(m)[0]["tag"].(string)
+	if m["inbounds"] != nil || !strings.HasPrefix(first, "t") || !strings.HasSuffix(first, "-hop1") {
 		t.Fatal(string(b))
+	}
+	// Every temporary config gets its own tags, all references included.
+	b2, _ := BuildDialer([]Hop{AmneziaHop(amz(t)), OwnHop(own(t, vpsLink))})
+	json.Unmarshal(b2, &m)
+	ns := strings.TrimSuffix(outs(m)[0]["tag"].(string), "hop2")
+	if ns == strings.TrimSuffix(first, "hop1") {
+		t.Fatal("namespace reused")
+	}
+	for _, o := range outs(m) {
+		if !strings.HasPrefix(o["tag"].(string), ns) || (dialer(o) != nil && !strings.HasPrefix(dialer(o).(string), ns)) {
+			t.Fatalf("%v", o)
+		}
+	}
+	for _, r := range m["routing"].(map[string]any)["rules"].([]any) {
+		if !strings.HasPrefix(r.(map[string]any)["outboundTag"].(string), ns) {
+			t.Fatalf("%v", r)
+		}
 	}
 }
 
