@@ -169,6 +169,10 @@
     <string name="geo_update_now">Update now</string>
     <string name="downloading">Downloading…</string>
     <string name="geo_updated">Geo files updated</string>
+    <string name="geo_progress">%1$s (%2$d of %3$d): %4$s</string>
+    <string name="geo_progress_of">%1$s of %2$s</string>
+    <string name="geo_verifying">verifying…</string>
+    <string name="geo_connecting">Connecting…</string>
     <string name="geo_auto">Update weekly</string>
     <string name="geo_auto_hint">Over Wi-Fi; through the proxy while it runs.</string>
     <string name="preset_apply_q">Replace your rules with this preset or add it to them?</string>
@@ -280,6 +284,7 @@
     <string name="err_gateway_error">Amnezia gateway error.</string>
     <string name="err_no_config">No Amnezia configuration yet. Get it in Subscription.</string>
     <string name="err_no_own_server">The server is gone; pick another one.</string>
+    <string name="err_geo_busy">Geo files are already being updated.</string>
     <string name="err_no_chain">Choose or create a chain first.</string>
     <string name="err_server_in_use">The server is used in chains; remove it from them first:</string>
     <string name="err_chain_empty">Add at least one hop.</string>

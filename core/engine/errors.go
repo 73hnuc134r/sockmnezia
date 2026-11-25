@@ -35,6 +35,7 @@ const (
 	CodeUnsupportedLink       = "unsupported_link"
 	CodeInvalidLink           = "invalid_link"
 	CodeNotRunning            = "not_running"
+	CodeGeoBusy               = "geo_busy"      // a geo update is already running
 	CodeNoChain               = "no_chain"      // no chain saved/selected
 	CodeServerInUse           = "server_in_use" // Detail: names of the chains using it
 	CodeChainEmpty            = "chain_empty"

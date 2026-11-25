@@ -40,6 +40,9 @@ type Engine struct {
 	inst      *runner.Instance
 	startedAt time.Time
 	lastErr   *Error
+
+	geoBusy sync.Mutex                   // one geo update at a time (button and weekly job)
+	geoProg atomic.Pointer[geo.Progress] // progress of the running geo update, nil when none runs
 }
 
 // Open loads (or creates) the state in dir.
@@ -715,9 +718,25 @@ func (e *Engine) GeoTags(kind string) ([]string, error) {
 	return tags, nil
 }
 
+// GeoProgress is the progress of the running geo update, or nil when none runs.
+func (e *Engine) GeoProgress() *geo.Progress {
+	if p := e.geoProg.Load(); p != nil {
+		c := *p
+		return &c
+	}
+	return nil
+}
+
 // UpdateGeo downloads geo files from the selected source. While the proxy runs the download goes through
-// it (not visible on the local network) and the proxy is restarted to load the new files.
+// it (not visible on the local network) and the proxy is restarted to load the new files. Progress is
+// readable with GeoProgress while it runs; a second call meanwhile fails with CodeGeoBusy.
 func (e *Engine) UpdateGeo(ctx context.Context) error {
+	if !e.geoBusy.TryLock() {
+		return newErr(CodeGeoBusy, errors.New("a geo update is already running"))
+	}
+	defer e.geoBusy.Unlock()
+	e.geoProg.Store(&geo.Progress{Count: 2, Total: -1})
+	defer e.geoProg.Store(nil)
 	e.mu.Lock()
 	src := e.st.Options.GeoSource
 	base := e.st.Options.GeoCustomURL
@@ -730,7 +749,8 @@ func (e *Engine) UpdateGeo(ctx context.Context) error {
 	if inst != nil {
 		client = inst.HTTPClient(5 * time.Minute)
 	}
-	if err := geo.Download(ctx, client, base, e.GeoDir(), src != "custom"); err != nil {
+	report := func(p geo.Progress) { e.geoProg.Store(&p) }
+	if err := geo.Download(ctx, client, base, e.GeoDir(), src != "custom", report); err != nil {
 		return newErr(CodeNetwork, err)
 	}
 	runner.Record("info", "geo files updated")

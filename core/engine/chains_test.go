@@ -144,3 +144,15 @@ func TestFetchHops(t *testing.T) {
 		t.Fatal("hops before Amnezia not used for the fetch")
 	}
 }
+
+func TestGeoUpdateOneAtATime(t *testing.T) {
+	e, _ := Open(t.TempDir(), nil, "linux")
+	if e.GeoProgress() != nil {
+		t.Fatal("progress without an update")
+	}
+	e.geoBusy.Lock() // an update is running
+	if err := e.UpdateGeo(context.Background()); code(err) != CodeGeoBusy {
+		t.Fatal(err)
+	}
+	e.geoBusy.Unlock()
+}

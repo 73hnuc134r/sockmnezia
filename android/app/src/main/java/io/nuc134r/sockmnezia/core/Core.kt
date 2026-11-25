@@ -193,6 +193,10 @@ object Core {
 
     suspend fun updateGeo() = call { it.updateGeo() }.also { changed() }
 
+    /** Progress of the running geo update (started here or by the weekly job), null when none runs. */
+    suspend fun geoProgress(): GeoProgress? =
+        call { it.geoProgressJSON() }.takeIf { it.isNotBlank() }?.let { CoreJson.decodeFromString(GeoProgress.serializer(), it) }
+
     // --- updates -------------------------------------------------------------------------------------
     private val _update = MutableStateFlow<UpdateInfo?>(null)
     val update: StateFlow<UpdateInfo?> = _update.asStateFlow()

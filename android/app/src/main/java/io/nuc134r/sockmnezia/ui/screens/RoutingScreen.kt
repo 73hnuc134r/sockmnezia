@@ -22,6 +22,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
+import io.nuc134r.sockmnezia.core.GeoProgress
 import io.nuc134r.sockmnezia.core.GeoStatus
 import io.nuc134r.sockmnezia.core.Rule
 import io.nuc134r.sockmnezia.core.Settings
@@ -56,7 +58,9 @@ import io.nuc134r.sockmnezia.ui.Section
 import io.nuc134r.sockmnezia.ui.SwitchRow
 import io.nuc134r.sockmnezia.ui.act
 import io.nuc134r.sockmnezia.ui.copy
+import io.nuc134r.sockmnezia.ui.formatBytes
 import io.nuc134r.sockmnezia.ui.paste
+import kotlinx.coroutines.delay
 import java.text.DateFormat
 import java.util.Date
 
@@ -88,6 +92,13 @@ fun RoutingScreen(nav: NavController) {
     var geo by remember { mutableStateOf(GeoStatus()) }
     var presetFor by remember { mutableStateOf<String?>(null) }
     var geoBusy by remember { mutableStateOf(false) }
+    var geoProgress by remember { mutableStateOf<GeoProgress?>(null) }
+    LaunchedEffect(Unit) { // fast while an update runs (from here or the weekly job), slow otherwise
+        while (true) {
+            geoProgress = runCatching { Core.geoProgress() }.getOrNull()
+            delay(if (geoBusy || geoProgress != null) 250 else 2000)
+        }
+    }
     LaunchedEffect(revision) {
         runCatching { settings = Core.settings() }
         runCatching { geo = Core.geoStatus() }
@@ -199,12 +210,13 @@ fun RoutingScreen(nav: NavController) {
                         stringResource(R.string.geo_status_ok, DateFormat.getDateInstance().format(Date((geo.updated ?: 0) * 1000)))
                     } else stringResource(R.string.geo_status_missing),
                 )
-                OutlinedButton(enabled = !geoBusy, onClick = {
+                geoProgress?.let { GeoProgressBar(it) }
+                OutlinedButton(enabled = !geoBusy && geoProgress == null, onClick = {
                     geoBusy = true
                     scope.act(ctx, snackbar, ok = res.getString(R.string.geo_updated)) {
                         try { Core.updateGeo() } finally { geoBusy = false }
                     }
-                }) { Text(stringResource(if (geoBusy) R.string.downloading else R.string.geo_update_now)) }
+                }) { Text(stringResource(if (geoBusy || geoProgress != null) R.string.downloading else R.string.geo_update_now)) }
                 SwitchRow(stringResource(R.string.geo_auto), s.options.geoAutoUpdate, stringResource(R.string.geo_auto_hint)) {
                     save(opts = s.options.copy(geoAutoUpdate = it))
                 }
@@ -273,6 +285,25 @@ private fun MoreMenu(onImport: () -> Unit, onExport: () -> Unit) {
 }
 
 /** A dropdown button choosing one of [options] (key to label). */
+/** "geosite.dat (2 of 2): 12.3 MiB of 20.1 MiB" over a progress bar (indeterminate while the size is unknown). */
+@Composable
+private fun GeoProgressBar(p: GeoProgress) {
+    val f = p.fraction
+    if (f != null && !p.verifying) {
+        LinearProgressIndicator(progress = { f }, modifier = Modifier.fillMaxWidth())
+    } else {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+    }
+    val bytes = if (p.total > 0) stringResource(R.string.geo_progress_of, formatBytes(p.done), formatBytes(p.total)) else formatBytes(p.done)
+    Hint(
+        when {
+            p.file.isEmpty() -> stringResource(R.string.geo_connecting)
+            p.verifying -> stringResource(R.string.geo_progress, p.file, p.index, p.count, stringResource(R.string.geo_verifying))
+            else -> stringResource(R.string.geo_progress, p.file, p.index, p.count, bytes)
+        },
+    )
+}
+
 @Composable
 fun Choice(options: List<Pair<String, String>>, selected: String, onPick: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }

@@ -56,6 +56,7 @@ fun errorText(ctx: Context, e: CoreError): String {
         "invalid_link" -> R.string.err_invalid_link
         "not_running" -> R.string.err_not_running
         "network" -> R.string.err_network
+        "geo_busy" -> R.string.err_geo_busy
         "no_chain" -> R.string.err_no_chain
         "server_in_use" -> R.string.err_server_in_use
         "chain_empty" -> R.string.err_chain_empty
@@ -66,7 +67,7 @@ fun errorText(ctx: Context, e: CoreError): String {
     }
     val base = ctx.getString(res)
     return if (e.detail.isNullOrBlank() || e.code in setOf(
-            "device_limit", "captcha_required", "not_running", "no_chain",
+            "device_limit", "captcha_required", "not_running", "no_chain", "geo_busy",
             "chain_empty", "chain_too_long", "chain_amnezia_twice", "hop_not_chainable",
         )) base
     else "$base\n${e.detail}"

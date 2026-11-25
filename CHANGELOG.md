@@ -3,6 +3,11 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## Unreleased
+
+- Routing → Geo files: updating shows progress (which file, downloaded of total size, then verifying),
+  also when the weekly update runs while the app is open. Only one update runs at a time.
+
 ## 1.0.0
 
 Multihop: sockmnezia is now a chain builder. Amnezia is one possible hop, alongside your own servers.

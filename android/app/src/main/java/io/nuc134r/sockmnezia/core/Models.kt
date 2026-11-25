@@ -135,6 +135,21 @@ data class OwnServer(
     @SerialName("used_in") val usedIn: List<String> = emptyList(),
 )
 
+/** Progress of a running geo update: file [index] of [count], [done] of [total] bytes (-1 = unknown). */
+@Serializable
+data class GeoProgress(
+    val file: String = "",
+    val index: Int = 0,
+    val count: Int = 2,
+    val done: Long = 0,
+    val total: Long = -1,
+    val verifying: Boolean = false,
+) {
+    /** 0..1 over both files, or null while the size is unknown. */
+    val fraction: Float?
+        get() = if (total > 0 && index > 0) ((index - 1) + done.toFloat() / total) / count else null
+}
+
 /** What importing shared text adds (or would add, in a dry run). */
 @Serializable
 data class ImportResult(

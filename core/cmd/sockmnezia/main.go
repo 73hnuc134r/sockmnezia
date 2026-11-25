@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/nuc134r/sockmnezia/core/engine"
+	"github.com/nuc134r/sockmnezia/core/geo"
 	"github.com/nuc134r/sockmnezia/core/routing"
 	"github.com/nuc134r/sockmnezia/core/runner"
 )
@@ -357,7 +358,25 @@ func main() {
 	case "geo":
 		switch arg(1) {
 		case "update":
-			if err := e.UpdateGeo(ctx); err != nil {
+			done := make(chan struct{})
+			go func() { // progress line on stderr
+				t := time.NewTicker(200 * time.Millisecond)
+				defer t.Stop()
+				for {
+					select {
+					case <-done:
+						return
+					case <-t.C:
+						if p := e.GeoProgress(); p != nil && p.File != "" {
+							fmt.Fprintf(os.Stderr, "\r\033[K%s", geoProgressLine(*p))
+						}
+					}
+				}
+			}()
+			err := e.UpdateGeo(ctx)
+			close(done)
+			fmt.Fprint(os.Stderr, "\r\033[K")
+			if err != nil {
 				die(err)
 			}
 			fmt.Println("geo files updated")
@@ -403,6 +422,18 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+}
+
+func geoProgressLine(p geo.Progress) string {
+	mib := func(n int64) string { return fmt.Sprintf("%.1f MiB", float64(n)/(1<<20)) }
+	line := fmt.Sprintf("%s (%d/%d): %s", p.File, p.Index, p.Count, mib(p.Done))
+	if p.Total > 0 {
+		line += fmt.Sprintf(" of %s (%d%%)", mib(p.Total), p.Done*100/p.Total)
+	}
+	if p.Verifying {
+		line += ", verifying"
+	}
+	return line
 }
 
 // parseHops turns "amnezia" and own server IDs or names into chain hops.

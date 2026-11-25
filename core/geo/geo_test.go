@@ -47,7 +47,7 @@ func fixtures(t *testing.T) map[string][]byte {
 func TestDownloadAndTags(t *testing.T) {
 	srv := serve(t, fixtures(t))
 	dir := t.TempDir()
-	if err := geo.Download(context.Background(), srv.Client(), srv.URL+"/dl", dir, true); err != nil {
+	if err := geo.Download(context.Background(), srv.Client(), srv.URL+"/dl", dir, true, nil); err != nil {
 		t.Fatal(err)
 	}
 	st := geo.Stat(dir)
@@ -72,14 +72,14 @@ func TestChecksumMismatchKeepsOldFiles(t *testing.T) {
 	f := fixtures(t)
 	dir := t.TempDir()
 	srv := serve(t, f)
-	if err := geo.Download(context.Background(), srv.Client(), srv.URL+"/dl", dir, true); err != nil {
+	if err := geo.Download(context.Background(), srv.Client(), srv.URL+"/dl", dir, true, nil); err != nil {
 		t.Fatal(err)
 	}
 	before, _ := os.ReadFile(filepath.Join(dir, geo.GeoIP))
 	f["/dl/geosite.dat"] = append([]byte{}, f["/dl/geosite.dat"]...)
 	f["/dl/geosite.dat"][3] ^= 0xff
 	srv2 := serve(t, f)
-	err := geo.Download(context.Background(), srv2.Client(), srv2.URL+"/dl", dir, true)
+	err := geo.Download(context.Background(), srv2.Client(), srv2.URL+"/dl", dir, true, nil)
 	if !errors.Is(err, geo.ErrChecksum) {
 		t.Fatalf("want ErrChecksum, got %v", err)
 	}
@@ -120,18 +120,40 @@ func TestChecksumRequiredAndJunk(t *testing.T) {
 	f := fixtures(t)
 	delete(f, "/dl/geoip.dat.sha256sum")
 	srv := serve(t, f)
-	if err := geo.Download(context.Background(), srv.Client(), srv.URL+"/dl", t.TempDir(), true); err == nil {
+	if err := geo.Download(context.Background(), srv.Client(), srv.URL+"/dl", t.TempDir(), true, nil); err == nil {
 		t.Fatal("missing checksum accepted")
 	}
-	if err := geo.Download(context.Background(), srv.Client(), srv.URL+"/dl", t.TempDir(), false); err != nil {
+	if err := geo.Download(context.Background(), srv.Client(), srv.URL+"/dl", t.TempDir(), false, nil); err != nil {
 		t.Fatal(err)
 	}
 	f2 := map[string][]byte{"/dl/geoip.dat": []byte("<html>not a geo file</html>"), "/dl/geosite.dat": []byte("x")}
 	srv2 := serve(t, f2)
-	if err := geo.Download(context.Background(), srv2.Client(), srv2.URL+"/dl", t.TempDir(), false); err == nil {
+	if err := geo.Download(context.Background(), srv2.Client(), srv2.URL+"/dl", t.TempDir(), false, nil); err == nil {
 		t.Fatal("junk accepted")
 	}
-	if err := geo.Download(context.Background(), srv.Client(), "http://example.com/dl", t.TempDir(), false); err == nil {
+	if err := geo.Download(context.Background(), srv.Client(), "http://example.com/dl", t.TempDir(), false, nil); err == nil {
 		t.Fatal("http source accepted")
+	}
+}
+
+func TestDownloadProgress(t *testing.T) {
+	f := fixtures(t)
+	srv := serve(t, f)
+	var got []geo.Progress
+	if err := geo.Download(context.Background(), srv.Client(), srv.URL+"/dl", t.TempDir(), true, func(p geo.Progress) { got = append(got, p) }); err != nil {
+		t.Fatal(err)
+	}
+	last := map[string]geo.Progress{}
+	for i, p := range got {
+		if p.Count != 2 || (i > 0 && p.Index < got[i-1].Index) || (i > 0 && p.Index == got[i-1].Index && p.Done < got[i-1].Done) {
+			t.Fatalf("progress goes backwards at %d: %+v", i, got)
+		}
+		last[p.File] = p
+	}
+	for i, name := range []string{geo.GeoIP, geo.GeoSite} {
+		p, size := last[name], int64(len(f["/dl/"+name]))
+		if p.Index != i+1 || p.Done != size || p.Total != size || !p.Verifying {
+			t.Fatalf("%s: %+v (size %d)", name, p, size)
+		}
 	}
 }

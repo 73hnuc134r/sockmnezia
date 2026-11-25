@@ -88,10 +88,37 @@ const MaxSize = 200 << 20
 // ErrChecksum means the file did not match its published SHA-256.
 var ErrChecksum = errors.New("checksum mismatch")
 
+// Progress reports a running Download: file Index (1-based) of Count, bytes Done of Total (Total is -1 when
+// the server sends no length), then Verifying while the file is checked (checksum, geo format).
+type Progress struct {
+	File      string `json:"file"`
+	Index     int    `json:"index"`
+	Count     int    `json:"count"`
+	Done      int64  `json:"done"`
+	Total     int64  `json:"total"`
+	Verifying bool   `json:"verifying"`
+}
+
+// countingWriter reports the bytes written so far.
+type countingWriter struct {
+	n  int64
+	on func(int64)
+}
+
+func (w *countingWriter) Write(p []byte) (int, error) {
+	w.n += int64(len(p))
+	w.on(w.n)
+	return len(p), nil
+}
+
 // Download fetches both files from src into dir. Each file is verified against "<file>.sha256sum" when the
 // source publishes one (requireChecksum makes a missing checksum an error), written to a temp file and renamed
 // into place only after both succeeded. client decides the network path (e.g. through the running proxy).
-func Download(ctx context.Context, client *http.Client, baseURL, dir string, requireChecksum bool) error {
+// progress (may be nil) is called as bytes arrive, from the calling goroutine.
+func Download(ctx context.Context, client *http.Client, baseURL, dir string, requireChecksum bool, progress func(Progress)) error {
+	if progress == nil {
+		progress = func(Progress) {}
+	}
 	if !strings.HasPrefix(baseURL, "https://") {
 		return errors.New("geo source must be an https:// URL")
 	}
@@ -104,8 +131,14 @@ func Download(ctx context.Context, client *http.Client, baseURL, dir string, req
 			os.Remove(t)
 		}
 	}()
-	for _, name := range []string{GeoIP, GeoSite} {
-		tmp, err := fetch(ctx, client, strings.TrimRight(baseURL, "/")+"/"+name, dir, requireChecksum)
+	names := []string{GeoIP, GeoSite}
+	for i, name := range names {
+		p := Progress{File: name, Index: i + 1, Count: len(names), Total: -1}
+		report := func(f func(*Progress)) {
+			f(&p)
+			progress(p)
+		}
+		tmp, err := fetch(ctx, client, strings.TrimRight(baseURL, "/")+"/"+name, dir, requireChecksum, report)
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
@@ -136,7 +169,7 @@ func get(ctx context.Context, client *http.Client, url string) (*http.Response, 
 	return resp, nil
 }
 
-func fetch(ctx context.Context, client *http.Client, url, dir string, requireChecksum bool) (string, error) {
+func fetch(ctx context.Context, client *http.Client, url, dir string, requireChecksum bool, report func(func(*Progress))) (string, error) {
 	want := ""
 	if resp, err := get(ctx, client, url+".sha256sum"); err == nil {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
@@ -153,12 +186,19 @@ func fetch(ctx context.Context, client *http.Client, url, dir string, requireChe
 		return "", err
 	}
 	defer resp.Body.Close()
+	total := resp.ContentLength // -1 when unknown
+	if total > MaxSize {
+		return "", errors.New("file too large")
+	}
+	report(func(p *Progress) { p.Total = total })
 	f, err := os.CreateTemp(dir, ".geo-*")
 	if err != nil {
 		return "", err
 	}
 	h := sha256.New()
-	n, err := io.Copy(io.MultiWriter(f, h), io.LimitReader(resp.Body, MaxSize+1))
+	cw := &countingWriter{on: func(n int64) { report(func(p *Progress) { p.Done = n }) }}
+	n, err := io.Copy(io.MultiWriter(f, h, cw), io.LimitReader(resp.Body, MaxSize+1))
+	report(func(p *Progress) { p.Verifying = true })
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}

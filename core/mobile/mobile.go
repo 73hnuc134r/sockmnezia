@@ -355,7 +355,15 @@ func (c *Core) GeoTagsJSON(kind string) (string, error) {
 	return toJSON(t), nil
 }
 
-// UpdateGeo downloads geo files (through the proxy when it runs).
+// GeoProgressJSON returns the running geo update's geo.Progress JSON, or "" when none runs.
+func (c *Core) GeoProgressJSON() string {
+	if p := c.e.GeoProgress(); p != nil {
+		return toJSON(p)
+	}
+	return ""
+}
+
+// UpdateGeo downloads geo files (through the proxy when it runs); see GeoProgressJSON.
 func (c *Core) UpdateGeo() error {
 	cx, cancel := ctx(10 * time.Minute)
 	defer cancel()
