@@ -211,16 +211,17 @@ func TestOwnServersAndSettings(t *testing.T) {
 	}
 	id2, _ := e.AddOwnServer("trojan://p@two.example.com:443", "Second")
 	s := e.Snapshot()
-	// The first server gets a chain of its own, active because Amnezia is not set up.
-	if s.Own[1].Name != "Second" || len(s.Chains) != 2 || s.ActiveChain != s.Chains[1].ID ||
-		s.Chains[1].Hops[0].Server != id1 || s.Chains[1].Name != "one" {
+	// The first server is selected on its own (no chain), because Amnezia is not set up.
+	if s.Own[1].Name != "Second" || len(s.Chains) != 1 || s.ActiveServer != id1 || s.ActiveChain != "" {
 		t.Fatalf("%+v", s)
 	}
+	cid, _ := e.SaveChain(Chain{Name: "pair", Hops: []ChainHop{{Kind: HopServer, Server: id2}, {Kind: HopServer, Server: id1}}})
+	if err := e.RemoveOwnServer(id2); code(err) != CodeServerInUse || !strings.Contains(err.(*Error).Detail, "pair") {
+		t.Fatal("a server used by a chain was deleted", err)
+	}
+	e.DeleteChain(cid)
 	if err := e.RemoveOwnServer(id2); err != nil {
 		t.Fatal(err)
-	}
-	if err := e.RemoveOwnServer(id1); code(err) != CodeServerInUse || !strings.Contains(err.(*Error).Detail, "one") {
-		t.Fatal("a server used by a chain was deleted", err)
 	}
 
 	set := e.GetSettings()

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nuc134r/sockmnezia/core/links"
 	"github.com/nuc134r/sockmnezia/core/xrayconf"
@@ -50,7 +51,7 @@ func TestChainsSaveSwitchDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := e.Chains(); len(got) != 3 || got[2].Name != "a → b" || got[2].Active || got[2].Hops[1].Name != "b" {
+	if got := e.Chains(); len(got) != 2 || got[1].Name != "a → b" || got[1].Active || got[1].Hops[1].Name != "b" {
 		t.Fatalf("%+v", got)
 	}
 	if err := e.SetActiveChain(id); err != nil {
@@ -86,7 +87,7 @@ func TestChainsSaveSwitchDelete(t *testing.T) {
 }
 
 func TestMigrateV1(t *testing.T) {
-	for mode, want := range map[xrayconf.Mode]int{xrayconf.ModeAmnezia: 0, xrayconf.ModeAmneziaOwn: 1, xrayconf.ModeOwn: 2} {
+	for mode, want := range map[xrayconf.Mode]int{xrayconf.ModeAmnezia: 0, xrayconf.ModeAmneziaOwn: 1, xrayconf.ModeOwn: -1} {
 		dir := t.TempDir()
 		e, _ := Open(dir, nil, "linux")
 		id, _ := e.AddOwnServer("trojan://p@vps.example.com:443#vps", "")
@@ -97,6 +98,7 @@ func TestMigrateV1(t *testing.T) {
 		json.Unmarshal(b, &m)
 		delete(m, "chains")
 		delete(m, "active_chain")
+		delete(m, "active_server")
 		m["version"], m["mode"], m["active_own"] = 1, string(mode), id
 		m["options"].(map[string]any)["fetch_via_own"] = true
 		b, _ = json.Marshal(m)
@@ -107,10 +109,15 @@ func TestMigrateV1(t *testing.T) {
 			t.Fatal(err)
 		}
 		s := e.Snapshot()
-		if s.Version != 2 || len(s.Chains) != 3 || s.ActiveChain != s.Chains[want].ID || s.LegacyMode != "" || s.LegacyActiveOwn != "" {
+		// "Own server only" selects the server itself; the other modes select a chain.
+		ok := s.ActiveServer == id && s.ActiveChain == ""
+		if want >= 0 {
+			ok = s.ActiveServer == "" && s.ActiveChain == s.Chains[want].ID
+		}
+		if s.Version != 2 || len(s.Chains) != 2 || !ok || s.LegacyMode != "" || s.LegacyActiveOwn != "" {
 			t.Fatalf("%s: %+v", mode, s)
 		}
-		if s.Chains[1].Name != "Amnezia → vps" || s.Chains[1].Hops[1].Server != id || s.Chains[2].Hops[0].Server != id {
+		if s.Chains[1].Name != "Amnezia → vps" || s.Chains[1].Hops[1].Server != id {
 			t.Fatalf("%+v", s.Chains)
 		}
 		if s.Options.FetchVia != id || s.Options.LegacyFetchViaOwn {
@@ -138,7 +145,7 @@ func TestFetchHops(t *testing.T) {
 		t.Fatal("fetch_via ignored")
 	}
 	c := Chain{ID: "x", Hops: []ChainHop{{Kind: HopServer, Server: a}, {Kind: HopAmnezia}}}
-	e.st.Chains, e.st.ActiveChain = append(e.st.Chains, c), "x"
+	e.st.Chains, e.st.ActiveChain, e.st.ActiveServer = append(e.st.Chains, c), "x", ""
 	e.st.Options.FetchVia = ""
 	if h, _ := e.fetchHopsLocked(); len(h) != 1 {
 		t.Fatal("hops before Amnezia not used for the fetch")
@@ -155,4 +162,65 @@ func TestGeoUpdateOneAtATime(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.geoBusy.Unlock()
+}
+
+func TestSingleServerSelection(t *testing.T) {
+	e, _ := Open(t.TempDir(), nil, "linux")
+	e.SetKey("") // no Amnezia: the first server is selected on its own
+	a, _ := e.AddOwnServer("trojan://p@a.example.com:443#a", "")
+	b, _ := e.AddOwnServer("trojan://p@b.example.com:443#b", "")
+	if st := e.Status(); st.ServerID != a || st.ChainID != "" || st.ChainName != "a" || len(st.Hops) != 1 {
+		t.Fatalf("%+v", st)
+	}
+	if err := e.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	defer e.Stop()
+	// Selecting a chain clears the server and the other way round; chains list it as active only then.
+	amz := e.Chains()[0].ID
+	if err := e.SetActiveServer(b); err != nil || e.Status().ServerID != b || e.Chains()[0].Active {
+		t.Fatal(err)
+	}
+	e.SetActiveChain(amz) // fails to restart (no Amnezia config) but is selected
+	if st := e.Status(); st.ServerID != "" || st.ChainID != amz || !e.Chains()[0].Active {
+		t.Fatalf("%+v", st)
+	}
+	if err := e.SetActiveServer("gone"); code(err) != CodeNoOwnServer {
+		t.Fatal(err)
+	}
+	// Deleting the selected server falls back to the first chain.
+	e.SetActiveServer(b)
+	if err := e.RemoveOwnServer(b); err != nil {
+		t.Fatal(err)
+	}
+	if s := e.Snapshot(); s.ActiveServer != "" || s.ActiveChain != amz {
+		t.Fatalf("%+v", s)
+	}
+}
+
+func TestTestSavedLeavesTheSelection(t *testing.T) {
+	e, _ := Open(t.TempDir(), nil, "linux")
+	a, _ := e.AddOwnServer("trojan://p@a.example.com:443#a", "")
+	b, _ := e.AddOwnServer("trojan://p@b.example.com:443#b", "")
+	if err := e.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	defer e.Stop()
+	before := e.Status()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	// The servers do not exist, so the request fails; what matters is that it ran and changed nothing.
+	if _, _, _, err := e.TestSaved(ctx, "", b); code(err) != CodeNetwork {
+		t.Fatal(err)
+	}
+	if _, _, _, err := e.TestSaved(ctx, "", "gone"); code(err) != CodeNoOwnServer {
+		t.Fatal(err)
+	}
+	if _, _, _, err := e.TestSaved(ctx, e.Chains()[0].ID, ""); code(err) != CodeNoConfig {
+		t.Fatal("an Amnezia chain without a config was tested", err)
+	}
+	after := e.Status()
+	if !after.Running || after.ServerID != a || after.StartedAt != before.StartedAt {
+		t.Fatalf("testing changed the running proxy: %+v", after)
+	}
 }

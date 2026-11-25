@@ -204,5 +204,7 @@ overlapping the top edge by half:
   own (active when Amnezia is not set up), so an own-server-only user needs no extra step.
 - **Found on the way**: Xray resolves `dialerProxy` through one process-wide registry that the last created
   instance takes over. "Find fastest" while connected left the running proxy broken; fixed in `runner` (D26).
+- **1.0.1 (D28)**: the chain switcher became a bottom sheet that also lists single servers (selectable
+  without a chain), with Test and a ⋮ menu per row; it replaced the Servers tab.
 - **Not done**: presets on "New chain" and per-hop ping in the editor (M5 polish in §5); the notification/QS
   tile has no chain switcher.

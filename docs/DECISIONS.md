@@ -236,3 +236,14 @@ links as separate servers. "Xray JSON" (outbounds with `dialerProxy`) is offered
 Amnezia. QR codes encode the same text (ZXing core, encoder only). Import previews first (dry run), reuses saved
 servers with the same outbound instead of duplicating them, and validates the chain before writing anything.
 Shared text contains credentials: the clipboard entry is marked sensitive and it never goes to logs.
+
+## D28 · One selection sheet; single servers without a chain (2026-11-25)
+
+Owner's request. What the proxy runs is either a saved chain (`ActiveChain`) or a single own server
+(`ActiveServer`, at most one of the two set): a server no longer needs a one-hop chain, so adding the first
+server selects it directly and the v1 "own server only" mode migrates to it. Deleting the selected server or
+chain falls back to the first chain (a running proxy switches, or stops when nothing is left). The app picks
+it in one bottom sheet (Home card button, or a small button above start/stop) with headed lists for chains and
+servers. Each row has Test, which runs `Engine.TestSaved` in a temporary instance (D26 keeps the running
+proxy's hops intact) and never changes the selection, and a ⋮ menu: edit (chains) or rename (servers), share,
+delete after a confirmation. With "New chain" and "Add server" in the sheet, the Servers tab was removed.

@@ -246,8 +246,8 @@ func (e *Engine) Fetch(ctx context.Context, req FetchRequest) error {
 
 // --- own servers ----------------------------------------------------------------------------------------
 
-// AddOwnServer parses a link/JSON and saves it. Returns its ID. The very first server also gets a chain of
-// its own, which becomes active when Amnezia is not set up (so an own-server-only user is ready to go).
+// AddOwnServer parses a link/JSON and saves it. Returns its ID. The very first server is selected when
+// Amnezia is not set up (so an own-server-only user is ready to go).
 func (e *Engine) AddOwnServer(link, name string) (string, error) {
 	s, err := links.Parse(link)
 	if err != nil {
@@ -263,18 +263,15 @@ func (e *Engine) AddOwnServer(link, name string) (string, error) {
 	defer e.mu.Unlock()
 	id := gateway.NewUUID()
 	e.st.Own = append(e.st.Own, OwnServer{ID: id, Name: s.Name, Link: strings.TrimSpace(link), Server: s})
-	if len(e.st.Own) == 1 {
-		c := Chain{ID: newID(), Name: s.Name, Hops: []ChainHop{{Kind: HopServer, Server: id}}}
-		e.st.Chains = append(e.st.Chains, c)
-		if e.st.Amnezia.Key == "" && e.inst == nil {
-			e.st.ActiveChain = c.ID
-		}
+	if len(e.st.Own) == 1 && e.st.Amnezia.Key == "" && e.inst == nil {
+		e.st.ActiveChain, e.st.ActiveServer = "", id
 	}
 	return id, e.persist()
 }
 
 // RemoveOwnServer deletes a saved server. A server used by a chain is not deleted (CodeServerInUse, the
-// chain names in Detail): the user removes it from those chains first.
+// chain names in Detail): the user removes it from those chains first. Deleting the selected server selects
+// the first chain (a running proxy switches to it, or stops when there is none).
 func (e *Engine) RemoveOwnServer(id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -291,7 +288,14 @@ func (e *Engine) RemoveOwnServer(id string) error {
 	if e.st.Options.FetchVia == id {
 		e.st.Options.FetchVia = ""
 	}
-	return e.persist()
+	if e.st.ActiveServer != id {
+		return e.persist()
+	}
+	e.selectFallbackLocked()
+	if err := e.persist(); err != nil {
+		return err
+	}
+	return e.restartOrStopLocked()
 }
 
 // RenameOwnServer changes the display name.
@@ -493,7 +497,8 @@ type Status struct {
 	FetchedAt      time.Time `json:"fetched_at,omitempty"`
 	SubscriptionTo string    `json:"subscription_to,omitempty"`
 	OwnServer      string    `json:"own_server,omitempty"` // name of the exit hop when it is an own server
-	ChainID        string    `json:"chain_id,omitempty"`
+	ChainID        string    `json:"chain_id,omitempty"`   // the active saved chain
+	ServerID       string    `json:"server_id,omitempty"`  // the active single server (instead of a chain)
 	ChainName      string    `json:"chain_name,omitempty"`
 	Hops           []HopInfo `json:"hops,omitempty"`            // hops of the active chain, phone first
 	AmneziaHop     int       `json:"amnezia_hop,omitempty"`     // 1-based position of Amnezia in the chain, 0 = none
@@ -524,7 +529,7 @@ func (e *Engine) Status() Status {
 	}
 	c := e.activeChainLocked()
 	if c != nil {
-		s.ChainID, s.ChainName, s.AmneziaHop = c.ID, c.Name, amneziaIndex(c)+1
+		s.ChainID, s.ServerID, s.ChainName, s.AmneziaHop = c.ID, e.st.ActiveServer, c.Name, amneziaIndex(c)+1
 		for _, h := range c.Hops {
 			s.Hops = append(s.Hops, e.hopInfoLocked(h))
 		}
@@ -584,8 +589,35 @@ func (e *Engine) TestChain(ctx context.Context) (ip string, ms int64, country st
 		}
 		return ip, time.Since(t0).Milliseconds(), geo.LookupCountry(dir, ip), nil
 	}
+	c := e.activeChainLocked()
+	e.mu.Unlock()
+	return e.testHops(ctx, c)
+}
+
+// TestSaved measures a request through a saved chain (chainID) or a single own server (serverID) in a
+// temporary instance, without selecting it: the running proxy keeps its chain (see D26).
+func (e *Engine) TestSaved(ctx context.Context, chainID, serverID string) (ip string, ms int64, country string, err error) {
+	e.mu.Lock()
+	var c *Chain
+	switch {
+	case serverID != "":
+		if e.serverLocked(serverID) == nil {
+			e.mu.Unlock()
+			return "", 0, "", newErr(CodeNoOwnServer, errors.New("unknown server"))
+		}
+		c = &Chain{Hops: []ChainHop{{Kind: HopServer, Server: serverID}}}
+	default:
+		c = e.chainLocked(chainID)
+	}
+	e.mu.Unlock()
+	return e.testHops(ctx, c)
+}
+
+// testHops measures a request through c in a temporary in-process instance (no listening port).
+func (e *Engine) testHops(ctx context.Context, c *Chain) (ip string, ms int64, country string, err error) {
+	e.mu.Lock()
 	url, dir := e.st.Options.ExitIPURL, e.GeoDir()
-	hops, err := e.hopsLocked(e.activeChainLocked(), e.amneziaConfigLocked())
+	hops, err := e.hopsLocked(c, e.amneziaConfigLocked())
 	e.mu.Unlock()
 	if err != nil {
 		return "", 0, "", Classify(err)

@@ -49,6 +49,7 @@ import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import io.nuc134r.sockmnezia.R
+import io.nuc134r.sockmnezia.core.Core
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -116,6 +117,34 @@ fun ShareSheet(title: String, formats: List<ShareFormat>, notes: List<String> = 
         }
     }
     if (showQr) text?.let { QrDialog(title, it) { showQr = false } }
+}
+
+/** Share sheet for a saved chain: links (always) or Xray JSON (only without Amnezia). */
+@Composable
+fun ChainShareSheet(id: String, name: String, withAmnezia: Boolean, onDismiss: () -> Unit) {
+    ShareSheet(
+        title = stringResource(R.string.share_title, name),
+        formats = listOf(
+            ShareFormat(stringResource(R.string.share_format_links)) { Core.shareChain(id, "links") },
+            ShareFormat(stringResource(R.string.share_format_xray), enabled = !withAmnezia) { Core.shareChain(id, "xray") },
+        ),
+        notes = listOfNotNull(
+            stringResource(R.string.share_links_hint),
+            if (withAmnezia) stringResource(R.string.share_amnezia_note) else null,
+            if (withAmnezia) stringResource(R.string.share_xray_amnezia) else null,
+        ),
+        onDismiss = onDismiss,
+    )
+}
+
+/** Share sheet for a saved server: its link. */
+@Composable
+fun ServerShareSheet(id: String, name: String, onDismiss: () -> Unit) {
+    ShareSheet(
+        title = stringResource(R.string.share_title, name),
+        formats = listOf(ShareFormat(stringResource(R.string.share_format_links)) { Core.shareServer(id) }),
+        onDismiss = onDismiss,
+    )
 }
 
 @Composable

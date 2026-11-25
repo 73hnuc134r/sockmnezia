@@ -54,6 +54,8 @@ data class Status(
     @SerialName("subscription_to") val subscriptionTo: String? = null,
     @SerialName("own_server") val ownServer: String? = null,
     @SerialName("chain_id") val chainId: String? = null,
+    /** The single server selected instead of a chain. */
+    @SerialName("server_id") val serverId: String? = null,
     @SerialName("chain_name") val chainName: String? = null,
     val hops: List<HopInfo> = emptyList(),
     /** 1-based position of Amnezia in the active chain, 0 when the chain has no Amnezia hop. */
@@ -133,7 +135,12 @@ data class OwnServer(
     val security: String = "",
     /** Names of the chains that use this server (it cannot be deleted while any does). */
     @SerialName("used_in") val usedIn: List<String> = emptyList(),
-)
+    /** Selected on its own (not as part of a chain). */
+    val active: Boolean = false,
+) {
+    /** "vless · tcp/reality" */
+    val detail: String get() = listOf(protocol, "$network/$security").filter { it.isNotBlank() && it != "/" }.joinToString(" · ")
+}
 
 /** Progress of a running geo update: file [index] of [count], [done] of [total] bytes (-1 = unknown). */
 @Serializable

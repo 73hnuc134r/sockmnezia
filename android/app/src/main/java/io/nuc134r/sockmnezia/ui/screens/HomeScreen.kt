@@ -11,6 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -42,13 +44,13 @@ import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.core.Country
 import io.nuc134r.sockmnezia.core.FetchRequest
-import io.nuc134r.sockmnezia.core.ChainInfo
 import io.nuc134r.sockmnezia.health.DeviceStateReader
 import io.nuc134r.sockmnezia.health.Severity
 import io.nuc134r.sockmnezia.health.evaluate
 import io.nuc134r.sockmnezia.health.worst
 import io.nuc134r.sockmnezia.ui.ChainStepper
 import io.nuc134r.sockmnezia.ui.Hint
+import io.nuc134r.sockmnezia.ui.SelectionSheet
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
@@ -113,7 +115,7 @@ fun HomeScreen(nav: NavController) {
                     TextButton(onClick = { nav.navigate(Routes.chain(id)) }) { Text(stringResource(R.string.chain_edit)) }
                 }
             }
-            if (status.chainId == null) {
+            if (status.chainId == null && status.serverId == null) {
                 Hint(stringResource(R.string.chain_none))
                 FilledTonalButton(onClick = { nav.navigate(Routes.chain(Routes.NEW)) }) { Text(stringResource(R.string.chain_new)) }
             } else {
@@ -121,19 +123,7 @@ fun HomeScreen(nav: NavController) {
                 status.chainError?.let { Hint(errorText(ctx, it), warn = true) }
             }
         }
-        if (switching) {
-            ChainSwitchDialog(
-                onPick = { id ->
-                    switching = false
-                    scope.act(ctx, snackbar) { Core.setActiveChain(id) }
-                },
-                onNew = {
-                    switching = false
-                    nav.navigate(Routes.chain(Routes.NEW))
-                },
-                onDismiss = { switching = false },
-            )
-        }
+        if (switching) SelectionSheet(nav, onDismiss = { switching = false })
 
         if (status.amneziaHop > 0) {
             Section(stringResource(R.string.amnezia)) {
@@ -184,43 +174,9 @@ fun HomeScreen(nav: NavController) {
                 FilledTonalButton(onClick = { nav.navigate(Routes.HEALTH) }) { Text(stringResource(R.string.health_open)) }
             }
         }
+        // Room for the selector and start/stop buttons that float over the bottom of this list.
+        Spacer(Modifier.height(64.dp))
     }
-}
-
-/** Saved chains; tapping one makes it active. Chains that cannot run are marked. */
-@Composable
-private fun ChainSwitchDialog(onPick: (String) -> Unit, onNew: () -> Unit, onDismiss: () -> Unit) {
-    var chains by remember { mutableStateOf(emptyList<ChainInfo>()) }
-    LaunchedEffect(Unit) { runCatching { chains = Core.chains() } }
-    val deleted = stringResource(R.string.hop_missing)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.chains_saved)) },
-        text = {
-            LazyColumn {
-                items(chains, key = { it.id }) { c ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable { onPick(c.id) }.padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = c.active, onClick = null)
-                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text(c.name)
-                            Text(
-                                c.hops.joinToString(" → ") { if (it.missing) deleted else it.name },
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            if (c.error != null) {
-                                Text(stringResource(R.string.chain_cannot_run), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onNew) { Text(stringResource(R.string.chain_new)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) } },
-    )
 }
 
 @Composable

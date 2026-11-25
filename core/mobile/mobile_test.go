@@ -24,7 +24,7 @@ func TestErrorsAreJSON(t *testing.T) {
 	if _, err := c.AddOwnServer("trojan://p@vps.example.com:443#v", ""); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(c.OwnServersJSON(), `"used_in":["v"]`) || strings.Contains(c.OwnServersJSON(), "trojan://") {
+	if !strings.Contains(c.OwnServersJSON(), `"used_in":[],"active":true`) || strings.Contains(c.OwnServersJSON(), "trojan://") {
 		t.Fatal(c.OwnServersJSON())
 	}
 	// An older app sending "mode" is ignored.
@@ -41,7 +41,8 @@ func TestErrorsAreJSON(t *testing.T) {
 	if v := c.ValidateChainJSON(`{"hops":[{"kind":"amnezia"}]}`); v != "" {
 		t.Fatal(v)
 	}
-	if !strings.Contains(c.ChainsJSON(), `"active":true`) {
+	// The server added above is selected on its own, so no chain is active.
+	if !strings.Contains(c.ChainsJSON(), `"name":"Amnezia"`) || strings.Contains(c.ChainsJSON(), `"active":true`) {
 		t.Fatal(c.ChainsJSON())
 	}
 	if err := c.Start(); err != nil {

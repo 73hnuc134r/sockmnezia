@@ -86,14 +86,17 @@ type Amnezia struct {
 
 // State is everything persisted.
 type State struct {
-	Version     int              `json:"version"`
-	Amnezia     Amnezia          `json:"amnezia"`
-	Own         []OwnServer      `json:"own"`
-	Chains      []Chain          `json:"chains"`
-	ActiveChain string           `json:"active_chain,omitempty"`
-	Inbound     xrayconf.Inbound `json:"inbound"`
-	Routing     routing.Settings `json:"routing"`
-	Options     Options          `json:"options"`
+	Version     int         `json:"version"`
+	Amnezia     Amnezia     `json:"amnezia"`
+	Own         []OwnServer `json:"own"`
+	Chains      []Chain     `json:"chains"`
+	ActiveChain string      `json:"active_chain,omitempty"`
+	// ActiveServer selects a single own server instead of a chain (no one-hop chain needs to be saved).
+	// At most one of ActiveChain and ActiveServer is set.
+	ActiveServer string           `json:"active_server,omitempty"`
+	Inbound      xrayconf.Inbound `json:"inbound"`
+	Routing      routing.Settings `json:"routing"`
+	Options      Options          `json:"options"`
 
 	// State v1 (three fixed modes); migrated to Chains on load.
 	LegacyMode      xrayconf.Mode `json:"mode,omitempty"`
@@ -214,12 +217,11 @@ func load(dir string, box SecretBox) (*State, error) {
 }
 
 // migrate upgrades an older state in place. v1 -> v2: the three modes become saved chains built from the
-// server that was active ("Amnezia", "Amnezia → <server>", "<server>"), and the chain matching the old mode
-// becomes active. "Fetch through my own server" becomes "fetch through <that server>".
+// server that was active ("Amnezia", "Amnezia → <server>"); "own server only" selects that server directly. "Fetch through my own server" becomes "fetch through <that server>".
 func migrate(st *State) {
 	if st.Version < 2 {
 		amz := amneziaChain()
-		st.Chains, st.ActiveChain = []Chain{amz}, amz.ID
+		st.Chains, st.ActiveChain, st.ActiveServer = []Chain{amz}, amz.ID, ""
 		var own *OwnServer
 		for i := range st.Own {
 			if st.Own[i].ID == st.LegacyActiveOwn {
@@ -232,13 +234,12 @@ func migrate(st *State) {
 		if own != nil {
 			srv := ChainHop{Kind: HopServer, Server: own.ID}
 			via := Chain{ID: newID(), Name: "Amnezia → " + own.Name, Hops: []ChainHop{{Kind: HopAmnezia}, srv}}
-			only := Chain{ID: newID(), Name: own.Name, Hops: []ChainHop{srv}}
-			st.Chains = append(st.Chains, via, only)
+			st.Chains = append(st.Chains, via)
 			switch st.LegacyMode {
 			case xrayconf.ModeAmneziaOwn:
 				st.ActiveChain = via.ID
 			case xrayconf.ModeOwn:
-				st.ActiveChain = only.ID
+				st.ActiveChain, st.ActiveServer = "", own.ID
 			}
 			if st.Options.LegacyFetchViaOwn {
 				st.Options.FetchVia = own.ID

@@ -183,6 +183,18 @@ func (c *Core) TestChainJSON() (string, error) {
 	return toJSON(map[string]any{"ip": ip, "ms": ms, "country": country}), nil
 }
 
+// TestSavedJSON measures a saved chain (chainID) or single server (serverID) without selecting it:
+// {"ip","ms","country"}. The running proxy is not touched.
+func (c *Core) TestSavedJSON(chainID, serverID string) (string, error) {
+	cx, cancel := ctx(30 * time.Second)
+	defer cancel()
+	ip, ms, country, err := c.e.TestSaved(cx, chainID, serverID)
+	if err != nil {
+		return "", wrap(err)
+	}
+	return toJSON(map[string]any{"ip": ip, "ms": ms, "country": country}), nil
+}
+
 // PingCountryJSON fetches a one-off config for country and measures a request through it, without changing
 // the saved config: {"ms"}.
 func (c *Core) PingCountryJSON(country string) (string, error) {
@@ -206,6 +218,7 @@ type ownView struct {
 	Network  string   `json:"network"`
 	Security string   `json:"security"`
 	UsedIn   []string `json:"used_in"` // names of the chains that use this server
+	Active   bool     `json:"active"`  // selected on its own (not as part of a chain)
 }
 
 // OwnServersJSON lists saved servers (without credentials).
@@ -213,7 +226,7 @@ func (c *Core) OwnServersJSON() string {
 	st := c.e.Snapshot()
 	out := []ownView{}
 	for _, o := range st.Own {
-		v := ownView{ID: o.ID, Name: o.Name, UsedIn: c.e.ChainsUsing(o.ID)}
+		v := ownView{ID: o.ID, Name: o.Name, UsedIn: append([]string{}, c.e.ChainsUsing(o.ID)...), Active: o.ID == st.ActiveServer}
 		if o.Server != nil {
 			v.Protocol, v.Address, v.Port, v.Network, v.Security = o.Server.Protocol, o.Server.Address, o.Server.Port, o.Server.Network, o.Server.Security
 		}
@@ -285,6 +298,9 @@ func (c *Core) ImportJSON(text string, dryRun bool) (string, error) {
 	}
 	return toJSON(r), nil
 }
+
+// SetActiveServer selects a single own server (no chain).
+func (c *Core) SetActiveServer(id string) error { return wrap(c.e.SetActiveServer(id)) }
 
 // SetActiveChain selects the chain the proxy runs.
 func (c *Core) SetActiveChain(id string) error { return wrap(c.e.SetActiveChain(id)) }

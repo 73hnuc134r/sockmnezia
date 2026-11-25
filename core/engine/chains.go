@@ -53,7 +53,52 @@ func (e *Engine) chainLocked(id string) *Chain {
 	return nil
 }
 
-func (e *Engine) activeChainLocked() *Chain { return e.chainLocked(e.st.ActiveChain) }
+// activeChainLocked returns what the proxy runs: the active saved chain, or a one-hop chain (no ID) for the
+// active single server; nil when nothing is selected.
+func (e *Engine) activeChainLocked() *Chain {
+	if id := e.st.ActiveServer; id != "" {
+		if s := e.serverLocked(id); s != nil {
+			return &Chain{Name: s.Name, Hops: []ChainHop{{Kind: HopServer, Server: id}}}
+		}
+		return nil
+	}
+	return e.chainLocked(e.st.ActiveChain)
+}
+
+// selectFallbackLocked selects the first saved chain (or nothing) after the selection was deleted.
+func (e *Engine) selectFallbackLocked() {
+	e.st.ActiveChain, e.st.ActiveServer = "", ""
+	if len(e.st.Chains) > 0 {
+		e.st.ActiveChain = e.st.Chains[0].ID
+	}
+}
+
+// restartOrStopLocked applies a changed selection: restarts a running proxy, or stops it when nothing is
+// selected any more.
+func (e *Engine) restartOrStopLocked() error {
+	if e.activeChainLocked() == nil {
+		e.stopLocked()
+		return nil
+	}
+	return e.restartIfRunningLocked()
+}
+
+// SetActiveServer selects a single own server (no chain) and restarts a running proxy.
+func (e *Engine) SetActiveServer(id string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.serverLocked(id) == nil {
+		return newErr(CodeNoOwnServer, errors.New("unknown server"))
+	}
+	if e.st.ActiveServer == id {
+		return nil
+	}
+	e.st.ActiveChain, e.st.ActiveServer = "", id
+	if err := e.persist(); err != nil {
+		return err
+	}
+	return e.restartIfRunningLocked()
+}
 
 func amneziaIndex(c *Chain) int {
 	if c == nil {
@@ -160,7 +205,7 @@ func (e *Engine) hopInfoLocked(h ChainHop) HopInfo {
 }
 
 func (e *Engine) chainInfoLocked(c *Chain) ChainInfo {
-	ci := ChainInfo{ID: c.ID, Name: c.Name, Active: c.ID == e.st.ActiveChain, Error: e.validateLocked(c)}
+	ci := ChainInfo{ID: c.ID, Name: c.Name, Active: e.st.ActiveServer == "" && c.ID == e.st.ActiveChain, Error: e.validateLocked(c)}
 	for _, h := range c.Hops {
 		ci.Hops = append(ci.Hops, e.hopInfoLocked(h))
 	}
@@ -223,7 +268,7 @@ func (e *Engine) SaveChain(c Chain) (string, error) {
 	if err := e.persist(); err != nil {
 		return "", newErr(CodeInternal, err)
 	}
-	if c.ID == e.st.ActiveChain {
+	if c.ID == e.st.ActiveChain && e.st.ActiveServer == "" {
 		return c.ID, e.restartIfRunningLocked()
 	}
 	return c.ID, nil
@@ -244,18 +289,11 @@ func (e *Engine) DeleteChain(id string) error {
 	if e.st.ActiveChain != id {
 		return e.persist()
 	}
-	e.st.ActiveChain = ""
-	if len(out) > 0 {
-		e.st.ActiveChain = out[0].ID
-	}
+	e.selectFallbackLocked()
 	if err := e.persist(); err != nil {
 		return err
 	}
-	if e.st.ActiveChain == "" {
-		e.stopLocked()
-		return nil
-	}
-	return e.restartIfRunningLocked()
+	return e.restartOrStopLocked()
 }
 
 // SetActiveChain selects the chain the proxy runs (restarts a running proxy).
@@ -265,10 +303,10 @@ func (e *Engine) SetActiveChain(id string) error {
 	if e.chainLocked(id) == nil {
 		return newErr(CodeNoChain, errors.New("unknown chain"))
 	}
-	if e.st.ActiveChain == id {
+	if e.st.ActiveChain == id && e.st.ActiveServer == "" {
 		return nil
 	}
-	e.st.ActiveChain = id
+	e.st.ActiveChain, e.st.ActiveServer = id, ""
 	if err := e.persist(); err != nil {
 		return err
 	}

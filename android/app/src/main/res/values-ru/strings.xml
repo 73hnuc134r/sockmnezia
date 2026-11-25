@@ -4,10 +4,8 @@
     <string name="channel_proxy">Прокси</string>
     <string name="back">Назад</string>
     <string name="tab_home">Главная</string>
-    <string name="tab_servers">Серверы</string>
     <string name="tab_routing">Маршруты</string>
     <string name="tab_settings">Настройки</string>
-    <string name="title_servers">Свои серверы</string>
     <string name="title_routing">Маршрутизация</string>
     <string name="title_settings">Настройки</string>
     <string name="title_amnezia">Подписка Amnezia</string>
@@ -23,13 +21,20 @@
     <string name="chain">Цепочка</string>
     <string name="title_chain">Цепочка</string>
     <string name="chain_new">Новая цепочка</string>
+    <string name="selector_title">Подключаться через</string>
+    <string name="selector_open">Выбрать цепочку или сервер</string>
+    <string name="selector_chains">Цепочки</string>
+    <string name="selector_servers">Отдельные серверы</string>
+    <string name="selector_no_servers">Серверов пока нет.</string>
+    <string name="test">Проверить</string>
+    <string name="test_result">выход %1$s · %2$d мс</string>
+    <string name="more_actions">Другие действия</string>
     <string name="chain_switch">Сменить</string>
     <string name="chain_edit">Изменить</string>
     <string name="chain_phone">Этот телефон</string>
     <string name="chain_internet">Интернет</string>
     <string name="chain_exit">выход</string>
     <string name="chain_none">Цепочка не выбрана. Соберите её из Amnezia и своих серверов.</string>
-    <string name="chains_saved">Сохранённые цепочки</string>
     <string name="chain_cannot_run">не запустится</string>
     <string name="chain_name">Название</string>
     <string name="chain_name_hint">Оставьте пустым — назовём по звеньям.</string>
@@ -120,7 +125,6 @@
     <string name="captcha_answer">Символы с картинки</string>
     <string name="ok">OK</string>
     <string name="cancel">Отмена</string>
-    <string name="servers_hint">Ваш Xray-совместимый сервер: ссылка vless, vmess, trojan, shadowsocks, socks или http, либо Xray outbound JSON. Используйте серверы как звенья цепочки на главном экране.</string>
     <string name="add_server">Добавить сервер</string>
     <string name="server_link">Ссылка, ссылки, цепочка или JSON</string>
     <string name="server_link_hint">В ссылке есть пароль вашего сервера; она хранится только на этом телефоне в зашифрованном виде.</string>
@@ -131,7 +135,6 @@
     <string name="delete">Удалить</string>
     <string name="delete_server_q">Удалить %1$s?</string>
     <string name="server_used_in">В цепочках: %1$s</string>
-    <string name="server_unused">Не используется в цепочках</string>
     <string name="routing_hint">Правила проверяются сверху вниз, срабатывает первое подходящее. Прокси — через цепочку, Напрямую — из сети телефона, Блок — отбросить.</string>
     <string name="add_rule">Добавить</string>
     <string name="presets">Шаблоны</string>
@@ -158,7 +161,6 @@
     <string name="route_tester">Куда пойдёт?</string>
     <string name="host_or_ip">Домен или IP</string>
     <string name="port">Порт</string>
-    <string name="test">Проверить</string>
     <string name="verdict_locked">закреплённое правило</string>
     <string name="verdict_default">ни одно правило не подошло</string>
     <string name="geo_files">Геофайлы</string>

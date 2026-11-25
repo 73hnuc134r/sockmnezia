@@ -35,7 +35,7 @@ Amnezia:
   countries                  list locations from the last answer
 Own server:
   own add LINK [NAME]        add vless/vmess/trojan/ss/socks/http link or Xray outbound JSON
-  own list | own rm ID | own share ID
+  own list | own use ID | own rm ID | own share ID
 Chains (phone first, exit last; a hop is "amnezia" or an own server ID or name):
   chain list                 list chains, * = active
   chain add NAME HOP...      e.g. chain add work amnezia my-vps
@@ -191,8 +191,17 @@ func main() {
 			}
 			fmt.Println("added", id)
 		case "list":
-			for _, o := range e.Snapshot().Own {
-				fmt.Printf("%s  %s  %s %s:%d %s/%s\n", o.ID, o.Name, o.Server.Protocol, o.Server.Address, o.Server.Port, o.Server.Network, o.Server.Security)
+			s := e.Snapshot()
+			for _, o := range s.Own {
+				mark := " "
+				if o.ID == s.ActiveServer {
+					mark = "*"
+				}
+				fmt.Printf("%s %s  %s  %s %s:%d %s/%s\n", mark, o.ID, o.Name, o.Server.Protocol, o.Server.Address, o.Server.Port, o.Server.Network, o.Server.Security)
+			}
+		case "use":
+			if err := e.SetActiveServer(parseHops(e, []string{arg(2)})[0].Server); err != nil {
+				die(err)
 			}
 		case "rm":
 			if err := e.RemoveOwnServer(parseHops(e, []string{arg(2)})[0].Server); err != nil {
@@ -205,7 +214,7 @@ func main() {
 			}
 			fmt.Println(l)
 		default:
-			die(fmt.Errorf("own add|list|rm|share"))
+			die(fmt.Errorf("own add|list|use|rm|share"))
 		}
 	case "chain":
 		switch arg(1) {

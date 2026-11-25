@@ -96,6 +96,10 @@ object Core {
     fun randomPassword(): String = Mobile.randomPassword()
 
     suspend fun exitIp(): String = call { it.exitIP() }
+    /** Measures a saved chain or a single server without selecting it (the running proxy is untouched). */
+    suspend fun testSaved(chainId: String = "", serverId: String = ""): ChainResult =
+        call { CoreJson.decodeFromString(ChainResult.serializer(), it.testSavedJSON(chainId, serverId)) }
+
     suspend fun testChain(): ChainResult = call { CoreJson.decodeFromString(ChainResult.serializer(), it.testChainJSON()) }
 
     /** Fetches a one-off config for [country] and measures a request through it, without changing the saved config. */
@@ -145,6 +149,9 @@ object Core {
 
     suspend fun deleteChain(id: String) = call { it.deleteChain(id) }.also { changed() }
     suspend fun setActiveChain(id: String) = call { it.setActiveChain(id) }.also { changed() }
+
+    /** Selects a single own server instead of a chain. */
+    suspend fun setActiveServer(id: String) = call { it.setActiveServer(id) }.also { changed() }
 
     /** A saved server's share link (contains its credentials). */
     suspend fun shareServer(id: String): String = call { it.shareServer(id) }

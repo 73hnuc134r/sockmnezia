@@ -3,8 +3,13 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
-## Unreleased
+## 1.0.1
 
+- One sheet to choose what to connect through, opened from the Home card or the new button above
+  start/stop: saved chains and, in a separate list, single servers. A single server can be used directly, no
+  one-hop chain needed. Each row has Test (exit address and ping through it, without switching or touching
+  the running proxy) and a ⋮ menu: edit or rename, share, delete (with confirmation). "New chain" and "Add
+  server" are in the same sheet, so the Servers tab is gone.
 - Routing → Geo files: updating shows progress (which file, downloaded of total size, then verifying),
   also when the weekly update runs while the app is open. Only one update runs at a time.
 

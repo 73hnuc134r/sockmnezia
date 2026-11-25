@@ -19,7 +19,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.navigation.NavController
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -58,7 +61,7 @@ private val StartStopButtonHeight = 56.dp
 /** Bottom bar of the home screen: start/stop button and a compact connection-check block. Line 1 is the
  * state and the check result (ping); below it the whole route, wrapped rather than cut, with the exit address. */
 @Composable
-fun ConnectionBar() {
+fun ConnectionBar(nav: NavController) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = LocalSnackbar.current
@@ -66,6 +69,7 @@ fun ConnectionBar() {
     val status by Core.status.collectAsState()
     val probe by Core.probe.collectAsState()
     var fabWidth by remember { mutableStateOf(0.dp) }
+    var selecting by remember { mutableStateOf(false) }
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         ProxyService.start(ctx)
     }
@@ -126,6 +130,14 @@ fun ConnectionBar() {
                 }
             }
         }
+        // Chain / server selector, centred above the start/stop button.
+        SmallFloatingActionButton(
+            onClick = { selecting = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 16.dp + ((fabWidth - SelectorButtonSize) / 2).coerceAtLeast(0.dp))
+                .offset(y = -(StartStopButtonHeight / 2) - 8.dp - SelectorButtonSize),
+        ) { Icon(Icons.AutoMirrored.Filled.List, stringResource(R.string.selector_open)) }
         ExtendedFloatingActionButton(
             onClick = {
                 if (status.running) {
@@ -147,6 +159,7 @@ fun ConnectionBar() {
                 .onSizeChanged { fabWidth = with(density) { it.width.toDp() } },
         )
     }
+    if (selecting) SelectionSheet(nav, onDismiss = { selecting = false })
 }
 
 /** The route, phone first, then the exit address once the check has run: "exit ✓" when it is the last hop's
@@ -166,6 +179,9 @@ private fun routeText(chain: List<String>, countries: List<String>, exit: ChainR
         }
     }
 }
+
+/** Size of the small selector button above start/stop (Material small FAB). */
+private val SelectorButtonSize = 40.dp
 
 /** "addr [XX]" when the geo database resolved a country for addr, otherwise just addr. */
 private fun withCountry(addr: String, country: String?) =

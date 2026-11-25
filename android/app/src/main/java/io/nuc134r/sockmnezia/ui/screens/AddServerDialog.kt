@@ -41,92 +41,9 @@ import io.nuc134r.sockmnezia.core.OwnServer
 import io.nuc134r.sockmnezia.ui.Hint
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Section
-import io.nuc134r.sockmnezia.ui.ShareFormat
-import io.nuc134r.sockmnezia.ui.ShareSheet
+import io.nuc134r.sockmnezia.ui.ServerShareSheet
 import io.nuc134r.sockmnezia.ui.act
 import io.nuc134r.sockmnezia.ui.paste
-
-@Composable
-fun ServersScreen() {
-    val ctx = LocalContext.current
-    val res = LocalResources.current
-    val scope = rememberCoroutineScope()
-    val snackbar = LocalSnackbar.current
-    val revision by Core.revision.collectAsState()
-    var servers by remember { mutableStateOf(emptyList<OwnServer>()) }
-    var adding by remember { mutableStateOf(false) }
-    var renaming by remember { mutableStateOf<OwnServer?>(null) }
-    var deleting by remember { mutableStateOf<OwnServer?>(null) }
-    var sharing by remember { mutableStateOf<OwnServer?>(null) }
-    LaunchedEffect(revision) { runCatching { servers = Core.ownServers() } }
-
-    LazyColumn(Modifier.fillMaxWidth()) {
-        item {
-            Section {
-                Hint(stringResource(R.string.servers_hint))
-                Button(onClick = { adding = true }) { Text(stringResource(R.string.add_server)) }
-            }
-        }
-        items(servers, key = { it.id }) { s ->
-            Section {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(s.name, style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            "${s.protocol} · ${s.network}/${s.security} · ${s.address}:${s.port}",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Text(
-                            if (s.usedIn.isEmpty()) stringResource(R.string.server_unused)
-                            else stringResource(R.string.server_used_in, s.usedIn.joinToString(", ")),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = { sharing = s }) { Icon(Icons.Default.Share, stringResource(R.string.share)) }
-                    IconButton(onClick = { renaming = s }) { Icon(Icons.Default.Edit, stringResource(R.string.rename)) }
-                    IconButton(onClick = { deleting = s }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
-                }
-            }
-        }
-    }
-
-    if (adding) AddServerDialog(onDismiss = { adding = false }, onAdded = { adding = false })
-    sharing?.let { s ->
-        ShareSheet(
-            title = stringResource(R.string.share_title, s.name),
-            formats = listOf(ShareFormat(stringResource(R.string.share_format_links)) { Core.shareServer(s.id) }),
-            onDismiss = { sharing = null },
-        )
-    }
-    renaming?.let { s ->
-        var name by remember(s.id) { mutableStateOf(s.name) }
-        AlertDialog(
-            onDismissRequest = { renaming = null },
-            title = { Text(stringResource(R.string.rename)) },
-            text = { OutlinedTextField(name, { name = it }, singleLine = true) },
-            confirmButton = {
-                TextButton(onClick = {
-                    renaming = null
-                    scope.act(ctx, snackbar) { Core.renameOwnServer(s.id, name) }
-                }) { Text(stringResource(R.string.save)) }
-            },
-            dismissButton = { TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
-    deleting?.let { s ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.delete_server_q, s.name)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleting = null
-                    scope.act(ctx, snackbar) { Core.removeOwnServer(s.id) }
-                }) { Text(stringResource(R.string.delete)) }
-            },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
-}
 
 /** Text with several links or a shared chain goes through the core's import (with a preview first). */
 private fun isMultiImport(text: String): Boolean {

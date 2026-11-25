@@ -54,8 +54,7 @@ import io.nuc134r.sockmnezia.ui.HopDot
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
-import io.nuc134r.sockmnezia.ui.ShareFormat
-import io.nuc134r.sockmnezia.ui.ShareSheet
+import io.nuc134r.sockmnezia.ui.ChainShareSheet
 import io.nuc134r.sockmnezia.ui.act
 import io.nuc134r.sockmnezia.ui.errorText
 import io.nuc134r.sockmnezia.ui.hopName
@@ -188,20 +187,7 @@ fun ChainEditScreen(nav: NavController, id: String) {
     }
     if (sharing) {
         // Shares the saved chain (not unsaved edits).
-        val withAmnezia = hops.any { it.kind == HopKind.AMNEZIA }
-        ShareSheet(
-            title = stringResource(R.string.share_title, name),
-            formats = listOf(
-                ShareFormat(stringResource(R.string.share_format_links)) { Core.shareChain(id, "links") },
-                ShareFormat(stringResource(R.string.share_format_xray), enabled = !withAmnezia) { Core.shareChain(id, "xray") },
-            ),
-            notes = listOfNotNull(
-                stringResource(R.string.share_links_hint),
-                if (withAmnezia) stringResource(R.string.share_amnezia_note) else null,
-                if (withAmnezia) stringResource(R.string.share_xray_amnezia) else null,
-            ),
-            onDismiss = { sharing = false },
-        )
+        ChainShareSheet(id, name, withAmnezia = hops.any { it.kind == HopKind.AMNEZIA }, onDismiss = { sharing = false })
     }
     if (deleting) {
         AlertDialog(
