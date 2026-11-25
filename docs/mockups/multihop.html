@@ -1,0 +1,256 @@
+<title>sockmnezia multihop mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Roboto+Mono:wght@400&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: a row of phone frames per section, wrapping to one column on phones. Single dark look = the app's. */
+:root {
+  color-scheme: dark;
+  --page: #0b0c10; --ink: #e3e2e9; --muted: #c5c6d0; --dim: #8f909a;
+  --phone: #121318; --card: #292a30; --card2: #33343b; --tonal: #3d4458; --band: #1f2026;
+  --accent: #b6c4ff; --accentInk: #1d2d61; --fab: #344478; --ok: #8bd39b; --warn: #f2b8b5; --amz: #f5c26b;
+  --display: "Space Grotesk", system-ui, sans-serif; --ui: "Roboto", system-ui, sans-serif; --mono: "Roboto Mono", ui-monospace, monospace;
+}
+body { background: var(--page); color: var(--ink); font-family: var(--ui); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 48px; max-width: 1240px; margin: 0 auto; display: grid; gap: 40px; }
+h1 { font: 600 28px/1.2 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 600 19px/1.3 var(--display); margin: 0 0 4px; }
+.lede { color: var(--muted); max-width: 68ch; line-height: 1.5; margin: 8px 0 0; }
+.note { color: var(--dim); font-size: 13px; line-height: 1.5; max-width: 300px; margin: 10px 0 0; }
+.row { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+.shot { display: grid; gap: 8px; min-width: 0; }
+.cap { font: 500 12px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+
+.phone { width: 300px; max-width: 100%; height: 600px; background: var(--phone); border-radius: 28px; border: 1px solid #2c2d33; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+.phone.short { height: auto; }
+.top { padding: 22px 18px 10px; font: 400 22px/1 var(--ui); display: flex; align-items: center; gap: 10px; }
+.top .back { font-size: 20px; color: var(--muted); }
+.body { flex: 1; overflow: hidden; padding: 4px 12px; display: grid; gap: 10px; align-content: start; }
+.card { background: var(--card); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; }
+.card h3 { margin: 0; font: 400 16px/1.2 var(--ui); }
+.hint { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.warn { color: var(--warn); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { font: 500 12.5px/1 var(--ui); padding: 9px 14px; border-radius: 999px; background: var(--tonal); color: var(--ink); }
+.btn.o { background: none; border: 1px solid #5a5c66; }
+.btn.t { background: none; color: var(--accent); padding-inline: 6px; }
+.btn.p { background: var(--accent); color: var(--accentInk); }
+.btn.dis { opacity: .4; }
+
+.head { display: flex; align-items: center; gap: 8px; }
+.head .name { flex: 1; font: 500 15px/1.2 var(--ui); min-width: 0; }
+.chip { font: 500 11px/1 var(--ui); padding: 6px 9px; border-radius: 8px; border: 1px solid #5a5c66; color: var(--muted); white-space: nowrap; }
+
+/* stepper */
+.steps { display: grid; }
+.step { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; position: relative; padding: 5px 0; }
+.step::before { content: ""; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: #474852; }
+.step:first-child::before { top: 50%; } .step:last-child::before { bottom: 50%; }
+.dot { width: 22px; height: 22px; border-radius: 50%; background: var(--card2); border: 2px solid #5a5c66; z-index: 1; display: grid; place-items: center; font: 600 10px/1 var(--ui); color: var(--muted); }
+.dot.amz { border-color: var(--amz); color: var(--amz); }
+.dot.srv { border-color: var(--accent); color: var(--accent); }
+.dot.end { width: 12px; height: 12px; margin-left: 5px; background: #5a5c66; border: 0; }
+.step .t1 { font-size: 13.5px; } .step .t2 { font: 11px/1.3 var(--mono); color: var(--dim); }
+.tag { font: 500 10px/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--ok); }
+
+/* editor */
+.hop { display: grid; grid-template-columns: 16px 22px 1fr auto; gap: 10px; align-items: center; background: var(--card); border-radius: 12px; padding: 10px 10px 10px 8px; }
+.hop.err { outline: 1px solid var(--warn); }
+.grip { color: var(--dim); font-size: 14px; letter-spacing: -2px; }
+.x { color: var(--dim); font-size: 16px; padding: 0 4px; }
+.field { border: 1px solid #5a5c66; border-radius: 8px; padding: 8px 12px; display: grid; gap: 2px; }
+.field small { font-size: 10.5px; color: var(--accent); } .field span { font-size: 14px; }
+.errtxt { font-size: 11.5px; color: var(--warn); padding: 0 4px 0 56px; margin-top: -6px; }
+.add { border: 1px dashed #5a5c66; border-radius: 12px; padding: 11px; text-align: center; color: var(--accent); font: 500 13px/1 var(--ui); }
+
+/* sheet */
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--band); border-radius: 22px 22px 0 0; padding: 10px 14px 18px; display: grid; gap: 4px; }
+.handle { width: 32px; height: 4px; border-radius: 2px; background: #5a5c66; margin: 0 auto 10px; }
+.opt { display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; align-items: center; padding: 9px 4px; }
+.opt.dis { opacity: .45; }
+
+/* bottom bars */
+.nav { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--band); padding: 8px 0 12px; font-size: 11px; color: var(--muted); text-align: center; }
+.nav .on b { background: var(--tonal); }
+.nav b { display: block; width: 44px; height: 24px; border-radius: 12px; margin: 0 auto 4px; position: relative; }
+.nav b::after { content: ""; position: absolute; inset: 7px 15px; border-radius: 3px; background: var(--muted); }
+.band { background: var(--band); position: relative; }
+.fab { position: absolute; right: 14px; display: flex; align-items: center; gap: 10px; background: var(--fab); color: var(--ink); border-radius: 14px; font: 500 14px/1 var(--ui); padding: 0 18px; }
+.probe { margin: 0 12px; background: var(--card2); border-radius: 14px; }
+.mono { font-family: var(--mono); font-size: 11.5px; }
+/* old */
+.old .band { padding: 24px 0 10px; } .old .fab { top: -24px; height: 48px; }
+.old .probe { padding: 10px 14px; display: grid; gap: 2px; } .old .probe .st { font-size: 16px; }
+/* new */
+.new .band { padding: 20px 0 8px; } .new .fab { top: -20px; height: 40px; padding: 0 14px; font-size: 13px; }
+.new .probe { padding: 7px 12px; display: grid; gap: 1px; }
+.new .l1 { display: flex; align-items: center; gap: 6px; font: 500 13px/1.3 var(--ui); padding-right: 92px; }
+.led { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.led.off { background: var(--dim); } .led.bad { background: var(--warn); }
+.l1 .ms { color: var(--muted); font-weight: 400; }
+.l2 { font: 11.5px/1.35 var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.l2 .ex { color: var(--ok); font-family: var(--ui); font-size: 11px; }
+.ruler { font: 11px/1 var(--mono); color: var(--dim); }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>sockmnezia · multihop redesign</h1>
+    <p class="lede">Mockups for <code>docs/09-multihop-redesign.md</code>. Modes become saved chains of hops; Amnezia is one hop kind that can sit at any position. Last section: the compact connection-check block (fix 6.2) and the cleared probe state (fix 6.1).</p>
+  </header>
+
+  <section>
+    <h2>Home and chain editor</h2>
+    <div class="row">
+      <div class="shot"><span class="cap">Home · active chain</span>
+        <div class="phone">
+          <div class="top">sockmnezia</div>
+          <div class="body">
+            <div class="card">
+              <div class="head"><span class="name">Work</span><span class="chip">Switch ▾</span><span class="btn t">Edit</span></div>
+              <div class="steps">
+                <div class="step"><span class="dot end"></span><span class="t1">This phone</span><span></span></div>
+                <div class="step"><span class="dot amz">A</span><div><div class="t1">Amnezia · Germany</div><div class="t2">vless · xhttp/reality</div></div><span class="ruler">DE</span></div>
+                <div class="step"><span class="dot srv">2</span><div><div class="t1">my-vps</div><div class="t2">vless · tcp/reality</div></div><span class="ruler">US</span></div>
+                <div class="step"><span class="dot end"></span><span class="t1">Internet</span><span class="tag">exit: hop 2</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Amnezia <span class="hint">· hop 1 of 2</span></h3>
+              <div class="btns"><span class="btn o">Germany (DE)</span><span class="btn o">Find fastest</span></div>
+              <span class="hint">Subscription until 2027-03-01</span>
+            </div>
+            <div class="card"><h3>Background work</h3><span class="hint warn">Android may stop the proxy in the background.</span></div>
+          </div>
+          <div class="band new"><span class="fab">✕ Stop</span>
+            <div class="probe"><div class="l1"><span class="led"></span>Connected <span class="ms">· 437 ms</span></div>
+              <div class="l2">198.51.100.7 [DE] → 203.0.113.9 [US] <span class="ex">exit ✓</span></div></div>
+          </div>
+          <div class="nav"><div class="on"><b></b>Home</div><div><b></b>Servers</div><div><b></b>Routing</div><div><b></b>Settings</div></div>
+        </div>
+        <p class="note">Mode radios are gone. The stepper is the chain; the Amnezia card appears only when the chain contains Amnezia and says where it sits.</p>
+      </div>
+
+      <div class="shot"><span class="cap">Chain editor · validation</span>
+        <div class="phone">
+          <div class="top"><span class="back">←</span>Edit chain</div>
+          <div class="body">
+            <div class="field"><small>Name</small><span>Travel</span></div>
+            <div class="hint">Traffic goes top to bottom. Each hop is reached through the one above it. The last hop is the exit.</div>
+            <div class="hop"><span class="grip">⋮⋮</span><span class="dot srv">1</span><div><div class="t1">home-nas</div><div class="t2">vless · tcp/tls</div></div><span class="x">✕</span></div>
+            <div class="hop"><span class="grip">⋮⋮</span><span class="dot amz">A</span><div><div class="t1">Amnezia · Netherlands</div><div class="t2">gateway config</div></div><span class="x">✕</span></div>
+            <div class="hop err"><span class="grip">⋮⋮</span><span class="dot srv">3</span><div><div class="t1">fast-kcp</div><div class="t2">vmess · kcp</div></div><span class="x">✕</span></div>
+            <div class="errtxt">kcp runs over UDP: it can only be the first hop.</div>
+            <div class="add">+ Add hop</div>
+          </div>
+          <div style="padding:12px; display:flex; justify-content:flex-end; gap:8px"><span class="btn t">Delete</span><span class="btn p dis">Save</span></div>
+        </div>
+        <p class="note">Drag to reorder (↑/↓ in the accessibility menu). Errors come from the core's ValidateChain, so the rules live in one place.</p>
+      </div>
+
+      <div class="shot"><span class="cap">Add hop · sheet</span>
+        <div class="phone">
+          <div class="top"><span class="back">←</span>Edit chain</div>
+          <div class="body">
+            <div class="field"><small>Name</small><span>Travel</span></div>
+            <div class="hop"><span class="grip">⋮⋮</span><span class="dot srv">1</span><div><div class="t1">home-nas</div><div class="t2">vless · tcp/tls</div></div><span class="x">✕</span></div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="handle"></div>
+            <div class="cap" style="padding:0 4px 6px">Add hop</div>
+            <div class="opt"><span class="dot amz">A</span><div><div class="t1">Amnezia</div><div class="t2">current location: NL</div></div><span></span></div>
+            <div class="opt dis"><span class="dot srv">·</span><div><div class="t1">home-nas</div><div class="t2">already the previous hop</div></div><span></span></div>
+            <div class="opt"><span class="dot srv">·</span><div><div class="t1">my-vps</div><div class="t2">vless · tcp/reality</div></div><span></span></div>
+            <div class="opt"><span class="dot srv">·</span><div><div class="t1">fast-kcp</div><div class="t2">first hop only</div></div><span></span></div>
+            <div class="opt"><span class="dot">+</span><div class="t1" style="color:var(--accent)">Import new server…</div><span></span></div>
+          </div>
+        </div>
+        <p class="note">Amnezia appears once per chain. Servers that would break a rule stay listed but explain why.</p>
+      </div>
+
+      <div class="shot"><span class="cap">Switch chain</span>
+        <div class="phone short" style="padding-bottom:12px">
+          <div class="top">sockmnezia</div>
+          <div class="body">
+            <div class="card">
+              <div class="head"><span class="name">Saved chains</span></div>
+              <div class="opt"><span class="dot amz">A</span><div><div class="t1">Amnezia</div><div class="t2">1 hop · exit DE</div></div><span></span></div>
+              <div class="opt"><span class="dot srv">✓</span><div><div class="t1">Work</div><div class="t2">Amnezia → my-vps</div></div><span class="tag">active</span></div>
+              <div class="opt"><span class="dot srv">·</span><div><div class="t1">Direct own</div><div class="t2">my-vps</div></div><span></span></div>
+              <div class="opt"><span class="dot srv">·</span><div><div class="t1">Travel</div><div class="t2">home-nas → Amnezia → fast-kcp</div></div><span class="ruler warn">invalid</span></div>
+              <div class="btns"><span class="btn">New chain</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="note">The three old modes are migrated into the first three chains, using the server that was active.</p>
+      </div>
+
+      <div class="shot"><span class="cap">Share chain</span>
+        <div class="phone">
+          <div class="top"><span class="back">←</span>Edit chain</div>
+          <div class="body">
+            <div class="field"><small>Name</small><span>Work</span></div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="handle"></div>
+            <div class="cap" style="padding:0 4px 6px">Share “Work”</div>
+            <div style="background:var(--card2);border-radius:10px;padding:10px;font:10.5px/1.5 var(--mono);color:var(--muted);overflow:hidden">sockmnezia://amnezia<br>vless://…@203.0.113.9:443?security=reality…#Work·2/2·my-vps</div>
+            <div class="hint warn" style="padding:6px 4px">Contains your server credentials. Amnezia is shared as a placeholder: the receiver uses their own subscription.</div>
+            <div class="opt"><span class="dot">⧉</span><div class="t1">Copy links</div><span></span></div>
+            <div class="opt"><span class="dot">▦</span><div class="t1">Show QR code</div><span></span></div>
+            <div class="opt dis"><span class="dot">{}</span><div><div class="t1">Xray JSON</div><div class="t2">not available with Amnezia</div></div><span></span></div>
+          </div>
+        </div>
+        <p class="note">One standard link per hop, entry first. Other apps import them as separate servers; sockmnezia rebuilds the chain.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Connection-check block</h2>
+    <div class="row">
+      <div class="shot"><span class="cap">Today · ≈140 dp</span>
+        <div class="phone short old">
+          <div class="band"><span class="fab">✕&nbsp; Stop</span>
+            <div class="probe"><span class="st">Connected</span>
+              <span class="mono">Route: 203.0.113.9 [US]</span>
+              <span class="mono" style="color:var(--muted)">Exit address: 203.0.113.9 [US] · 437 ms</span></div>
+          </div>
+          <div class="nav"><div class="on"><b></b>Home</div><div><b></b>Servers</div><div><b></b>Routing</div><div><b></b>Settings</div></div>
+        </div>
+      </div>
+      <div class="shot"><span class="cap">Compact · ≈84 dp</span>
+        <div class="phone short new">
+          <div class="band"><span class="fab">✕ Stop</span>
+            <div class="probe"><div class="l1"><span class="led"></span>Connected <span class="ms">· 437 ms</span></div>
+              <div class="l2">203.0.113.9 [US] <span class="ex">exit ✓</span></div></div>
+          </div>
+          <div class="nav"><div class="on"><b></b>Home</div><div><b></b>Servers</div><div><b></b>Routing</div><div><b></b>Settings</div></div>
+        </div>
+        <p class="note">Exit equals the last route hop, so it is shown once. Line 1 leaves room for the button, which still overlaps the top edge by half.</p>
+      </div>
+      <div class="shot"><span class="cap">After switching config</span>
+        <div class="phone short new">
+          <div class="band"><span class="fab">✕ Stop</span>
+            <div class="probe"><div class="l1"><span class="led"></span>Connected <span class="ms">· tap to test</span></div>
+              <div class="l2">198.51.100.7 [DE] → 203.0.113.9 [US]</div></div>
+          </div>
+          <div class="nav"><div class="on"><b></b>Home</div><div><b></b>Servers</div><div><b></b>Routing</div><div><b></b>Settings</div></div>
+        </div>
+        <p class="note">Fix 6.1: old exit IP and ping are cleared on any config change.</p>
+      </div>
+      <div class="shot"><span class="cap">Test failed</span>
+        <div class="phone short new">
+          <div class="band"><span class="fab">✕ Stop</span>
+            <div class="probe"><div class="l1"><span class="led bad"></span>Check failed <span class="ms">· tap to retry</span></div>
+              <div class="l2">198.51.100.7 [DE] → 203.0.113.9 [US]</div></div>
+          </div>
+          <div class="nav"><div class="on"><b></b>Home</div><div><b></b>Servers</div><div><b></b>Routing</div><div><b></b>Settings</div></div>
+        </div>
+        <p class="note">A failed check never falls back to showing the previous result.</p>
+      </div>
+    </div>
+  </section>
+</div>
