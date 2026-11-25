@@ -3,7 +3,9 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
-## Unreleased
+## 1.0.0
+
+Multihop: sockmnezia is now a chain builder. Amnezia is one possible hop, alongside your own servers.
 
 - Chains replace the three modes: build a chain of hops (Amnezia and your own servers, in any order, up to
   5), save several and switch between them on the Home screen. Each hop is reached through the one before
@@ -20,14 +22,21 @@ shown in the app's update card. Write for people using the app, not for develope
   wrapped instead of cut) and the start/stop button overlaps its corner.
 - The exit address and ping are cleared when you switch server, location or settings, and a failed check
   shows "check failed" instead of the previous result.
+- The notification title lists the hops of the active chain.
+
+## 0.5.1
+
+- Home screen: the start/stop button no longer gets cropped where it overlaps the connection-check block.
+- Notification: title and subtitle are swapped (title now shows the exit country or your own server name
+  instead of a generic mode label), and shows download speed first, then upload.
+
+## 0.5.0
+
 - Home screen: a "Find fastest" button opens a dialog that pings every available location (up to 3 tries
   each) and lists them sorted by the lowest ping found.
 - Snackbars can now be dismissed.
 - Home screen: the start/stop button now floats half over the connection-check block instead of sitting
   fully inside it.
-- Home screen: the start/stop button no longer gets cropped where it overlaps the connection-check block.
-- Notification: title and subtitle are swapped (title now shows the exit country or your own server name
-  instead of a generic mode label), and shows download speed first, then upload.
 
 ## 0.4.0
 
