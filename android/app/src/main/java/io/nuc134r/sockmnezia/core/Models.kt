@@ -12,10 +12,10 @@ val CoreJson = Json {
     coerceInputValues = true
 }
 
-object Modes {
+/** Hop kinds of a chain (core/engine/state.go). */
+object HopKind {
     const val AMNEZIA = "amnezia"
-    const val AMNEZIA_OWN = "amnezia_own"
-    const val OWN = "own"
+    const val SERVER = "server"
 }
 
 @Serializable
@@ -38,7 +38,6 @@ class CoreException(val error: CoreError) : Exception(error.detail ?: error.code
 @Serializable
 data class Status(
     val running: Boolean = false,
-    val mode: String = Modes.AMNEZIA,
     val listen: String = "127.0.0.1",
     @SerialName("socks_port") val socksPort: Int = 0,
     @SerialName("http_port") val httpPort: Int = 0,
@@ -54,6 +53,12 @@ data class Status(
     @SerialName("fetched_at") val fetchedAt: String? = null,
     @SerialName("subscription_to") val subscriptionTo: String? = null,
     @SerialName("own_server") val ownServer: String? = null,
+    @SerialName("chain_id") val chainId: String? = null,
+    @SerialName("chain_name") val chainName: String? = null,
+    val hops: List<HopInfo> = emptyList(),
+    /** 1-based position of Amnezia in the active chain, 0 when the chain has no Amnezia hop. */
+    @SerialName("amnezia_hop") val amneziaHop: Int = 0,
+    @SerialName("chain_error") val chainError: CoreError? = null,
     @SerialName("device_id") val deviceId: String = "",
     val chain: List<String> = emptyList(),
     @SerialName("chain_countries") val chainCountries: List<String> = emptyList(),
@@ -94,7 +99,8 @@ data class Routing(
 
 @Serializable
 data class Options(
-    @SerialName("fetch_via_own") val fetchViaOwn: Boolean = false,
+    /** Own server ID the gateway request goes through when no hop precedes Amnezia ("" = direct). */
+    @SerialName("fetch_via") val fetchVia: String = "",
     @SerialName("geo_source") val geoSource: String = "runetfreedom",
     @SerialName("geo_custom_url") val geoCustomUrl: String = "",
     @SerialName("geo_auto_update") val geoAutoUpdate: Boolean = false,
@@ -105,7 +111,6 @@ data class Options(
 
 @Serializable
 data class Settings(
-    val mode: String = Modes.AMNEZIA,
     val inbound: Inbound = Inbound(),
     val routing: Routing = Routing(),
     val options: Options = Options(),
@@ -126,8 +131,48 @@ data class OwnServer(
     val port: Int = 0,
     val network: String = "",
     val security: String = "",
-    val active: Boolean = false,
+    /** Names of the chains that use this server (it cannot be deleted while any does). */
+    @SerialName("used_in") val usedIn: List<String> = emptyList(),
 )
+
+/** One hop of a saved chain, as stored: Amnezia, or an own server by ID. */
+@Serializable
+data class ChainHop(val kind: String, val server: String? = null)
+
+/** A chain to save (no [id]: a new one). */
+@Serializable
+data class Chain(val id: String? = null, val name: String = "", val hops: List<ChainHop> = emptyList())
+
+/** A hop as the UI shows it (no credentials). */
+@Serializable
+data class HopInfo(
+    val kind: String = HopKind.SERVER,
+    val server: String? = null,
+    val name: String = "",
+    val country: String = "",
+    val protocol: String = "",
+    val network: String = "",
+    val security: String = "",
+    val missing: Boolean = false,
+) {
+    val isAmnezia: Boolean get() = kind == HopKind.AMNEZIA
+    /** "vless · tcp/reality" for servers, the location code for Amnezia. */
+    val detail: String
+        get() = if (isAmnezia) country.uppercase()
+        else listOf(protocol, listOf(network, security).filter { it.isNotBlank() }.joinToString("/")).filter { it.isNotBlank() }.joinToString(" · ")
+}
+
+@Serializable
+data class ChainInfo(
+    val id: String,
+    val name: String = "",
+    val hops: List<HopInfo> = emptyList(),
+    val active: Boolean = false,
+    /** Why the chain cannot run; null when it can. */
+    val error: CoreError? = null,
+) {
+    fun toChain() = Chain(id, name, hops.map { ChainHop(it.kind, it.server) })
+}
 
 @Serializable
 data class Verdict(

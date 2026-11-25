@@ -1,6 +1,5 @@
 package io.nuc134r.sockmnezia.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,7 +17,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -65,14 +63,18 @@ fun ServersScreen() {
             }
         }
         items(servers, key = { it.id }) { s ->
-            Section(modifier = Modifier.clickable { scope.act(ctx, snackbar) { Core.setActiveOwnServer(s.id) } }) {
+            Section {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = s.active, onClick = { scope.act(ctx, snackbar) { Core.setActiveOwnServer(s.id) } })
                     Column(Modifier.weight(1f)) {
                         Text(s.name, style = MaterialTheme.typography.titleSmall)
                         Text(
                             "${s.protocol} · ${s.network}/${s.security} · ${s.address}:${s.port}",
                             style = MaterialTheme.typography.bodySmall,
+                        )
+                        Text(
+                            if (s.usedIn.isEmpty()) stringResource(R.string.server_unused)
+                            else stringResource(R.string.server_used_in, s.usedIn.joinToString(", ")),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     IconButton(onClick = { renaming = s }) { Icon(Icons.Default.Edit, stringResource(R.string.rename)) }
@@ -82,31 +84,7 @@ fun ServersScreen() {
         }
     }
 
-    if (adding) {
-        var link by remember { mutableStateOf("") }
-        var name by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { adding = false },
-            title = { Text(stringResource(R.string.add_server)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(link, { link = it }, label = { Text(stringResource(R.string.server_link)) }, minLines = 3, modifier = Modifier.fillMaxWidth())
-                    OutlinedButton(onClick = { link = paste(ctx) }) { Text(stringResource(R.string.paste)) }
-                    OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.name_optional)) }, singleLine = true)
-                    Hint(stringResource(R.string.server_link_hint))
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = link.isNotBlank(), onClick = {
-                    scope.act(ctx, snackbar, ok = res.getString(R.string.server_added)) {
-                        Core.addOwnServer(link.trim(), name)
-                        adding = false
-                    }
-                }) { Text(stringResource(R.string.add)) }
-            },
-            dismissButton = { TextButton(onClick = { adding = false }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
+    if (adding) AddServerDialog(onDismiss = { adding = false }, onAdded = { adding = false })
     renaming?.let { s ->
         var name by remember(s.id) { mutableStateOf(s.name) }
         AlertDialog(
@@ -135,4 +113,35 @@ fun ServersScreen() {
             dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+}
+
+/** Imports a server from a link or Xray outbound JSON; [onAdded] gets the new server's ID. */
+@Composable
+fun AddServerDialog(onDismiss: () -> Unit, onAdded: (String) -> Unit) {
+    val ctx = LocalContext.current
+    val res = LocalResources.current
+    val scope = rememberCoroutineScope()
+    val snackbar = LocalSnackbar.current
+    var link by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.add_server)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(link, { link = it }, label = { Text(stringResource(R.string.server_link)) }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                OutlinedButton(onClick = { link = paste(ctx) }) { Text(stringResource(R.string.paste)) }
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.name_optional)) }, singleLine = true)
+                Hint(stringResource(R.string.server_link_hint))
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = link.isNotBlank(), onClick = {
+                scope.act(ctx, snackbar, ok = res.getString(R.string.server_added)) {
+                    onAdded(Core.addOwnServer(link.trim(), name))
+                }
+            }) { Text(stringResource(R.string.add)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }

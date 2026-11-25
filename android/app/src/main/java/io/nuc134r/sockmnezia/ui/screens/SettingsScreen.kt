@@ -36,6 +36,7 @@ import androidx.navigation.NavController
 import io.nuc134r.sockmnezia.AppPrefs
 import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
+import io.nuc134r.sockmnezia.core.OwnServer
 import io.nuc134r.sockmnezia.core.Settings
 import io.nuc134r.sockmnezia.ui.Hint
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
@@ -68,6 +69,8 @@ fun SettingsScreen(nav: NavController) {
     val revision by Core.revision.collectAsState()
     var loaded by remember { mutableStateOf<Settings?>(null) }
     LaunchedEffect(revision) { runCatching { loaded = Core.settings() } }
+    var servers by remember { mutableStateOf(emptyList<OwnServer>()) }
+    LaunchedEffect(revision) { runCatching { servers = Core.ownServers() } }
     val s = loaded ?: return
 
     var port by remember(s) { mutableStateOf(s.inbound.socksPort.toString()) }
@@ -153,8 +156,13 @@ fun SettingsScreen(nav: NavController) {
                 startOnBoot = it
                 prefs.startOnBoot = it
             }
-            SwitchRow(stringResource(R.string.fetch_via_own), s.options.fetchViaOwn, stringResource(R.string.fetch_via_own_hint)) {
-                scope.act(ctx, snackbar) { Core.setSettings(s.copy(options = s.options.copy(fetchViaOwn = it))) }
+            if (servers.isNotEmpty()) {
+                Text(stringResource(R.string.fetch_via))
+                Choice(
+                    listOf("" to stringResource(R.string.fetch_via_direct)) + servers.map { it.id to it.name },
+                    s.options.fetchVia,
+                ) { id -> scope.act(ctx, snackbar) { Core.setSettings(s.copy(options = s.options.copy(fetchVia = id))) } }
+                Hint(stringResource(R.string.fetch_via_hint))
             }
             Text(stringResource(R.string.log_level))
             Choice(

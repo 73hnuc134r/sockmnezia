@@ -2,16 +2,12 @@ package io.nuc134r.sockmnezia.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,11 +42,12 @@ import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.core.Country
 import io.nuc134r.sockmnezia.core.FetchRequest
-import io.nuc134r.sockmnezia.core.Modes
+import io.nuc134r.sockmnezia.core.ChainInfo
 import io.nuc134r.sockmnezia.health.DeviceStateReader
 import io.nuc134r.sockmnezia.health.Severity
 import io.nuc134r.sockmnezia.health.evaluate
 import io.nuc134r.sockmnezia.health.worst
+import io.nuc134r.sockmnezia.ui.ChainStepper
 import io.nuc134r.sockmnezia.ui.Hint
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
@@ -104,41 +101,43 @@ fun HomeScreen(nav: NavController) {
             }
         }
 
-        Section(stringResource(R.string.mode)) {
-            val modes = listOf(Modes.AMNEZIA to R.string.mode_amnezia, Modes.AMNEZIA_OWN to R.string.mode_amnezia_own, Modes.OWN to R.string.mode_own)
-            Column(Modifier.selectableGroup()) {
-                modes.forEach { (m, label) ->
-                    Row(
-                        Modifier.fillMaxWidth().selectable(
-                            selected = status.mode == m, role = Role.RadioButton,
-                            onClick = { scope.act(ctx, snackbar) { Core.setSettings(Core.settings().copy(mode = m)) } },
-                        ),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = status.mode == m, onClick = null)
-                        Text(stringResource(label), Modifier.padding(start = 12.dp, top = 10.dp, bottom = 10.dp))
-                    }
+        var switching by remember { mutableStateOf(false) }
+        Section {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    status.chainName ?: stringResource(R.string.chain),
+                    style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f),
+                )
+                OutlinedButton(onClick = { switching = true }) { Text(stringResource(R.string.chain_switch)) }
+                status.chainId?.let { id ->
+                    TextButton(onClick = { nav.navigate(Routes.chain(id)) }) { Text(stringResource(R.string.chain_edit)) }
                 }
             }
-            Hint(
-                stringResource(
-                    when (status.mode) {
-                        Modes.AMNEZIA_OWN -> R.string.mode_amnezia_own_hint
-                        Modes.OWN -> R.string.mode_own_hint
-                        else -> R.string.mode_amnezia_hint
-                    },
-                ),
-            )
-            if (status.mode != Modes.AMNEZIA) {
-                HorizontalDivider()
-                Text(stringResource(R.string.own_server), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(status.ownServer ?: stringResource(R.string.own_none))
-                FilledTonalButton(onClick = { nav.navigate(Routes.SERVERS) }) { Text(stringResource(R.string.own_choose)) }
+            if (status.chainId == null) {
+                Hint(stringResource(R.string.chain_none))
+                FilledTonalButton(onClick = { nav.navigate(Routes.chain(Routes.NEW)) }) { Text(stringResource(R.string.chain_new)) }
+            } else {
+                ChainStepper(status.hops)
+                status.chainError?.let { Hint(errorText(ctx, it), warn = true) }
             }
         }
+        if (switching) {
+            ChainSwitchDialog(
+                onPick = { id ->
+                    switching = false
+                    scope.act(ctx, snackbar) { Core.setActiveChain(id) }
+                },
+                onNew = {
+                    switching = false
+                    nav.navigate(Routes.chain(Routes.NEW))
+                },
+                onDismiss = { switching = false },
+            )
+        }
 
-        if (status.mode != Modes.OWN) {
+        if (status.amneziaHop > 0) {
             Section(stringResource(R.string.amnezia)) {
+                if (status.hops.size > 1) Hint(stringResource(R.string.hop_of, status.amneziaHop, status.hops.size))
                 if (!status.hasKey || !status.hasGatewayKey) {
                     Hint(stringResource(R.string.amnezia_not_set_up))
                     FilledTonalButton(onClick = { nav.navigate(Routes.AMNEZIA) }) { Text(stringResource(R.string.amnezia_set_up)) }
@@ -186,6 +185,42 @@ fun HomeScreen(nav: NavController) {
             }
         }
     }
+}
+
+/** Saved chains; tapping one makes it active. Chains that cannot run are marked. */
+@Composable
+private fun ChainSwitchDialog(onPick: (String) -> Unit, onNew: () -> Unit, onDismiss: () -> Unit) {
+    var chains by remember { mutableStateOf(emptyList<ChainInfo>()) }
+    LaunchedEffect(Unit) { runCatching { chains = Core.chains() } }
+    val deleted = stringResource(R.string.hop_missing)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.chains_saved)) },
+        text = {
+            LazyColumn {
+                items(chains, key = { it.id }) { c ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onPick(c.id) }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = c.active, onClick = null)
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text(c.name)
+                            Text(
+                                c.hops.joinToString(" → ") { if (it.missing) deleted else it.name },
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (c.error != null) {
+                                Text(stringResource(R.string.chain_cannot_run), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onNew) { Text(stringResource(R.string.chain_new)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) } },
+    )
 }
 
 @Composable

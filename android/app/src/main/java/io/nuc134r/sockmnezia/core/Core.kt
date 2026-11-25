@@ -134,7 +134,22 @@ object Core {
     suspend fun addOwnServer(link: String, name: String): String = call { it.addOwnServer(link, name) }.also { changed() }
     suspend fun removeOwnServer(id: String) = call { it.removeOwnServer(id) }.also { changed() }
     suspend fun renameOwnServer(id: String, name: String) = call { it.renameOwnServer(id, name) }.also { changed() }
-    suspend fun setActiveOwnServer(id: String) = call { it.setActiveOwnServer(id) }.also { changed() }
+
+    // --- chains --------------------------------------------------------------------------------------
+    suspend fun chains(): List<ChainInfo> =
+        call { CoreJson.decodeFromString(ListSerializer(ChainInfo.serializer()), it.chainsJSON()) }
+
+    /** Saves [c] (a new chain when it has no ID) and returns its ID. */
+    suspend fun saveChain(c: Chain): String =
+        call { it.saveChainJSON(CoreJson.encodeToString(Chain.serializer(), c)) }.also { changed() }
+
+    suspend fun deleteChain(id: String) = call { it.deleteChain(id) }.also { changed() }
+    suspend fun setActiveChain(id: String) = call { it.setActiveChain(id) }.also { changed() }
+
+    /** Why [c] cannot run, or null when it can (no side effects). */
+    suspend fun validateChain(c: Chain): CoreError? = call {
+        it.validateChainJSON(CoreJson.encodeToString(Chain.serializer(), c))
+    }.takeIf { it.isNotBlank() }?.let { CoreJson.decodeFromString(CoreError.serializer(), it) }
 
     // --- routing and geo -----------------------------------------------------------------------------
     fun presets(): List<Preset> = CoreJson.decodeFromString(ListSerializer(Preset.serializer()), Mobile.presetsJSON())

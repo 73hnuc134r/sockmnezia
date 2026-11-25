@@ -5,6 +5,14 @@ shown in the app's update card. Write for people using the app, not for develope
 
 ## Unreleased
 
+- Chains replace the three modes: build a chain of hops (Amnezia and your own servers, in any order, up to
+  5), save several and switch between them on the Home screen. Each hop is reached through the one before
+  it; the last one is the exit. Your current mode and server are converted into chains automatically.
+- Servers tab: servers are no longer "selected"; each shows the chains it is used in, and a server that a
+  chain uses cannot be deleted until it is removed from that chain.
+- Settings: "Reach the Amnezia gateway through" picks a server (or direct). When the chain has hops before
+  Amnezia, the gateway request always goes through them.
+- Fixed: "Find fastest" while connected could leave the running proxy broken until it was restarted.
 - Home screen: the connection-check block is more compact (state and ping on one line, the full route below,
   wrapped instead of cut) and the start/stop button overlaps its corner.
 - The exit address and ping are cleared when you switch server, location or settings, and a failed check

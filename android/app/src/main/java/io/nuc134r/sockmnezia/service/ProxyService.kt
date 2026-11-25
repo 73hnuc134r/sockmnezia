@@ -18,7 +18,6 @@ import io.nuc134r.sockmnezia.AppPrefs
 import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.core.CoreException
-import io.nuc134r.sockmnezia.core.Modes
 import io.nuc134r.sockmnezia.ui.MainActivity
 import io.nuc134r.sockmnezia.ui.errorText
 import io.nuc134r.sockmnezia.ui.formatBytes
@@ -90,16 +89,11 @@ class ProxyService : LifecycleService() {
         }
     }
 
-    /** Notification title: exit country for Amnezia, own server name for own/chained modes, instead of a generic mode label. */
-    private fun notifSubject(s: io.nuc134r.sockmnezia.core.Status): String {
-        val country = s.countryName.ifBlank { s.country }.ifBlank { getString(R.string.mode_amnezia) }
-        val server = s.ownServer ?: getString(R.string.own_none)
-        return when (s.mode) {
-            Modes.AMNEZIA_OWN -> "$country→$server"
-            Modes.OWN -> server
-            else -> country
-        }
-    }
+    /** Notification title: the active chain's hops ("Germany→my-vps"): Amnezia shows its location. */
+    private fun notifSubject(s: io.nuc134r.sockmnezia.core.Status): String =
+        s.hops.joinToString("→") { h ->
+            if (h.isAmnezia) s.countryName.ifBlank { s.country.uppercase() }.ifBlank { "Amnezia" } else h.name
+        }.ifBlank { s.chainName ?: getString(R.string.app_name) }
 
     private fun fgsType() =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
