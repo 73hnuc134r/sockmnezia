@@ -175,7 +175,7 @@ fun HomeScreen(nav: NavController) {
             }
         }
         // Room for the selector and start/stop buttons that float over the bottom of this list.
-        Spacer(Modifier.height(64.dp))
+        Spacer(Modifier.height(72.dp))
     }
 }
 

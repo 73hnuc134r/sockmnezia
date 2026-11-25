@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
@@ -19,9 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.navigation.NavController
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
@@ -130,14 +133,19 @@ fun ConnectionBar(nav: NavController) {
                 }
             }
         }
-        // Chain / server selector, centred above the start/stop button.
-        SmallFloatingActionButton(
+        // "Switch" (chain / server selector), right-aligned above the start/stop button.
+        ExtendedFloatingActionButton(
             onClick = { selecting = true },
+            icon = { Icon(SwapIcon, null) },
+            text = { Text(stringResource(R.string.chain_switch)) },
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(end = 16.dp + ((fabWidth - SelectorButtonSize) / 2).coerceAtLeast(0.dp))
-                .offset(y = -(StartStopButtonHeight / 2) - 8.dp - SelectorButtonSize),
-        ) { Icon(Icons.AutoMirrored.Filled.List, stringResource(R.string.selector_open)) }
+                .padding(end = 16.dp)
+                .offset(y = -(StartStopButtonHeight / 2) - 8.dp - SwitchButtonHeight)
+                .height(SwitchButtonHeight),
+        )
         ExtendedFloatingActionButton(
             onClick = {
                 if (status.running) {
@@ -180,8 +188,20 @@ private fun routeText(chain: List<String>, countries: List<String>, exit: ChainR
     }
 }
 
-/** Size of the small selector button above start/stop (Material small FAB). */
-private val SelectorButtonSize = 40.dp
+/** Height of the "Switch" button above start/stop (smaller than start/stop, which is the main action). */
+private val SwitchButtonHeight = 44.dp
+
+/** Material "swap_horiz" (left/right arrows); the core icon set does not include it. */
+private val SwapIcon: ImageVector by lazy {
+    ImageVector.Builder("SwapHoriz", 24.dp, 24.dp, 24f, 24f).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(6.99f, 11f); lineTo(3f, 15f); lineTo(6.99f, 19f); verticalLineTo(16f)
+            horizontalLineTo(14f); verticalLineTo(14f); horizontalLineTo(6.99f); close()
+            moveTo(21f, 9f); lineTo(17.01f, 5f); verticalLineTo(8f); horizontalLineTo(10f)
+            verticalLineTo(10f); horizontalLineTo(17.01f); verticalLineTo(13f); close()
+        }
+    }.build()
+}
 
 /** "addr [XX]" when the geo database resolved a country for addr, otherwise just addr. */
 private fun withCountry(addr: String, country: String?) =

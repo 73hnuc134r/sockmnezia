@@ -22,7 +22,6 @@
     <string name="title_chain">Цепочка</string>
     <string name="chain_new">Новая цепочка</string>
     <string name="selector_title">Подключаться через</string>
-    <string name="selector_open">Выбрать цепочку или сервер</string>
     <string name="selector_chains">Цепочки</string>
     <string name="selector_servers">Отдельные серверы</string>
     <string name="selector_no_servers">Серверов пока нет.</string>

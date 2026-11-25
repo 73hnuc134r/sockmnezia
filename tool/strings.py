@@ -15,7 +15,7 @@ S = {  # key: (english, russian)
  "action_start": ("Start", "Запустить"), "action_stop": ("Stop", "Остановить"),
  "traffic": ("Sent %1$s · received %2$s", "Отправлено %1$s · получено %2$s"),
  "chain": ("Chain", "Цепочка"), "title_chain": ("Chain", "Цепочка"), "chain_new": ("New chain", "Новая цепочка"),
- "selector_title": ("Connect through", "Подключаться через"), "selector_open": ("Choose a chain or server", "Выбрать цепочку или сервер"),
+ "selector_title": ("Connect through", "Подключаться через"),
  "selector_chains": ("Chains", "Цепочки"), "selector_servers": ("Single servers", "Отдельные серверы"),
  "selector_no_servers": ("No servers yet.", "Серверов пока нет."),
  "test": ("Test", "Проверить"), "test_result": ("exit %1$s · %2$d ms", "выход %1$s · %2$d мс"),

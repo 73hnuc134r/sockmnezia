@@ -3,6 +3,11 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.0.2
+
+- The button above start/stop now reads "Switch" with a left-right arrows icon.
+- Sheets (chain/server switcher, sharing, adding a hop) open fully instead of half-way.
+
 ## 1.0.1
 
 - One sheet to choose what to connect through, opened from the Home card or the new button above

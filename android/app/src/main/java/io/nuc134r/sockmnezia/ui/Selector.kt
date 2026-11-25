@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -101,7 +102,8 @@ fun SelectionSheet(nav: NavController, onDismiss: () -> Unit) {
     val labelShare = stringResource(R.string.share)
     val labelDelete = stringResource(R.string.delete)
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    // Always fully open: these sheets have no useful half-open state.
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             Text(
                 stringResource(R.string.selector_title), style = MaterialTheme.typography.titleLarge,

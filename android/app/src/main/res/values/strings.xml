@@ -23,7 +23,6 @@
     <string name="title_chain">Chain</string>
     <string name="chain_new">New chain</string>
     <string name="selector_title">Connect through</string>
-    <string name="selector_open">Choose a chain or server</string>
     <string name="selector_chains">Chains</string>
     <string name="selector_servers">Single servers</string>
     <string name="selector_no_servers">No servers yet.</string>
