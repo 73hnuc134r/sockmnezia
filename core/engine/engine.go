@@ -198,7 +198,7 @@ func (e *Engine) Fetch(ctx context.Context, req FetchRequest) error {
 		if own == nil {
 			return newErr(CodeNoOwnServer, errors.New("fetching through the own server is on, but none is selected"))
 		}
-		cfg, err := xrayconf.BuildDialer(xrayconf.ModeOwn, nil, own.Server.Outbound)
+		cfg, err := xrayconf.BuildDialer([]xrayconf.Hop{xrayconf.OwnHop(own.Server.Outbound)})
 		if err != nil {
 			return Classify(err)
 		}
@@ -380,21 +380,36 @@ func (e *Engine) SetSettings(s Settings) error {
 
 // --- proxy ----------------------------------------------------------------------------------------------
 
+// modeHops maps the legacy mode to a chain.
+func modeHops(mode xrayconf.Mode, amz json.RawMessage, own links.Outbound) []xrayconf.Hop {
+	switch mode {
+	case xrayconf.ModeAmnezia:
+		return []xrayconf.Hop{xrayconf.AmneziaHop(amz)}
+	case xrayconf.ModeAmneziaOwn:
+		return []xrayconf.Hop{xrayconf.AmneziaHop(amz), xrayconf.OwnHop(own)}
+	default:
+		return []xrayconf.Hop{xrayconf.OwnHop(own)}
+	}
+}
+
 func (e *Engine) buildLocked() ([]byte, error) {
-	spec := xrayconf.Spec{Mode: e.st.Mode, Inbound: e.st.Inbound, Routing: e.st.Routing, LogLevel: e.st.Options.LogLevel}
+	spec := xrayconf.Spec{Inbound: e.st.Inbound, Routing: e.st.Routing, LogLevel: e.st.Options.LogLevel}
+	var amz json.RawMessage
+	var own links.Outbound
 	if e.st.Mode != xrayconf.ModeOwn {
 		if e.st.Amnezia.Last == nil {
 			return nil, newErr(CodeNoConfig, errors.New("no Amnezia config fetched yet"))
 		}
-		spec.Amnezia = e.st.Amnezia.Last.XrayConfig
+		amz = e.st.Amnezia.Last.XrayConfig
 	}
 	if e.st.Mode != xrayconf.ModeAmnezia {
-		own := e.activeOwnLocked()
-		if own == nil {
+		o := e.activeOwnLocked()
+		if o == nil {
 			return nil, newErr(CodeNoOwnServer, errors.New("no own server selected"))
 		}
-		spec.Own = own.Server.Outbound
+		own = o.Server.Outbound
 	}
+	spec.Hops = modeHops(e.st.Mode, amz, own)
 	if site, ip := e.st.Routing.UsesGeo(); site || ip {
 		gs := geo.Stat(e.GeoDir())
 		if (site && !gs.HasGeoSite) || (ip && !gs.HasGeoIP) {
@@ -553,7 +568,7 @@ func (e *Engine) Status() Status {
 		if o := e.activeOwnLocked(); o != nil {
 			own = o.Server.Outbound
 		}
-		s.Chain, _ = xrayconf.Hops(mode, amz, own)
+		s.Chain, _ = xrayconf.Hops(modeHops(mode, amz, own))
 		if len(s.Chain) > 0 {
 			s.ChainCountries = make([]string, len(s.Chain))
 			for i, addr := range s.Chain {
@@ -616,7 +631,7 @@ func (e *Engine) TestChain(ctx context.Context) (ip string, ms int64, country st
 	if mode != xrayconf.ModeOwn && amz == nil {
 		return "", 0, "", newErr(CodeNoConfig, nil)
 	}
-	cfg, err := xrayconf.BuildDialer(mode, amz, own)
+	cfg, err := xrayconf.BuildDialer(modeHops(mode, amz, own))
 	if err != nil {
 		return "", 0, "", Classify(err)
 	}
@@ -671,7 +686,7 @@ func (e *Engine) PingCountry(ctx context.Context, country string) (ms int64, err
 	if err != nil {
 		return 0, Classify(err)
 	}
-	cfg, err := xrayconf.BuildDialer(mode, res.XrayConfig, own)
+	cfg, err := xrayconf.BuildDialer(modeHops(mode, res.XrayConfig, own))
 	if err != nil {
 		return 0, Classify(err)
 	}

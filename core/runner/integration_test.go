@@ -206,7 +206,7 @@ func TestAmneziaChain(t *testing.T) {
 	target := httpTarget(t, "hello-amnezia")
 	mainPort, _ := upstream(t, "tcp", map[string]string{"target.test": fmt.Sprintf("127.0.0.1:%d", target)})
 	relayPort, stopRelay := upstream(t, "xhttp", nil)
-	c := startClient(t, xrayconf.Spec{Mode: xrayconf.ModeAmnezia, Amnezia: amneziaConfig(mainPort, relayPort)})
+	c := startClient(t, xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.AmneziaHop(amneziaConfig(mainPort, relayPort))}})
 	c.mustGet("target.test", "hello-amnezia")
 
 	// In-process dialing (exit-IP check, geo downloads) goes the same way.
@@ -235,10 +235,31 @@ func TestOwnServerThroughAmnezia(t *testing.T) {
 	mainPort, stopMain := upstream(t, "tcp", map[string]string{"target.test": fmt.Sprintf("127.0.0.1:%d", targetAmz)})
 	relayPort, _ := upstream(t, "xhttp", nil)
 	ownPort, _ := upstream(t, "ws", map[string]string{"target.test": fmt.Sprintf("127.0.0.1:%d", targetOwn)})
-	c := startClient(t, xrayconf.Spec{Mode: xrayconf.ModeAmneziaOwn, Amnezia: amneziaConfig(mainPort, relayPort), Own: ownLink(ownPort)})
+	c := startClient(t, xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.AmneziaHop(amneziaConfig(mainPort, relayPort)), xrayconf.OwnHop(ownLink(ownPort))}})
 	c.mustGet("target.test", "hello-own") // exit is the own server
 	stopMain()
 	c.mustFail("target.test") // own server is only reached through Amnezia: fail-closed
+}
+
+func TestThreeHopChain(t *testing.T) {
+	// own (entry) -> Amnezia (relay -> main) -> own (exit). Each hop is a separate upstream; only the exit
+	// knows the target, so the answer proves the whole chain was used, and stopping any hop breaks it.
+	targetExit := httpTarget(t, "hello-exit")
+	targetAmz := httpTarget(t, "hello-amnezia")
+	entryPort, stopEntry := upstream(t, "ws", nil)
+	mainPort, stopMain := upstream(t, "tcp", map[string]string{"target.test": fmt.Sprintf("127.0.0.1:%d", targetAmz)})
+	relayPort, _ := upstream(t, "xhttp", nil)
+	exitPort, _ := upstream(t, "ws", map[string]string{"target.test": fmt.Sprintf("127.0.0.1:%d", targetExit)})
+	c := startClient(t, xrayconf.Spec{Hops: []xrayconf.Hop{
+		xrayconf.OwnHop(ownLink(entryPort)), xrayconf.AmneziaHop(amneziaConfig(mainPort, relayPort)), xrayconf.OwnHop(ownLink(exitPort)),
+	}})
+	c.mustGet("target.test", "hello-exit")
+	stopMain()
+	c.mustFail("target.test") // the middle hop is gone: no shortcut from entry to exit
+	c2 := startClient(t, xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.OwnHop(ownLink(entryPort)), xrayconf.OwnHop(ownLink(exitPort))}})
+	c2.mustGet("target.test", "hello-exit")
+	stopEntry()
+	c2.mustFail("target.test") // the exit is only reached through the entry
 }
 
 func TestOwnOnlyAndRoutingBlock(t *testing.T) {
@@ -246,7 +267,7 @@ func TestOwnOnlyAndRoutingBlock(t *testing.T) {
 	ownPort, _ := upstream(t, "ws", map[string]string{"target.test": fmt.Sprintf("127.0.0.1:%d", target), "ads.test": fmt.Sprintf("127.0.0.1:%d", target)})
 	rt := routing.Default()
 	rt.Rules = []routing.Rule{{Domain: []string{"domain:ads.test"}, OutboundTag: routing.OutBlock}}
-	c := startClient(t, xrayconf.Spec{Mode: xrayconf.ModeOwn, Own: ownLink(ownPort), Routing: rt})
+	c := startClient(t, xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.OwnHop(ownLink(ownPort))}, Routing: rt})
 	c.mustGet("target.test", "hello-own")
 	c.mustFail("ads.test")
 }
@@ -257,7 +278,7 @@ func TestPrivateDestinationsBlocked(t *testing.T) {
 	// Even a user rule sending loopback "direct" cannot reopen it.
 	rt := routing.Default()
 	rt.Rules = []routing.Rule{{IP: []string{"127.0.0.0/8"}, OutboundTag: routing.OutDirect}}
-	c := startClient(t, xrayconf.Spec{Mode: xrayconf.ModeOwn, Own: ownLink(ownPort), Routing: rt})
+	c := startClient(t, xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.OwnHop(ownLink(ownPort))}, Routing: rt})
 	for _, h := range []string{fmt.Sprintf("127.0.0.1:%d", target), fmt.Sprintf("localhost:%d", target)} {
 		c.mustFail(h)
 	}
@@ -269,7 +290,7 @@ func TestPrivateDestinationsBlocked(t *testing.T) {
 func TestAuthRequired(t *testing.T) {
 	target := httpTarget(t, "ok")
 	ownPort, _ := upstream(t, "ws", map[string]string{"target.test": fmt.Sprintf("127.0.0.1:%d", target)})
-	c := startClient(t, xrayconf.Spec{Mode: xrayconf.ModeOwn, Own: ownLink(ownPort), Inbound: xrayconf.Inbound{HTTPPort: freePort(t)}})
+	c := startClient(t, xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.OwnHop(ownLink(ownPort))}, Inbound: xrayconf.Inbound{HTTPPort: freePort(t)}})
 	before := runner.AuthFailures()
 
 	// No-auth greeting: the server must refuse every method (0xFF).
@@ -390,7 +411,7 @@ func readUDP(c *net.UDPConn, d time.Duration) (string, bool) {
 func TestUDP(t *testing.T) {
 	echo := udpEcho(t)
 	ownPort, _ := upstream(t, "ws", map[string]string{"echo.test": fmt.Sprintf("127.0.0.1:%d", echo)})
-	c := startClient(t, xrayconf.Spec{Mode: xrayconf.ModeOwn, Own: ownLink(ownPort), Inbound: xrayconf.Inbound{UDP: true}})
+	c := startClient(t, xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.OwnHop(ownLink(ownPort))}, Inbound: xrayconf.Inbound{UDP: true}})
 
 	legit, _ := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	defer legit.Close()
@@ -436,7 +457,7 @@ func TestUDP(t *testing.T) {
 
 func TestUDPDisabledByDefault(t *testing.T) {
 	ownPort, _ := upstream(t, "ws", nil)
-	c := startClient(t, xrayconf.Spec{Mode: xrayconf.ModeOwn, Own: ownLink(ownPort)})
+	c := startClient(t, xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.OwnHop(ownLink(ownPort))}})
 	local, _ := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	defer local.Close()
 	conn, relay, status := socks5UDP(t, c.socksAddr(), c.in.User, c.in.Pass, local.LocalAddr().(*net.UDPAddr))
@@ -449,15 +470,18 @@ func TestUDPDisabledByDefault(t *testing.T) {
 func TestGatewayShapedConfigLoads(t *testing.T) {
 	// The real answer: reality on both hops, empty serverName/shortId, xhttp relay with xmux, vision flow.
 	in := xrayconf.Inbound{SocksPort: 20001, User: "user", Pass: "password"}
-	for _, mode := range []xrayconf.Mode{xrayconf.ModeAmnezia, xrayconf.ModeAmneziaOwn} {
-		x, _ := json.Marshal(mockgw.XrayConfig(testUUID))
-		own, _ := links.Parse("vless://" + testUUID + "@vps.example.com:443?type=xhttp&security=reality&pbk=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC&sni=www.example.com&fp=chrome")
-		cfg, err := xrayconf.Build(xrayconf.Spec{Mode: mode, Amnezia: x, Own: own.Outbound, Inbound: in})
+	x, _ := json.Marshal(mockgw.XrayConfig(testUUID))
+	own, _ := links.Parse("vless://" + testUUID + "@vps.example.com:443?type=xhttp&security=reality&pbk=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC&sni=www.example.com&fp=chrome")
+	amz, ownHop := xrayconf.AmneziaHop(x), xrayconf.OwnHop(own.Outbound)
+	for name, hops := range map[string][]xrayconf.Hop{
+		"amnezia": {amz}, "amnezia-own": {amz, ownHop}, "own-amnezia": {ownHop, amz}, "own-amnezia-own": {ownHop, amz, ownHop},
+	} {
+		cfg, err := xrayconf.Build(xrayconf.Spec{Hops: hops, Inbound: in})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if err := runner.Check(cfg); err != nil {
-			t.Fatalf("%s: Xray rejects the config: %v", mode, err)
+			t.Fatalf("%s: Xray rejects the config: %v", name, err)
 		}
 	}
 }
@@ -466,7 +490,7 @@ func TestPortInUse(t *testing.T) {
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer l.Close()
 	ownPort, _ := upstream(t, "ws", nil)
-	cfg, _ := xrayconf.Build(xrayconf.Spec{Mode: xrayconf.ModeOwn, Own: ownLink(ownPort),
+	cfg, _ := xrayconf.Build(xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.OwnHop(ownLink(ownPort))},
 		Inbound: xrayconf.Inbound{SocksPort: l.Addr().(*net.TCPAddr).Port, User: "u", Pass: "p"}})
 	if inst, err := runner.Start(cfg); err == nil {
 		inst.Close()

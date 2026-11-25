@@ -14,19 +14,43 @@ import (
 	"github.com/nuc134r/sockmnezia/core/routing"
 )
 
-// Mode selects the outbound chain.
+// Mode is the legacy outbound selection (state version 1); the engine migrates it to chains.
 type Mode string
 
 const (
-	ModeAmnezia    Mode = "amnezia"     // local proxy -> Amnezia chain
-	ModeAmneziaOwn Mode = "amnezia_own" // local proxy -> own server, dialed through the Amnezia chain
-	ModeOwn        Mode = "own"         // local proxy -> own server (no Amnezia key needed)
+	ModeAmnezia    Mode = "amnezia"     // Amnezia only
+	ModeAmneziaOwn Mode = "amnezia_own" // Amnezia -> own server
+	ModeOwn        Mode = "own"         // own server only
+)
+
+// Hop is one element of an outbound chain: exactly one of Amnezia (the gateway's Xray client config, which
+// may itself be a relay chain) or Own (a saved own server) is set. Hops are listed from the phone outwards:
+// the first one is dialed directly, every later one through the hop before it, the last one is the exit.
+type Hop struct {
+	Amnezia json.RawMessage
+	Own     links.Outbound
+}
+
+// AmneziaHop and OwnHop build a Hop.
+func AmneziaHop(cfg json.RawMessage) Hop { return Hop{Amnezia: cfg} }
+func OwnHop(o links.Outbound) Hop        { return Hop{Own: o} }
+
+// MaxHops limits the chain length: every hop adds latency and a point of failure.
+const MaxHops = 5
+
+// Chain errors (wrapped in *Error with Field "chain" or "hop<N>", N counted from 1).
+var (
+	ErrChainEmpty    = errors.New("the chain has no hops")
+	ErrChainTooLong  = fmt.Errorf("a chain has at most %d hops", MaxHops)
+	ErrAmneziaTwice  = errors.New("Amnezia can be used only once in a chain")
+	ErrNotChainable  = errors.New("this hop cannot be reached through another hop")
+	ErrHopIncomplete = errors.New("hop has no server")
 )
 
 // Outbound tags in the generated config.
 const (
 	TagAmneziaPrefix = "amz-"
-	TagOwn           = "own"
+	TagHopPrefix     = "hop" // own servers: hop1, hop2, … by position (never a name or address)
 	TagDirect        = "direct"
 	TagBlock         = "block"
 	TagSocksIn       = "socks-in"
@@ -45,9 +69,7 @@ type Inbound struct {
 
 // Spec is everything Build needs.
 type Spec struct {
-	Mode     Mode
-	Amnezia  json.RawMessage // the gateway's Xray client config (ModeAmnezia, ModeAmneziaOwn)
-	Own      links.Outbound  // the own server (ModeAmneziaOwn, ModeOwn)
+	Hops     []Hop // phone first, exit last
 	Inbound  Inbound
 	Routing  routing.Settings
 	LogLevel string // debug, info, warning (default), error, none
@@ -208,23 +230,17 @@ func amneziaOutbounds(raw json.RawMessage) ([]map[string]any, string, error) {
 	return sorted, head, nil
 }
 
-func ownOutbound(o links.Outbound, via string) (map[string]any, error) {
+func ownOutbound(o links.Outbound, tag string) (map[string]any, error) {
 	if o == nil {
-		return nil, ferr("own", "no own server selected")
-	}
-	if err := links.CheckChainable(o); err != nil && via != "" {
-		return nil, &Error{Field: "own", Err: err}
+		return nil, ErrHopIncomplete
 	}
 	out := clone(map[string]any(o)).(map[string]any)
 	delete(out, "proxySettings")
 	delete(out, "remarks")
-	out["tag"] = TagOwn
+	out["tag"] = tag
 	ss := obj(out, "streamSettings")
 	so := obj(ss, "sockopt")
 	delete(so, "dialerProxy")
-	if via != "" {
-		so["dialerProxy"] = via
-	}
 	if len(so) == 0 {
 		delete(ss, "sockopt")
 	}
@@ -234,44 +250,105 @@ func ownOutbound(o links.Outbound, via string) (map[string]any, error) {
 	return out, nil
 }
 
-// Outbounds returns the outbound list for a mode, head (default outbound) first, plus the head tag.
-func Outbounds(mode Mode, amnezia json.RawMessage, own links.Outbound) ([]map[string]any, string, error) {
-	var outs []map[string]any
-	head := ""
-	switch mode {
-	case ModeAmnezia, ModeAmneziaOwn:
-		amz, h, err := amneziaOutbounds(amnezia)
-		if err != nil {
-			return nil, "", err
+func dialerProxy(o map[string]any) string {
+	ss, _ := o["streamSettings"].(map[string]any)
+	so, _ := ss["sockopt"].(map[string]any)
+	d, _ := so["dialerProxy"].(string)
+	return d
+}
+
+func setDialerProxy(o map[string]any, via string) {
+	so := obj(obj(o, "streamSettings"), "sockopt")
+	so["dialerProxy"] = via
+}
+
+// tail follows head's dialerProxy chain to the outbound that is dialed first (the one without dialerProxy).
+func tail(byTag map[string]map[string]any, head string) map[string]any {
+	seen := map[string]bool{}
+	o := byTag[head]
+	for o != nil && !seen[o["tag"].(string)] {
+		seen[o["tag"].(string)] = true
+		next := byTag[dialerProxy(o)]
+		if next == nil {
+			return o
 		}
-		if mode == ModeAmneziaOwn {
-			o, err := ownOutbound(own, h)
-			if err != nil {
+		o = next
+	}
+	return o
+}
+
+func hopErr(i int, err error) error { return &Error{Field: fmt.Sprintf("hop%d", i+1), Err: err} }
+
+// Outbounds returns the outbound list for a chain, head (the exit hop, Xray's default outbound) first, plus
+// the head tag. Hop i+1 is dialed through hop i via sockopt.dialerProxy; nothing ever dials around a hop.
+func Outbounds(hops []Hop) ([]map[string]any, string, error) {
+	switch {
+	case len(hops) == 0:
+		return nil, "", &Error{Field: "chain", Err: ErrChainEmpty}
+	case len(hops) > MaxHops:
+		return nil, "", &Error{Field: "chain", Err: ErrChainTooLong}
+	}
+	var groups [][]map[string]any // per hop, its head first
+	prevHead := ""
+	amzSeen := false
+	for i, h := range hops {
+		var outs []map[string]any
+		var head string
+		switch {
+		case h.Amnezia != nil && h.Own != nil:
+			return nil, "", hopErr(i, errors.New("hop is both Amnezia and an own server"))
+		case h.Amnezia != nil:
+			if amzSeen {
+				return nil, "", hopErr(i, ErrAmneziaTwice)
+			}
+			amzSeen = true
+			var err error
+			if outs, head, err = amneziaOutbounds(h.Amnezia); err != nil {
+				var xe *Error
+				if errors.As(err, &xe) {
+					xe.Field = fmt.Sprintf("hop%d", i+1)
+				}
 				return nil, "", err
 			}
-			outs, head = append([]map[string]any{o}, amz...), TagOwn
-		} else {
-			outs, head = amz, h
+		case h.Own != nil:
+			head = fmt.Sprintf("%s%d", TagHopPrefix, i+1)
+			o, err := ownOutbound(h.Own, head)
+			if err != nil {
+				return nil, "", hopErr(i, err)
+			}
+			outs = []map[string]any{o}
+		default:
+			return nil, "", hopErr(i, ErrHopIncomplete)
 		}
-	case ModeOwn:
-		o, err := ownOutbound(own, "")
-		if err != nil {
-			return nil, "", err
+		if prevHead != "" {
+			byTag := map[string]map[string]any{}
+			for _, o := range outs {
+				byTag[o["tag"].(string)] = o
+			}
+			first := tail(byTag, head)
+			if err := links.CheckChainable(links.Outbound(first)); err != nil {
+				return nil, "", hopErr(i, fmt.Errorf("%w: %w", ErrNotChainable, err))
+			}
+			setDialerProxy(first, prevHead)
 		}
-		outs, head = []map[string]any{o}, TagOwn
-	default:
-		return nil, "", ferr("mode", "unknown mode %q", mode)
+		groups = append(groups, outs)
+		prevHead = head
+	}
+	// Exit hop first (Xray's default outbound), then the hops before it from the exit inwards.
+	var outs []map[string]any
+	for i := len(groups) - 1; i >= 0; i-- {
+		outs = append(outs, groups[i]...)
 	}
 	outs = append(outs,
 		map[string]any{"tag": TagDirect, "protocol": "freedom"},
 		map[string]any{"tag": TagBlock, "protocol": "blackhole"},
 	)
-	return outs, head, nil
+	return outs, prevHead, nil
 }
 
 // Hops lists the server addresses a connection passes, from the phone outwards (the last one is the exit).
-func Hops(mode Mode, amnezia json.RawMessage, own links.Outbound) ([]string, error) {
-	outs, head, err := Outbounds(mode, amnezia, own)
+func Hops(hops []Hop) ([]string, error) {
+	outs, head, err := Outbounds(hops)
 	if err != nil {
 		return nil, err
 	}
@@ -279,22 +356,19 @@ func Hops(mode Mode, amnezia json.RawMessage, own links.Outbound) ([]string, err
 	for _, o := range outs {
 		byTag[o["tag"].(string)] = o
 	}
-	var hops []string
+	var addrs []string
 	seen := map[string]bool{}
-	for t := head; t != "" && !seen[t]; {
+	for t := head; t != "" && !seen[t]; t = dialerProxy(byTag[t]) {
 		seen[t] = true
 		o := byTag[t]
 		if o == nil {
 			break
 		}
 		if a := outboundAddress(o); a != "" {
-			hops = append([]string{a}, hops...)
+			addrs = append([]string{a}, addrs...)
 		}
-		ss, _ := o["streamSettings"].(map[string]any)
-		so, _ := ss["sockopt"].(map[string]any)
-		t, _ = so["dialerProxy"].(string)
 	}
-	return hops, nil
+	return addrs, nil
 }
 
 func outboundAddress(o map[string]any) string {
@@ -327,7 +401,7 @@ func Build(s Spec) ([]byte, error) {
 	if s.Routing.DomainStrategy == "" {
 		s.Routing.DomainStrategy = routing.AsIs
 	}
-	outs, head, err := Outbounds(s.Mode, s.Amnezia, s.Own)
+	outs, head, err := Outbounds(s.Hops)
 	if err != nil {
 		return nil, err
 	}
@@ -383,10 +457,10 @@ func Build(s Spec) ([]byte, error) {
 	return b, nil
 }
 
-// BuildDialer returns a config with no inbounds whose only route is the given outbound chain; used to send
-// the gateway request through the own server in-process (no listening port).
-func BuildDialer(mode Mode, amnezia json.RawMessage, own links.Outbound) ([]byte, error) {
-	outs, head, err := Outbounds(mode, amnezia, own)
+// BuildDialer returns a config with no inbounds whose only route is the given chain; used for in-process
+// requests (connection check, location ping, gateway fetch through earlier hops) with no listening port.
+func BuildDialer(hops []Hop) ([]byte, error) {
+	outs, head, err := Outbounds(hops)
 	if err != nil {
 		return nil, err
 	}
