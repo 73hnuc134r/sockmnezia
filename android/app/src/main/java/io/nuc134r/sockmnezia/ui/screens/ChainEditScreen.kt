@@ -54,6 +54,8 @@ import io.nuc134r.sockmnezia.ui.HopDot
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
+import io.nuc134r.sockmnezia.ui.ShareFormat
+import io.nuc134r.sockmnezia.ui.ShareSheet
 import io.nuc134r.sockmnezia.ui.act
 import io.nuc134r.sockmnezia.ui.errorText
 import io.nuc134r.sockmnezia.ui.hopName
@@ -77,6 +79,7 @@ fun ChainEditScreen(nav: NavController, id: String) {
     var adding by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
 
     LaunchedEffect(revision) { runCatching { servers = Core.ownServers() } }
     LaunchedEffect(id) {
@@ -144,7 +147,10 @@ fun ChainEditScreen(nav: NavController, id: String) {
             OutlinedButton(enabled = hops.size < MaxHops, onClick = { adding = true }) { Text(stringResource(R.string.chain_add_hop)) }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (!isNew) TextButton(onClick = { deleting = true }) { Text(stringResource(R.string.delete)) }
+            if (!isNew) {
+                TextButton(onClick = { deleting = true }) { Text(stringResource(R.string.delete)) }
+                TextButton(onClick = { sharing = true }) { Text(stringResource(R.string.share)) }
+            }
             Spacer(Modifier.weight(1f))
             if (!isNew && status.chainId != id) {
                 OutlinedButton(enabled = error == null && hops.isNotEmpty(), onClick = {
@@ -177,8 +183,25 @@ fun ChainEditScreen(nav: NavController, id: String) {
     if (importing) {
         AddServerDialog(onDismiss = { importing = false }, onAdded = { sid ->
             importing = false
-            hops = hops + ChainHop(HopKind.SERVER, sid)
+            if (sid != null) hops = hops + ChainHop(HopKind.SERVER, sid)
         })
+    }
+    if (sharing) {
+        // Shares the saved chain (not unsaved edits).
+        val withAmnezia = hops.any { it.kind == HopKind.AMNEZIA }
+        ShareSheet(
+            title = stringResource(R.string.share_title, name),
+            formats = listOf(
+                ShareFormat(stringResource(R.string.share_format_links)) { Core.shareChain(id, "links") },
+                ShareFormat(stringResource(R.string.share_format_xray), enabled = !withAmnezia) { Core.shareChain(id, "xray") },
+            ),
+            notes = listOfNotNull(
+                stringResource(R.string.share_links_hint),
+                if (withAmnezia) stringResource(R.string.share_amnezia_note) else null,
+                if (withAmnezia) stringResource(R.string.share_xray_amnezia) else null,
+            ),
+            onDismiss = { sharing = false },
+        )
     }
     if (deleting) {
         AlertDialog(

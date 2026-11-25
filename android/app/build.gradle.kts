@@ -103,6 +103,7 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.zxing.core) // QR codes for sharing servers and chains (encoder only)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

@@ -135,6 +135,17 @@ data class OwnServer(
     @SerialName("used_in") val usedIn: List<String> = emptyList(),
 )
 
+/** What importing shared text adds (or would add, in a dry run). */
+@Serializable
+data class ImportResult(
+    val chain: String = "",
+    @SerialName("chain_id") val chainId: String = "",
+    val hops: Int = 0,
+    @SerialName("new_servers") val newServers: List<String> = emptyList(),
+    @SerialName("known_servers") val knownServers: List<String> = emptyList(),
+    @SerialName("needs_amnezia") val needsAmnezia: Boolean = false,
+)
+
 /** One hop of a saved chain, as stored: Amnezia, or an own server by ID. */
 @Serializable
 data class ChainHop(val kind: String, val server: String? = null)

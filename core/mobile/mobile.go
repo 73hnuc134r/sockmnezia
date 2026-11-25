@@ -264,6 +264,28 @@ func (c *Core) ValidateChainJSON(s string) string {
 // DeleteChain removes a chain.
 func (c *Core) DeleteChain(id string) error { return wrap(c.e.DeleteChain(id)) }
 
+// ShareServer returns a saved server's share link (contains its credentials).
+func (c *Core) ShareServer(id string) (string, error) {
+	l, err := c.e.ShareServer(id)
+	return l, wrap(err)
+}
+
+// ShareChain returns a chain as text ("links") or Xray outbounds JSON ("xray").
+func (c *Core) ShareChain(id, format string) (string, error) {
+	t, err := c.e.ShareChain(id, format)
+	return t, wrap(err)
+}
+
+// ImportJSON imports shared text (a chain, links or an outbound JSON) and returns the engine.ImportResult
+// JSON; with dryRun nothing is saved.
+func (c *Core) ImportJSON(text string, dryRun bool) (string, error) {
+	r, err := c.e.Import(text, dryRun)
+	if err != nil {
+		return "", wrap(err)
+	}
+	return toJSON(r), nil
+}
+
 // SetActiveChain selects the chain the proxy runs.
 func (c *Core) SetActiveChain(id string) error { return wrap(c.e.SetActiveChain(id)) }
 

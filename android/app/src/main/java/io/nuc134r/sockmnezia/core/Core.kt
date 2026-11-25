@@ -146,6 +146,17 @@ object Core {
     suspend fun deleteChain(id: String) = call { it.deleteChain(id) }.also { changed() }
     suspend fun setActiveChain(id: String) = call { it.setActiveChain(id) }.also { changed() }
 
+    /** A saved server's share link (contains its credentials). */
+    suspend fun shareServer(id: String): String = call { it.shareServer(id) }
+
+    /** A chain as text ([format] "links") or Xray outbounds JSON ("xray"). */
+    suspend fun shareChain(id: String, format: String): String = call { it.shareChain(id, format) }
+
+    /** Imports shared text (a chain, links or an outbound JSON); with [dryRun] nothing is saved. */
+    suspend fun import(text: String, dryRun: Boolean): ImportResult =
+        call { CoreJson.decodeFromString(ImportResult.serializer(), it.importJSON(text, dryRun)) }
+            .also { if (!dryRun) changed() }
+
     /** Why [c] cannot run, or null when it can (no side effects). */
     suspend fun validateChain(c: Chain): CoreError? = call {
         it.validateChainJSON(CoreJson.encodeToString(Chain.serializer(), c))

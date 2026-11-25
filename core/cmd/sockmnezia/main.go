@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -33,12 +34,14 @@ Amnezia:
   countries                  list locations from the last answer
 Own server:
   own add LINK [NAME]        add vless/vmess/trojan/ss/socks/http link or Xray outbound JSON
-  own list | own rm ID
+  own list | own rm ID | own share ID
 Chains (phone first, exit last; a hop is "amnezia" or an own server ID or name):
   chain list                 list chains, * = active
   chain add NAME HOP...      e.g. chain add work amnezia my-vps
   chain set ID NAME HOP...   replace a chain
   chain use ID | chain rm ID
+  chain share ID [--xray]    print the chain as links (or Xray outbounds JSON); contains credentials
+  import FILE|- [--dry-run]  import shared text: a chain, links or an outbound JSON
 Settings:
   set port N | user U | pass P | udp on|off | http PORT|off | listen IP | fetch-via SERVER|off
   regen                      new random port, username and password
@@ -194,8 +197,14 @@ func main() {
 			if err := e.RemoveOwnServer(parseHops(e, []string{arg(2)})[0].Server); err != nil {
 				die(err)
 			}
+		case "share":
+			l, err := e.ShareServer(parseHops(e, []string{arg(2)})[0].Server)
+			if err != nil {
+				die(err)
+			}
+			fmt.Println(l)
 		default:
-			die(fmt.Errorf("own add|list|rm"))
+			die(fmt.Errorf("own add|list|rm|share"))
 		}
 	case "chain":
 		switch arg(1) {
@@ -237,9 +246,36 @@ func main() {
 			if err := e.DeleteChain(arg(2)); err != nil {
 				die(err)
 			}
+		case "share":
+			format := engine.ShareLinks
+			if len(args) > 3 && args[3] == "--xray" {
+				format = engine.ShareXray
+			}
+			t, err := e.ShareChain(arg(2), format)
+			if err != nil {
+				die(err)
+			}
+			fmt.Print(t)
 		default:
-			die(fmt.Errorf("chain list|add|set|use|rm"))
+			die(fmt.Errorf("chain list|add|set|use|rm|share"))
 		}
+	case "import":
+		var b []byte
+		var err error
+		if arg(1) == "-" {
+			b, err = io.ReadAll(os.Stdin)
+		} else {
+			b, err = os.ReadFile(arg(1))
+		}
+		if err != nil {
+			die(err)
+		}
+		dry := len(args) > 2 && args[2] == "--dry-run"
+		r, err := e.Import(string(b), dry)
+		if err != nil {
+			die(err)
+		}
+		printJSON(r)
 	case "set":
 		v := arg(2)
 		switch arg(1) {
