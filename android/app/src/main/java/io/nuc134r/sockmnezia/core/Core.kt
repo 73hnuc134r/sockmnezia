@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import io.nuc134r.gocore.mobile.Core as GoCore
 
 /**
@@ -58,6 +59,7 @@ object Core {
     }
 
     private fun changed() {
+        clearProbe()
         _revision.value += 1
         refreshStatus()
     }
@@ -100,11 +102,30 @@ object Core {
     suspend fun pingCountry(country: String): Long =
         call { CoreJson.decodeFromString(PingResult.serializer(), it.pingCountryJSON(country)).ms }
 
-    private val _probe = MutableStateFlow<ChainResult?>(null)
-    /** Last exit address / ping check (on demand only; cleared when the proxy starts or stops). */
-    val probe: StateFlow<ChainResult?> = _probe.asStateFlow()
-    suspend fun runProbe() { _probe.value = testChain() }
-    fun clearProbe() { _probe.value = null }
+    private val _probe = MutableStateFlow<Probe>(Probe.Idle)
+    private val probeGen = AtomicLong()
+    /** Last exit address / ping check (on demand only). Cleared on every change (start, stop, another
+     * chain, server, location, settings), so a result never outlives the config it was measured on. */
+    val probe: StateFlow<Probe> = _probe.asStateFlow()
+
+    /** Runs the check. A result that arrives after the config changed is dropped; a failure replaces any
+     * earlier result (it is never left on screen). */
+    suspend fun runProbe() {
+        val gen = probeGen.incrementAndGet()
+        _probe.value = Probe.Testing
+        try {
+            val r = testChain()
+            if (probeGen.get() == gen) _probe.value = Probe.Done(r)
+        } catch (e: Exception) {
+            if (probeGen.get() == gen) _probe.value = Probe.Failed
+            throw e
+        }
+    }
+
+    fun clearProbe() {
+        probeGen.incrementAndGet()
+        _probe.value = Probe.Idle
+    }
 
     // --- own servers ---------------------------------------------------------------------------------
     suspend fun ownServers(): List<OwnServer> =

@@ -5,6 +5,10 @@ shown in the app's update card. Write for people using the app, not for develope
 
 ## Unreleased
 
+- Home screen: the connection-check block is more compact (state and ping on one line, the full route below,
+  wrapped instead of cut) and the start/stop button overlaps its corner.
+- The exit address and ping are cleared when you switch server, location or settings, and a failed check
+  shows "check failed" instead of the previous result.
 - Home screen: a "Find fastest" button opens a dialog that pings every available location (up to 3 tries
   each) and lists them sorted by the lowest ping found.
 - Snackbars can now be dismissed.

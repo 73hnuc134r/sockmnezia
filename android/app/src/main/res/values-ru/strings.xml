@@ -50,11 +50,12 @@
     <string name="copy_link">Копировать ссылку socks5://</string>
     <string name="conn_connected">Подключено</string>
     <string name="conn_stopped">Не подключено</string>
-    <string name="conn_route">Маршрут: %1$s</string>
-    <string name="conn_exit">Внешний адрес: %1$s</string>
+    <string name="conn_exit">выход %1$s</string>
+    <string name="conn_exit_same">· выход ✓</string>
     <string name="conn_ping">%1$d мс</string>
-    <string name="conn_tap_to_test">Нажмите, чтобы проверить внешний адрес и пинг</string>
-    <string name="conn_testing">Проверка…</string>
+    <string name="conn_tap_to_test">нажмите для проверки</string>
+    <string name="conn_testing">проверка…</string>
+    <string name="conn_failed">проверка не удалась, нажмите ещё раз</string>
     <string name="device_id">ID устройства в Amnezia</string>
     <string name="device_id_hint">Так это устройство показано в списке устройств Amnezia для этой подписки.</string>
     <string name="shortcut_toggle">Вкл/выкл прокси</string>

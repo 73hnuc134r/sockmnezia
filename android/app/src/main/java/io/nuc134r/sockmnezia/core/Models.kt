@@ -161,6 +161,14 @@ data class LogLine(val t: Long, val level: String, val msg: String)
 @Serializable
 data class ChainResult(val ip: String, val ms: Long, val country: String = "")
 
+/** State of the on-demand exit address / ping check shown in the connection bar. */
+sealed interface Probe {
+    data object Idle : Probe
+    data object Testing : Probe
+    data class Done(val result: ChainResult) : Probe
+    data object Failed : Probe
+}
+
 @Serializable
 data class PingResult(val ms: Long)
 

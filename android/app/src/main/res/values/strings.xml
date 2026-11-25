@@ -51,11 +51,12 @@
     <string name="copy_link">Copy socks5:// link</string>
     <string name="conn_connected">Connected</string>
     <string name="conn_stopped">Not connected</string>
-    <string name="conn_route">Route: %1$s</string>
-    <string name="conn_exit">Exit address: %1$s</string>
+    <string name="conn_exit">exit %1$s</string>
+    <string name="conn_exit_same">· exit ✓</string>
     <string name="conn_ping">%1$d ms</string>
-    <string name="conn_tap_to_test">Tap to check the exit address and ping</string>
-    <string name="conn_testing">Testing…</string>
+    <string name="conn_tap_to_test">tap to test</string>
+    <string name="conn_testing">testing…</string>
+    <string name="conn_failed">check failed, tap to retry</string>
     <string name="device_id">Device ID in Amnezia</string>
     <string name="device_id_hint">Shown in Amnezia\'s device list for this subscription.</string>
     <string name="shortcut_toggle">Toggle proxy</string>
