@@ -18,7 +18,7 @@ Research and protocol: `docs/01…08`; chains (multihop) and sharing: `docs/09`;
   - `mobile` — gomobile API for the app (JSON strings in/out; errors are `engine.Error` JSON)
   - `cmd/sockmnezia` — CLI
 - `android/` — Kotlin + Jetpack Compose app (`io.nuc134r.sockmnezia`): `core/` (Go bridge, models, Keystore box),
-  `service/` (foreground service, QS tile, boot receiver, geo worker), `health/` (battery checks), `ui/`
+  `service/` (foreground + VPN service, QS tile, boot receiver, geo worker), `health/` (battery checks), `ui/`
 - `tool/` — `build-aar.sh` (Go core → `android/app/libs/*.aar`), `strings.py` (UI strings, en + ru),
   `version.sh`, `changelog.sh`
 - `.github/workflows/` — `tests.yml`, `secrets.yml` (gitleaks), `release.yml`, `release-notes.yml`;

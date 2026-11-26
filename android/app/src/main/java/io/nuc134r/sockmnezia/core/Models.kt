@@ -38,6 +38,10 @@ class CoreException(val error: CoreError) : Exception(error.detail ?: error.code
 @Serializable
 data class Status(
     val running: Boolean = false,
+    /** Running in VPN mode (the whole phone or chosen apps through the tun). */
+    val vpn: Boolean = false,
+    /** The configured mode, [Modes.PROXY] or [Modes.VPN]. */
+    val mode: String = Modes.PROXY,
     val listen: String = "127.0.0.1",
     @SerialName("socks_port") val socksPort: Int = 0,
     @SerialName("http_port") val httpPort: Int = 0,
@@ -109,6 +113,38 @@ data class Options(
     @SerialName("log_level") val logLevel: String = "warning",
     @SerialName("exit_ip_url") val exitIpUrl: String = "https://api.ipify.org",
     @SerialName("refresh_after_hrs") val refreshAfterHrs: Int = 24,
+    /** [Modes.PROXY] or [Modes.VPN]: what Start starts. */
+    val mode: String = Modes.PROXY,
+    val vpn: VpnOptions = VpnOptions(),
+)
+
+object Modes {
+    const val PROXY = "proxy"
+    const val VPN = "vpn"
+}
+
+/** VPN-mode settings (core engine.VPNOptions). */
+@Serializable
+data class VpnOptions(
+    /** "public" | "doh" | "custom" */
+    val dns: String = "public",
+    @SerialName("dns_servers") val dnsServers: List<String> = emptyList(),
+    /** "bypass" | "tunnel" */
+    val lan: String = "bypass",
+    /** "all" | "only" | "except" */
+    val apps: String = "all",
+    @SerialName("app_list") val appList: List<String> = emptyList(),
+)
+
+/** Parameters for VpnService.Builder, computed by the core (engine.VPNInterface). */
+@Serializable
+data class VpnInterface(
+    val mtu: Int = 1500,
+    val addresses: List<String> = emptyList(),
+    val routes: List<String> = emptyList(),
+    val dns: List<String> = emptyList(),
+    val apps: String = "all",
+    @SerialName("app_list") val appList: List<String> = emptyList(),
 )
 
 @Serializable

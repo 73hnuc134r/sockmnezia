@@ -3,8 +3,15 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
-## 1.0.5
+## 1.1.0
 
+- VPN mode: switch Home between Proxy and VPN. In VPN mode the whole phone (or the apps you choose) goes
+  through the selected chain or server, also apps without proxy settings. The proxy ports keep working
+  beside it. Android's Always-on VPN is supported, and a broken hop blocks traffic instead of letting it
+  around the chain.
+- Settings → VPN mode: DNS (public resolvers through the chain, DNS-over-HTTPS in the app, or your own
+  servers), local network (bypasses the VPN, or blocked), and apps (all, only chosen, all except chosen,
+  with an app list and search).
 - Home screen: the connection-check block is always at least three lines tall, so it is easy to tap.
 - Home screen: the Background work card only shows while a setting needs changing (battery optimization,
   background restriction, notifications, data saver, pausing unused apps). Advice such as the phone-maker

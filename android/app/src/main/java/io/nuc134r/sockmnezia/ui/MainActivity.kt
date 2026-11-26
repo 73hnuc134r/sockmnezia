@@ -47,6 +47,7 @@ import io.nuc134r.sockmnezia.ui.screens.RoutingScreen
 import io.nuc134r.sockmnezia.ui.screens.RuleEditorScreen
 import io.nuc134r.sockmnezia.ui.screens.ServerEditScreen
 import io.nuc134r.sockmnezia.ui.screens.SettingsScreen
+import io.nuc134r.sockmnezia.ui.screens.VpnAppsScreen
 import io.nuc134r.sockmnezia.ui.theme.SockmneziaTheme
 
 object Routes {
@@ -60,6 +61,8 @@ object Routes {
     const val RULE = "rule/{index}"
     const val CHAIN = "chain/{id}"
     const val SELECT = "select"
+    const val VPN_APPS = "vpn_apps/{mode}"
+    fun vpnApps(mode: String) = "vpn_apps/$mode"
     const val SERVER = "server/{id}"
     fun server(id: String) = "server/$id"
     /** Chain route argument for a new chain. */
@@ -100,6 +103,7 @@ fun AppRoot() {
         Routes.RULE -> R.string.title_rule
         Routes.CHAIN -> R.string.title_chain
         Routes.SELECT -> R.string.selector_title
+        Routes.VPN_APPS -> R.string.vpn_apps
         Routes.SERVER -> R.string.title_server
         else -> R.string.app_name
     }
@@ -161,6 +165,9 @@ fun AppRoot() {
                 composable(Routes.LOGS) { LogsScreen() }
                 composable(Routes.ABOUT) { AboutScreen() }
                 composable(Routes.SELECT) { SelectScreen(nav) }
+                composable(Routes.VPN_APPS, arguments = listOf(navArgument("mode") { type = NavType.StringType })) {
+                    VpnAppsScreen(nav, it.arguments?.getString("mode") ?: "only")
+                }
                 composable(Routes.SERVER, arguments = listOf(navArgument("id") { type = NavType.StringType })) {
                     ServerEditScreen(nav, it.arguments?.getString("id") ?: Routes.NEW)
                 }

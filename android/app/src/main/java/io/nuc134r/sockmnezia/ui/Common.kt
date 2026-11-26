@@ -58,6 +58,8 @@ fun errorText(ctx: Context, e: CoreError): String {
         "network" -> R.string.err_network
         "geo_busy" -> R.string.err_geo_busy
         "json_only" -> R.string.err_json_only
+        "vpn_permission" -> R.string.err_vpn_permission
+        "vpn_no_apps" -> R.string.err_vpn_no_apps
         "no_chain" -> R.string.err_no_chain
         "server_in_use" -> R.string.err_server_in_use
         "chain_empty" -> R.string.err_chain_empty
@@ -68,7 +70,7 @@ fun errorText(ctx: Context, e: CoreError): String {
     }
     val base = ctx.getString(res)
     return if (e.detail.isNullOrBlank() || e.code in setOf(
-            "device_limit", "captcha_required", "not_running", "no_chain", "geo_busy", "json_only",
+            "device_limit", "captcha_required", "not_running", "no_chain", "geo_busy", "json_only", "vpn_permission", "vpn_no_apps",
             "chain_empty", "chain_too_long", "chain_amnezia_twice", "hop_not_chainable",
         )) base
     else "$base\n${e.detail}"

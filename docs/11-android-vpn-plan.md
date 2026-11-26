@@ -1,6 +1,8 @@
 # Plan: VPN mode on Android (next to proxy mode)
 
-Status: decided (2026-11-26), owner answered §3; implementation started.
+Status: implemented (2026-11-26, release 1.1.0). The tun data path is covered by a Linux test that hands
+a real TUN descriptor to Xray (`runner/vpn_linux_test.go`); the Android VpnService side is not yet tested on
+a device.
 
 ## 0. Goal
 

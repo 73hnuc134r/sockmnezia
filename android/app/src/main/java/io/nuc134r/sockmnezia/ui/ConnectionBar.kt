@@ -1,10 +1,6 @@
 package io.nuc134r.sockmnezia.ui
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,7 +47,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.ChainResult
 import io.nuc134r.sockmnezia.core.Core
@@ -73,9 +68,7 @@ fun ConnectionBar(nav: NavController) {
     val status by Core.status.collectAsState()
     val probe by Core.probe.collectAsState()
     var fabWidth by remember { mutableStateOf(0.dp) }
-    val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        ProxyService.start(ctx)
-    }
+    val start = rememberStarter()
     val testing = probe == Probe.Testing
     // At least three lines tall (status + two route lines) so the block is easy to tap for a check.
     val typo = MaterialTheme.typography
@@ -153,15 +146,7 @@ fun ConnectionBar(nav: NavController) {
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ) { Icon(SwapIcon, stringResource(R.string.chain_switch)) }
             FloatingActionButton(onClick = {
-                if (status.running) {
-                    ProxyService.stop(ctx)
-                } else if (Build.VERSION.SDK_INT >= 33 &&
-                    ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    ProxyService.start(ctx)
-                }
+                if (status.running) ProxyService.stop(ctx) else start()
             }) {
                 Icon(
                     if (status.running) Icons.Default.Close else Icons.Default.PlayArrow,

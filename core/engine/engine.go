@@ -564,7 +564,8 @@ func (e *Engine) stopLocked() {
 // Status is shown on the main screen and in the notification.
 type Status struct {
 	Running        bool      `json:"running"`
-	VPN            bool      `json:"vpn"` // running in VPN mode
+	VPN            bool      `json:"vpn"`  // running in VPN mode
+	Mode           string    `json:"mode"` // the mode Start should use (Options.Mode)
 	Listen         string    `json:"listen"`
 	SocksPort      int       `json:"socks_port"`
 	HTTPPort       int       `json:"http_port"`
@@ -597,7 +598,7 @@ func (e *Engine) Status() Status {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	s := Status{
-		Running: e.inst != nil, VPN: e.inst != nil && e.vpnFD >= 0, Listen: e.st.Inbound.Listen,
+		Running: e.inst != nil, VPN: e.inst != nil && e.vpnFD >= 0, Mode: modeOr(e.st.Options.Mode), Listen: e.st.Inbound.Listen,
 		SocksPort: e.st.Inbound.SocksPort, HTTPPort: e.st.Inbound.HTTPPort,
 		AuthFailures: runner.AuthFailures(), HasKey: e.st.Amnezia.Key != "",
 		HasGatewayKey: len(e.st.Amnezia.GatewayPEMs) > 0, HasConfig: e.st.Amnezia.Last != nil,
@@ -893,4 +894,12 @@ func (e *Engine) SetGatewayURL(url string) error {
 	defer e.mu.Unlock()
 	e.st.Amnezia.GatewayURL = strings.TrimSpace(url)
 	return e.persist()
+}
+
+// modeOr returns m, or ModeProxy for states saved before modes existed.
+func modeOr(m string) string {
+	if m == "" {
+		return ModeProxy
+	}
+	return m
 }

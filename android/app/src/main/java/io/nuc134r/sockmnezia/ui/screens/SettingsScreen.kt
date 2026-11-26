@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -38,6 +39,7 @@ import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.core.OwnServer
 import io.nuc134r.sockmnezia.core.Settings
+import io.nuc134r.sockmnezia.service.ProxyService
 import io.nuc134r.sockmnezia.ui.Hint
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
@@ -151,6 +153,8 @@ fun SettingsScreen(nav: NavController) {
             }) { Text(stringResource(R.string.save)) }
         }
 
+        VpnSettings(nav, s)
+
         Section(stringResource(R.string.app_settings)) {
             SwitchRow(stringResource(R.string.start_on_boot), startOnBoot, stringResource(R.string.start_on_boot_hint)) {
                 startOnBoot = it
@@ -204,5 +208,53 @@ private fun Tile(title: String, danger: Boolean = false, onClick: () -> Unit) {
             title, Modifier.padding(horizontal = 16.dp, vertical = 20.dp), style = MaterialTheme.typography.titleMedium,
             color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+/** Settings → VPN: DNS, local network and which apps use the VPN (D31). Saving restarts a running VPN, whose
+ * interface (routes, DNS, apps) is fixed when it is built. */
+@Composable
+private fun VpnSettings(nav: NavController, s: Settings) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbar = LocalSnackbar.current
+    val status by Core.status.collectAsState()
+    val v = s.options.vpn
+    fun save(nv: io.nuc134r.sockmnezia.core.VpnOptions) = scope.act(ctx, snackbar) {
+        Core.setSettings(s.copy(options = s.options.copy(vpn = nv)))
+        if (status.vpn) ProxyService.restart(ctx)
+    }
+    Section(stringResource(R.string.vpn_settings)) {
+        Text(stringResource(R.string.vpn_dns))
+        Choice(
+            listOf("public" to stringResource(R.string.vpn_dns_public), "doh" to stringResource(R.string.vpn_dns_doh), "custom" to stringResource(R.string.vpn_dns_custom)),
+            v.dns,
+        ) { if (it != "custom") save(v.copy(dns = it)) else save(v.copy(dns = it, dnsServers = v.dnsServers.ifEmpty { listOf("9.9.9.9") })) }
+        Hint(stringResource(when (v.dns) { "doh" -> R.string.vpn_dns_doh_hint; "custom" -> R.string.vpn_dns_custom_hint; else -> R.string.vpn_dns_public_hint }))
+        if (v.dns != "doh" && status.hops.any { it.protocol == "http" || it.protocol == "socks" }) {
+            Hint(stringResource(R.string.vpn_dns_udp_warning), warn = true)
+        }
+        if (v.dns == "custom") {
+            var servers by remember(v) { mutableStateOf(v.dnsServers.joinToString(", ")) }
+            OutlinedTextField(servers, { servers = it }, label = { Text(stringResource(R.string.vpn_dns_servers)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            TextButton(onClick = { save(v.copy(dnsServers = servers.split(',', ' ', ';').map { it.trim() }.filter { it.isNotEmpty() })) }) {
+                Text(stringResource(R.string.save))
+            }
+        }
+        Text(stringResource(R.string.vpn_lan))
+        Choice(listOf("bypass" to stringResource(R.string.vpn_lan_bypass), "tunnel" to stringResource(R.string.vpn_lan_tunnel)), v.lan) { save(v.copy(lan = it)) }
+        Hint(stringResource(if (v.lan == "tunnel") R.string.vpn_lan_tunnel_hint else R.string.vpn_lan_bypass_hint))
+        Text(stringResource(R.string.vpn_apps))
+        Choice(
+            listOf("all" to stringResource(R.string.vpn_apps_all), "only" to stringResource(R.string.vpn_apps_only), "except" to stringResource(R.string.vpn_apps_except)),
+            v.apps,
+        ) {
+            if (it == "only" && v.appList.isEmpty()) nav.navigate(Routes.vpnApps("only")) else save(v.copy(apps = it))
+        }
+        if (v.apps != "all") {
+            OutlinedButton(onClick = { nav.navigate(Routes.vpnApps(v.apps)) }) {
+                Text(pluralStringResource(R.plurals.vpn_apps_chosen, v.appList.size, v.appList.size))
+            }
+        }
     }
 }

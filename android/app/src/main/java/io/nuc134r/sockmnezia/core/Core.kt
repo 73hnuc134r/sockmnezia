@@ -87,6 +87,13 @@ object Core {
     suspend fun start() = call { it.start() }.also { changed() }
     suspend fun stop() = call { it.stop() }.also { changed() }
 
+    /** Starts in VPN mode with the VpnService tun [fd] (kept open by the caller until after [stop]). */
+    suspend fun startVpn(fd: Int) = call { it.startVPN(fd.toLong()) }.also { changed() }
+
+    /** What VpnService.Builder needs for the current settings. */
+    suspend fun vpnInterface(): VpnInterface =
+        call { CoreJson.decodeFromString(VpnInterface.serializer(), it.vpnInterfaceJSON()) }
+
     suspend fun settings(): Settings = call { CoreJson.decodeFromString(Settings.serializer(), it.settingsJSON()) }
     suspend fun setSettings(s: Settings) =
         call { it.setSettingsJSON(CoreJson.encodeToString(Settings.serializer(), s)) }.also { changed() }

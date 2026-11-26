@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- VPN mode: list installed apps to choose which use the VPN (Settings → VPN → Apps). -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:name=".App"
@@ -45,14 +49,19 @@
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.NoDisplay" />
 
-        <!-- Not exported: other apps cannot start or stop the proxy. -->
+        <!-- Not exported: other apps cannot start or stop the proxy. Also the VPN service (VPN mode, D31):
+             only the system can bind it (BIND_VPN_SERVICE), e.g. for Always-on VPN. -->
         <service
             android:name=".service.ProxyService"
             android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE"
             android:foregroundServiceType="specialUse">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Local SOCKS5/HTTP proxy server for other apps on the device; must keep running while the user has it switched on." />
+                android:value="Local SOCKS5/HTTP proxy server for other apps on the device, and optionally the device VPN that sends traffic through it; must keep running while the user has it switched on." />
         </service>
 
         <service

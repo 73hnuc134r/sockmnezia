@@ -6,6 +6,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
@@ -44,12 +47,14 @@ import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.core.Country
 import io.nuc134r.sockmnezia.core.FetchRequest
+import io.nuc134r.sockmnezia.core.Modes
 import io.nuc134r.sockmnezia.health.DeviceStateReader
 import io.nuc134r.sockmnezia.health.Severity
 import io.nuc134r.sockmnezia.health.evaluate
 import io.nuc134r.sockmnezia.health.worstActionable
 import io.nuc134r.sockmnezia.ui.ChainStepper
 import io.nuc134r.sockmnezia.ui.Hint
+import io.nuc134r.sockmnezia.ui.rememberStarter
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
@@ -102,6 +107,25 @@ fun HomeScreen(nav: NavController) {
             }
         }
 
+        val start = rememberStarter()
+        Section {
+            // Proxy (apps set up for SOCKS/HTTP) or VPN (the whole phone or chosen apps; the ports stay open).
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                listOf(Modes.PROXY to R.string.mode_proxy, Modes.VPN to R.string.mode_vpn).forEachIndexed { i, (m, label) ->
+                    SegmentedButton(
+                        selected = status.mode == m,
+                        onClick = {
+                            if (status.mode != m) scope.act(ctx, snackbar) {
+                                Core.setSettings(Core.settings().let { it.copy(options = it.options.copy(mode = m)) })
+                                if (status.running) start() // restart in the new mode (asks for VPN consent first)
+                            }
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(i, 2),
+                    ) { Text(stringResource(label)) }
+                }
+            }
+            Hint(stringResource(if (status.mode == Modes.VPN) R.string.mode_vpn_hint else R.string.mode_proxy_hint))
+        }
         Section {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
