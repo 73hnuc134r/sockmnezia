@@ -271,3 +271,13 @@ carry credentials, so while the system-proxy mode is on the app opens a separate
 without authentication (loopback only, never on LAN, off by default, warned in the UI); the SOCKS/HTTP ports
 keep their password. This exception is built in `xrayconf` with a test, like every security rule.
 
+## D31 · VPN / TUN mode uses Xray's own tun inbound (2026-11-26)
+
+Android VPN mode (`docs/11`) and desktop TUN mode (`docs/10` §3a, owner's addition) both use the `tun` inbound
+of the pinned Xray in the same instance as the SOCKS/HTTP inbounds: no tun2socks library, no second process,
+the same chains and fail-closed outbounds. This amends D7: `proxy/tun` is linked, and `xrayconf.Audit` allows
+exactly one tun inbound only when the spec is in VPN/TUN mode. Android excludes the app itself from its VPN
+(no routing loop, no `protect()`); desktop binds Xray's sockets to the physical interface
+(`autoOutboundsInterface`). Owner's choices for Android: DNS configurable (public resolvers through the chain
+by default, DoH in Xray, or custom servers), LAN configurable (bypass by default), per-app selection in the
+first version, SOCKS/HTTP ports keep running beside the VPN.

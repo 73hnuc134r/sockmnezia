@@ -1,6 +1,6 @@
 # Plan: VPN mode on Android (next to proxy mode)
 
-Status: proposal (2026-11-26).
+Status: decided (2026-11-26), owner answered §3; implementation started.
 
 ## 0. Goal
 
@@ -53,16 +53,17 @@ our own app ──────────────────────�
   system apps toggle).
 - Strings, `errorText` for new codes (`vpn_permission`, `vpn_failed`).
 
-## 3. Decisions for the owner
-1. **DNS in VPN mode.** Recommended: the VPN announces public resolvers (1.1.1.1, 8.8.8.8 and their IPv6) and
-   their queries go through the chain like any traffic (UDP), so nothing resolves locally. Needs every hop to
-   carry UDP (VLESS/VMess/Trojan/Shadowsocks/Amnezia do; an HTTP-proxy own hop doesn't, and SOCKS hops may not):
-   the app warns for such chains. Alternative: Xray's DNS module with DNS-over-HTTPS through the chain (works
-   over any hop, more config, slower first lookups).
-2. **Per-app selection in the first version**, or VPN for all apps first and the picker later?
-3. **SOCKS/HTTP ports in VPN mode:** keep them running beside the VPN (recommended: apps configured for the
-   proxy keep working), or turn them off?
-4. **Local network** bypasses the VPN (recommended), or goes through it (then blocked by the locked rules)?
+## 3. Owner's decisions (2026-11-26)
+1. **DNS is configurable** (Settings → VPN → DNS):
+   - *Public resolvers through the chain* (default): the VPN announces 1.1.1.1 / 8.8.8.8 (+ IPv6); queries go
+     through the chain as UDP. Needs UDP on every hop; the app warns for chains with an HTTP-proxy hop.
+   - *DNS-over-HTTPS in Xray*: the VPN announces an address inside the tunnel; Xray's DNS module answers it
+     and resolves with DoH through the chain. Works over any hop.
+   - *Custom servers*: the user's resolver IPs, sent through the chain like the first option.
+2. **Per-app selection in the first version**: all apps / only selected / all except selected, app picker.
+3. **SOCKS/HTTP ports keep running** beside the VPN, with their password.
+4. **Local network is configurable** (Settings → VPN): *bypass the VPN* (default; LAN devices work directly)
+   or *through the VPN* (then the locked rules block private addresses: no LAN access while it runs).
 
 ## 4. Milestones
 | # | Content |

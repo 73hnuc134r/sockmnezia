@@ -9,8 +9,8 @@ servers as chains, on the **same Go core** (`engine`, `xrayconf`, `runner`, `lin
 the platform needs: a tray icon, the system proxy, autostart, OS secret storage, and a denser
 "servers grid" UI for people with many servers.
 
-Non-goals for v1: TUN mode (system-wide capture), subscriptions (URL lists of servers), sing-box,
-policy groups / load balancing. All are possible later (§9).
+Non-goals for v1: subscriptions (owner: not wanted), sing-box, policy groups / load balancing. TUN mode
+(system-wide capture) is in the plan as its own milestone (§3a, D6).
 
 ## 1. What we take from v2rayN (and what we don't)
 
@@ -23,8 +23,8 @@ wiki (Nov 2026):
 | **Ctrl+V anywhere** imports: subscription URL, share links, SIP008, WireGuard, custom configs | Ctrl+V anywhere imports links / shared chains / outbound JSON through our existing import (preview first) |
 | **Pre-proxy / landing proxy** per subscription group, by alias; missing alias silently skipped at config time | Our chains are explicit and **fail-closed**: a missing hop is an error, never a skip |
 | Latency + "real connection" + speed tests in batches | Test (exit IP + ping through a temporary instance, D28) per row and "Test all" with bounded concurrency |
-| System proxy: clear / set / don't change / **PAC**; Windows can't use SOCKS5 as system proxy | Off / On (HTTP) / PAC (§3); restore after crash (v2rayN doesn't reliably) |
-| TUN (gvisor for Xray), admin rights, complex | Later (§9) |
+| System proxy: clear / set / don't change / **PAC**; Windows can't use SOCKS5 as system proxy | Off / On (HTTP) / PAC (§3) and TUN (§3a); restore after crash (v2rayN doesn't reliably) |
+| TUN (gvisor for Xray), admin rights, complex | TUN mode via Xray's own tun inbound, elevated service on Windows (§3a) |
 | Tray: switch profile (limited count), proxy mode | Tray: start/stop, switch chain/server (recent 8 + "More…"), system proxy mode, copy address |
 | Routing: ordered rules, import/export JSON with `enabled`/`remarks`; DNS separate | We already have this model (D-routing); same editor as Android |
 | Settings page full of options that say "read the docs first" | Keep settings few; defaults safe; advanced in one collapsed section |
@@ -74,12 +74,33 @@ Whatever is chosen lives in `xrayconf` with a test (CLAUDE.md rule). Restore: be
 the app saves the previous settings to the state dir and restores them on stop, quit, and on the next start
 after a crash.
 
+## 3a. TUN mode (owner's addition, 2026-11-26)
+
+A third connection mode next to Off / System proxy / PAC: **TUN** captures all traffic of the computer, for
+apps without proxy support. Same approach as Android VPN mode (`docs/11`): Xray's own `tun` inbound in the
+same instance (no tun2socks, no second process), the same chains and fail-closed outbounds.
+
+- **Windows:** Xray's TUN uses Wintun (driver DLL shipped with the app) and needs administrator rights.
+  `autoSystemRoutingTable` adds the routes; `autoOutboundsInterface: "auto"` binds Xray's own sockets to the
+  physical interface so they don't loop back; `autoSystemWfpBlockLeak` uses WFP to block traffic and DNS that
+  would bypass the tunnel. Elevation: a small Windows service (installed once by the installer) runs the
+  engine as SYSTEM; the UI talks to it over a local named pipe whose ACL admits only the installing user, so
+  the UI itself never runs elevated.
+- **Linux:** needs `CAP_NET_ADMIN`: the package installs a helper with that capability (setcap) or uses a
+  polkit action; `autoSystemRoutingTable` for routes, `autoSystemDnsToGateway` (systemd-resolved) for DNS
+  where available, otherwise the UI says how DNS is handled.
+- **DNS, LAN, apps:** the same settings as Android VPN mode (configurable DNS, configurable LAN bypass);
+  per-process selection on Windows later (Xray routing can match process names).
+- **Fail-closed:** while TUN mode runs, a broken chain blocks traffic instead of leaking; stopping the app
+  removes routes and WFP filters, and the next start cleans up after a crash (like the system proxy restore).
+- Security: the tun inbound is allowed by `xrayconf.Audit` only in TUN mode (shared with Android, D31).
+
 ## 4. UI
 
 ### 4.1 Main window (`Connect`)
 Left navigation: **Connect · Servers & chains · Routing · Logs · Settings**. Connect shows what runs: the active
 chain as a horizontal stepper (phone→… becomes "This PC → hop → hop → Internet"), the big Start/Stop, the
-system proxy mode (Off / System / PAC), exit address and ping (click to test), live up/down and a 60 s traffic
+connection mode (Off / System proxy / PAC / TUN), exit address and ping (click to test), live up/down and a 60 s traffic
 sparkline, and the local addresses with copy buttons (`socks5://user:pass@127.0.0.1:port`).
 
 ### 4.2 Servers & chains
@@ -91,7 +112,7 @@ Chain editor in the panel with drag-and-drop hops.
 
 ### 4.3 Tray
 Icon shows state (stopped / running / error). Menu: Start/Stop · current chain ▸ (recent 8 + "More…") · System
-proxy ▸ Off / System / PAC · Copy SOCKS address · Open sockmnezia · Quit.
+proxy ▸ Off / System / PAC / TUN · Copy SOCKS address · Open sockmnezia · Quit.
 
 ### 4.4 Status bar (bottom of the window)
 `● Running · Work (3 hops) · SOCKS 127.0.0.1:41377 · System proxy: On · ↓ 1.2 MB/s ↑ 84 KB/s`.
@@ -121,6 +142,7 @@ shares on LAN; the state dir is per user with 0700/ACL; logs are redacted as in 
 | D3 | Tray, system proxy (with restore), autostart, single instance |
 | D4 | Secret store (DPAPI / libsecret), routing editor, logs, settings |
 | D5 | Installers, signed update check, release workflow, docs |
+| D6 | TUN mode: Windows service + Wintun + WFP leak block, Linux capability helper, DNS/LAN settings |
 
 ## 8. Owner's decisions (2026-11-26)
 1. UI technology: **Wails** (Go core in-process, OS webview).
@@ -130,5 +152,5 @@ shares on LAN; the state dir is per user with 0700/ACL; logs are redacted as in 
 4. **No subscriptions.**
 
 ## 9. Later
-TUN mode (wintun / Linux tun, needs admin; gvisor stack), QR from screen on Linux Wayland
+Per-process selection in TUN mode on Windows, QR from screen on Linux Wayland
 (portal), per-app routing on Windows (process name rules exist in Xray routing).
