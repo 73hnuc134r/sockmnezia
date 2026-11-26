@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -59,6 +60,7 @@ import io.nuc134r.sockmnezia.core.CoreError
 import io.nuc134r.sockmnezia.core.OwnServer
 import io.nuc134r.sockmnezia.core.TestResult
 import io.nuc134r.sockmnezia.ui.screens.AddServerDialog
+import io.nuc134r.sockmnezia.ui.screens.PickedHop
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
@@ -77,9 +79,19 @@ private const val TestConcurrency = 4
  * The ping pill shows the last Test (kept by the core) and runs one when tapped; swiping a row right tests it,
  * left deletes it (after a confirmation). Tests run in a temporary instance and never touch the running proxy.
  */
+/**
+ * The same screen as a hop picker for the chain editor ([pickHop] = Amnezia's state there: "ready", "used" or
+ * "setup"): no chains, Amnezia as its own row at the top, and tapping a row hands the hop back to the editor
+ * (through its saved state) instead of selecting it.
+ */
 @Composable
-fun SelectScreen(nav: NavController) {
+fun SelectScreen(nav: NavController, pickHop: String? = null) {
+    val picking = pickHop != null
     val onDone: () -> Unit = { nav.popBackStack() }
+    fun pick(v: String) {
+        nav.previousBackStackEntry?.savedStateHandle?.set(PickedHop, v)
+        nav.popBackStack()
+    }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = LocalSnackbar.current
@@ -110,7 +122,7 @@ fun SelectScreen(nav: NavController) {
     fun testServer(s: OwnServer) = scope.launch { test("s:${s.id}") { Core.testSaved(serverId = s.id) } }
     fun testAll() = scope.launch {
         val sem = Semaphore(TestConcurrency)
-        (chains.map { c -> suspend { test("c:${c.id}") { Core.testSaved(chainId = c.id) } } } +
+        ((if (picking) emptyList() else chains).map { c -> suspend { test("c:${c.id}") { Core.testSaved(chainId = c.id) } } } +
             servers.map { s -> suspend { test("s:${s.id}") { Core.testSaved(serverId = s.id) } } })
             .map { t -> async { sem.withPermit { t() } } }.awaitAll()
     }
@@ -133,33 +145,38 @@ fun SelectScreen(nav: NavController) {
             }
         }
 
-        ListHeader(stringResource(R.string.selector_chains))
-        val shownChains = if (sort == "ping") chains.sortedBy { pingKey(it.last) } else chains
-        shownChains.forEach { c ->
-            SwipeRow(onTest = { testChain(c) }, onDelete = { deleteChain = c }) {
-                SelectRow(
-                    selected = c.active,
-                    title = c.name,
-                    subtitle = c.hops.joinToString(" → ") { if (it.missing) deleted else it.name },
-                    warning = if (c.error != null) stringResource(R.string.chain_cannot_run) else null,
-                    last = c.last, hostCountry = "", testing = running["c:${c.id}"] == true,
-                    onSelect = {
-                        scope.act(ctx, snackbar) { Core.setActiveChain(c.id) }
-                        onDone()
-                    },
-                    onTest = { testChain(c) },
-                    menu = listOf(
-                        MenuAction(labelEdit) { nav.navigate(Routes.chain(c.id)) },
-                        MenuAction(labelShare) { shareChain = c },
-                        MenuAction(labelDelete) { deleteChain = c },
-                    ),
-                )
+        if (pickHop != null) {
+            AmneziaPickRow(pickHop) { pick("amnezia") }
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        } else {
+            ListHeader(stringResource(R.string.selector_chains))
+            val shownChains = if (sort == "ping") chains.sortedBy { pingKey(it.last) } else chains
+            shownChains.forEach { c ->
+                SwipeRow(onTest = { testChain(c) }, onDelete = { deleteChain = c }) {
+                    SelectRow(
+                        selected = c.active,
+                        title = c.name,
+                        subtitle = c.hops.joinToString(" → ") { if (it.missing) deleted else it.name },
+                        warning = if (c.error != null) stringResource(R.string.chain_cannot_run) else null,
+                        last = c.last, hostCountry = "", testing = running["c:${c.id}"] == true,
+                        onSelect = {
+                            scope.act(ctx, snackbar) { Core.setActiveChain(c.id) }
+                            onDone()
+                        },
+                        onTest = { testChain(c) },
+                        menu = listOf(
+                            MenuAction(labelEdit) { nav.navigate(Routes.chain(c.id)) },
+                            MenuAction(labelShare) { shareChain = c },
+                            MenuAction(labelDelete) { deleteChain = c },
+                        ),
+                    )
+                }
             }
+            TextButton(onClick = { nav.navigate(Routes.chain(Routes.NEW)) }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                Text(stringResource(R.string.chain_new))
+            }
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
         }
-        TextButton(onClick = { nav.navigate(Routes.chain(Routes.NEW)) }, modifier = Modifier.padding(horizontal = 8.dp)) {
-            Text(stringResource(R.string.chain_new))
-        }
-        HorizontalDivider(Modifier.padding(vertical = 4.dp))
         ListHeader(stringResource(R.string.selector_servers))
         if (servers.isEmpty()) {
             Hint(stringResource(R.string.selector_no_servers), modifier = Modifier.padding(horizontal = 16.dp))
@@ -177,15 +194,19 @@ fun SelectScreen(nav: NavController) {
             rows.forEach { s ->
                 SwipeRow(onTest = { testServer(s) }, onDelete = { deleteServer = s }) {
                     SelectRow(
-                        selected = s.active,
+                        selected = if (picking) null else s.active,
                         title = s.name,
                         subtitle = "",
                         tags = { ServerTags(s.protocol, s.security, s.network, s.port, Modifier.padding(top = 2.dp)) },
                         warning = null,
                         last = s.last, hostCountry = s.hostCountry, testing = running["s:${s.id}"] == true,
                         onSelect = {
-                            scope.act(ctx, snackbar) { Core.setActiveServer(s.id) }
-                            onDone()
+                            if (picking) {
+                                pick("server:${s.id}")
+                            } else {
+                                scope.act(ctx, snackbar) { Core.setActiveServer(s.id) }
+                                onDone()
+                            }
                         },
                         onTest = { testServer(s) },
                         menu = listOf(
@@ -218,6 +239,30 @@ fun SelectScreen(nav: NavController) {
     }
     shareServer?.let { s -> ServerShareSheet(s.id, s.name, onDismiss = { shareServer = null }) }
     if (adding) AddServerDialog(onDismiss = { adding = false }, onAdded = { adding = false })
+}
+
+/** Amnezia as a hop: disabled with the reason when it is already in the chain or not set up yet. */
+@Composable
+private fun AmneziaPickRow(state: String, onPick: () -> Unit) {
+    val status by Core.status.collectAsState()
+    val enabled = state == "ready"
+    Row(
+        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onPick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HopDot(true, "A")
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            val ink = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            Text("Amnezia", style = MaterialTheme.typography.bodyLarge, color = ink)
+            when (state) {
+                "used" -> Hint(stringResource(R.string.hop_amnezia_used))
+                "setup" -> Hint(stringResource(R.string.hop_amnezia_not_set_up))
+                else -> status.countryName.ifBlank { status.country.uppercase() }.takeIf { it.isNotBlank() }?.let {
+                    Tag(it, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(top = 2.dp))
+                }
+            }
+        }
+    }
 }
 
 /** Swipe right = test, swipe left = delete (asks first); the row always springs back. */
@@ -262,7 +307,8 @@ private fun ListHeader(text: String) {
 
 @Composable
 private fun SelectRow(
-    selected: Boolean,
+    /** null: no radio button (hop picker). */
+    selected: Boolean?,
     title: String,
     subtitle: String,
     warning: String?,
@@ -279,7 +325,7 @@ private fun SelectRow(
         Modifier.fillMaxWidth().clickable(onClick = onSelect).padding(start = 4.dp, end = 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = onSelect)
+        if (selected != null) RadioButton(selected = selected, onClick = onSelect) else Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             tags?.invoke()

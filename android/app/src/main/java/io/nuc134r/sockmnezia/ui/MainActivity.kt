@@ -61,6 +61,8 @@ object Routes {
     const val RULE = "rule/{index}"
     const val CHAIN = "chain/{id}"
     const val SELECT = "select"
+    const val PICK_HOP = "pick_hop/{amz}"
+    fun pickHop(amnezia: String) = "pick_hop/$amnezia"
     const val VPN_APPS = "vpn_apps/{mode}"
     fun vpnApps(mode: String) = "vpn_apps/$mode"
     const val SERVER = "server/{id}"
@@ -103,6 +105,7 @@ fun AppRoot() {
         Routes.RULE -> R.string.title_rule
         Routes.CHAIN -> R.string.title_chain
         Routes.SELECT -> R.string.selector_title
+        Routes.PICK_HOP -> R.string.chain_add_hop
         Routes.VPN_APPS -> R.string.vpn_apps
         Routes.SERVER -> R.string.title_server
         else -> R.string.app_name
@@ -165,6 +168,9 @@ fun AppRoot() {
                 composable(Routes.LOGS) { LogsScreen() }
                 composable(Routes.ABOUT) { AboutScreen() }
                 composable(Routes.SELECT) { SelectScreen(nav) }
+                composable(Routes.PICK_HOP, arguments = listOf(navArgument("amz") { type = NavType.StringType })) {
+                    SelectScreen(nav, pickHop = it.arguments?.getString("amz") ?: "setup")
+                }
                 composable(Routes.VPN_APPS, arguments = listOf(navArgument("mode") { type = NavType.StringType })) {
                     VpnAppsScreen(nav, it.arguments?.getString("mode") ?: "only")
                 }

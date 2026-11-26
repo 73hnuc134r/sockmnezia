@@ -3,6 +3,12 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.1.3
+
+- Chain editor: "Add hop" opens the same server list as Switch (host groups, tags, ping, Test all, sort,
+  swipe), with Amnezia at the top; tapping a server adds it as a hop. Unsaved edits to the chain are kept
+  while you pick.
+
 ## 1.1.2
 
 - Server list: servers are grouped by host (with the country of an IP host), and each shows small coloured

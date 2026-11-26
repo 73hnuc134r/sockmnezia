@@ -71,7 +71,7 @@ S = {  # key: (english, russian)
  "chain_saved": ("Chain saved", "Цепочка сохранена"), "chain_delete_q": ("Delete chain %1$s?", "Удалить цепочку %1$s?"),
  "hop_of": ("hop %1$d of %2$d", "звено %1$d из %2$d"),
  "hop_amnezia_not_set_up": ("set up the subscription first", "сначала настройте подписку"),
- "hop_amnezia_used": ("already in this chain", "уже в цепочке"), "hop_import": ("Import a new server…", "Добавить новый сервер…"),
+ "hop_amnezia_used": ("already in this chain", "уже в цепочке"),
  "hop_missing": ("deleted server", "удалённый сервер"),
  "share": ("Share", "Поделиться"), "share_title": ("Share %1$s", "Поделиться: %1$s"),
  "share_copy": ("Copy", "Копировать"), "share_send": ("Send…", "Отправить…"), "share_qr": ("QR code", "QR-код"),

@@ -33,6 +33,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,24 +75,32 @@ fun ChainEditScreen(nav: NavController, id: String) {
     val revision by Core.revision.collectAsState()
     val isNew = id == Routes.NEW
 
-    var loaded by remember { mutableStateOf(isNew) }
-    var name by remember { mutableStateOf("") }
-    var hops by remember { mutableStateOf(emptyList<ChainHop>()) }
+    // Saveable: the hop picker is another screen, and edits must survive the round trip.
+    var loaded by rememberSaveable { mutableStateOf(isNew) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var hops by rememberSaveable(stateSaver = HopListSaver) { mutableStateOf(emptyList<ChainHop>()) }
     var servers by remember { mutableStateOf(emptyList<OwnServer>()) }
     var error by remember { mutableStateOf<CoreError?>(null) }
-    var adding by remember { mutableStateOf(false) }
-    var importing by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
 
     LaunchedEffect(revision) { runCatching { servers = Core.ownServers() } }
     LaunchedEffect(id) {
-        if (!isNew) {
+        if (!loaded) {
             runCatching { Core.chains().firstOrNull { it.id == id } }.getOrNull()?.let { c ->
                 name = c.name
                 hops = c.toChain().hops
             }
             loaded = true
+        }
+    }
+    // A hop chosen on the picker screen comes back through this entry's saved state.
+    val handle = nav.currentBackStackEntry?.savedStateHandle
+    val picked by (handle?.getStateFlow<String?>(PickedHop, null) ?: kotlinx.coroutines.flow.MutableStateFlow(null)).collectAsState()
+    LaunchedEffect(picked) {
+        picked?.let { v ->
+            decodeHop(v)?.let { hops = hops + it }
+            handle?.set(PickedHop, null)
         }
     }
     LaunchedEffect(hops, revision) {
@@ -144,7 +154,14 @@ fun ChainEditScreen(nav: NavController, id: String) {
                 error?.takeIf { it.field == "hop${i + 1}" }?.let { Hint(errorText(ctx, it), warn = true, modifier = Modifier.padding(start = 36.dp)) }
             }
             error?.takeIf { hops.isNotEmpty() && it.field?.startsWith("hop") != true }?.let { Hint(errorText(ctx, it), warn = true) }
-            OutlinedButton(enabled = hops.size < MaxHops, onClick = { adding = true }) { Text(stringResource(R.string.chain_add_hop)) }
+            OutlinedButton(enabled = hops.size < MaxHops, onClick = {
+                val amz = when {
+                    hops.any { it.kind == HopKind.AMNEZIA } -> "used"
+                    status.hasKey && status.hasGatewayKey -> "ready"
+                    else -> "setup"
+                }
+                nav.navigate(Routes.pickHop(amz))
+            }) { Text(stringResource(R.string.chain_add_hop)) }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (!isNew) {
@@ -172,20 +189,6 @@ fun ChainEditScreen(nav: NavController, id: String) {
         }
     }
 
-    if (adding) {
-        AddHopSheet(
-            hops = hops, servers = servers, amneziaReady = status.hasKey && status.hasGatewayKey,
-            onPick = { h -> adding = false; hops = hops + h },
-            onImport = { adding = false; importing = true },
-            onDismiss = { adding = false },
-        )
-    }
-    if (importing) {
-        AddServerDialog(onDismiss = { importing = false }, onAdded = { sid ->
-            importing = false
-            if (sid != null) hops = hops + ChainHop(HopKind.SERVER, sid)
-        })
-    }
     if (sharing) {
         // Shares the saved chain (not unsaved edits).
         ChainShareSheet(id, name, withAmnezia = hops.any { it.kind == HopKind.AMNEZIA }, onDismiss = { sharing = false })
@@ -211,65 +214,18 @@ fun ChainEditScreen(nav: NavController, id: String) {
 /** Same limit as the core (xrayconf.MaxHops). */
 private const val MaxHops = 5
 
-/** Amnezia (once per chain, after it is set up), every saved server, or importing a new one. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AddHopSheet(
-    hops: List<ChainHop>,
-    servers: List<OwnServer>,
-    amneziaReady: Boolean,
-    onPick: (ChainHop) -> Unit,
-    onImport: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    // Always fully open: these sheets have no useful half-open state.
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        // Scrolls: with many saved servers the list is taller than the screen.
-        Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(stringResource(R.string.chain_add_hop), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-            val amzUsed = hops.any { it.kind == HopKind.AMNEZIA }
-            SheetOption(
-                dot = { HopDot(true, "A") }, title = "Amnezia",
-                subtitle = when {
-                    amzUsed -> stringResource(R.string.hop_amnezia_used)
-                    !amneziaReady -> stringResource(R.string.hop_amnezia_not_set_up)
-                    else -> null
-                },
-                enabled = !amzUsed && amneziaReady,
-            ) { onPick(ChainHop(HopKind.AMNEZIA)) }
-            servers.forEach { s ->
-                SheetOption(
-                    dot = { HopDot(false, "•") }, title = s.name,
-                    subtitle = null,
-                    tags = { ServerTags(s.protocol, s.security, s.network, s.port, Modifier.padding(top = 2.dp)) },
-                ) { onPick(ChainHop(HopKind.SERVER, s.id)) }
-            }
-            SheetOption(dot = { HopDot(false, "+") }, title = stringResource(R.string.hop_import), subtitle = null, onClick = onImport)
-        }
-    }
+/** Key of the hop the picker screen returns: "amnezia" or "server:<id>". */
+const val PickedHop = "picked_hop"
+
+fun encodeHop(h: ChainHop): String = if (h.kind == HopKind.AMNEZIA) "amnezia" else "server:${h.server}"
+
+fun decodeHop(v: String): ChainHop? = when {
+    v == "amnezia" -> ChainHop(HopKind.AMNEZIA)
+    v.startsWith("server:") -> ChainHop(HopKind.SERVER, v.removePrefix("server:"))
+    else -> null
 }
 
-@Composable
-private fun SheetOption(
-    dot: @Composable () -> Unit,
-    title: String,
-    subtitle: String?,
-    enabled: Boolean = true,
-    tags: (@Composable () -> Unit)? = null,
-    onClick: () -> Unit,
-) {
-    Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick).padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        dot()
-        Column(Modifier.padding(start = 12.dp)) {
-            Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-            tags?.invoke()
-            subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        }
-    }
-}
+private val HopListSaver = Saver<List<ChainHop>, String>(
+    save = { l -> l.joinToString("\n") { encodeHop(it) } },
+    restore = { s -> s.split("\n").mapNotNull { decodeHop(it) } },
+)
