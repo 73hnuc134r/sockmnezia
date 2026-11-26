@@ -1,0 +1,218 @@
+<title>sockmnezia desktop mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: one wide desktop "window" per section, stacked; windows scroll sideways inside their own box on phones. Single dark look (the app's dark theme). */
+:root {
+  color-scheme: dark;
+  --page: #0c0d11; --ink: #e4e3ea; --muted: #b9bac6; --dim: #868895;
+  --win: #15161c; --side: #1b1c23; --card: #23242c; --card2: #2c2d36; --line: #34353f; --sel: #2f3b5c;
+  --accent: #b6c4ff; --accentInk: #1a2a5e; --ok: #8bd39b; --warn: #f2b8b5; --amz: #f5c26b; --chip: #3a4158;
+  --display: "Space Grotesk", system-ui, sans-serif; --ui: "Inter", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+body { background: var(--page); color: var(--ink); font-family: var(--ui); font-size: 13px; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 56px; max-width: 1180px; margin: 0 auto; display: grid; gap: 44px; }
+h1 { font: 600 28px/1.2 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 600 19px/1.3 var(--display); margin: 0 0 6px; }
+.lede, .note { color: var(--muted); line-height: 1.55; max-width: 72ch; margin: 8px 0 0; }
+.note { font-size: 12.5px; color: var(--dim); }
+.scroll { overflow-x: auto; padding-bottom: 6px; }
+
+.win { width: 1040px; background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+.titlebar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #101116; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 12px; }
+.titlebar .sp { flex: 1; }
+.dots span { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #3a3b45; margin-left: 6px; }
+.body { display: grid; grid-template-columns: 188px 1fr; min-height: 470px; }
+.side { background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: grid; align-content: start; gap: 2px; }
+.brand { font: 600 15px/1 var(--display); padding: 4px 10px 16px; }
+.nav { padding: 9px 10px; border-radius: 8px; color: var(--muted); }
+.nav.on { background: var(--sel); color: var(--ink); }
+.main { padding: 18px 20px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.statusbar { display: flex; gap: 18px; align-items: center; padding: 7px 14px; background: #101116; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.statusbar .mono { font-family: var(--mono); font-size: 11.5px; }
+.led { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; margin-right: 6px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; }
+.cap { font: 500 11px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.grow { flex: 1; }
+.btn { font: 500 12.5px/1 var(--ui); padding: 9px 14px; border-radius: 8px; background: var(--card2); color: var(--ink); border: 1px solid var(--line); white-space: nowrap; }
+.btn.p { background: var(--accent); color: var(--accentInk); border-color: transparent; }
+.btn.big { padding: 14px 26px; font-size: 15px; border-radius: 12px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg span { padding: 8px 13px; color: var(--muted); }
+.seg span.on { background: var(--sel); color: var(--ink); }
+.mono { font-family: var(--mono); font-size: 12px; }
+.muted { color: var(--muted); } .dim { color: var(--dim); } .okc { color: var(--ok); } .warnc { color: var(--warn); }
+
+/* horizontal stepper */
+.steps { display: flex; align-items: center; gap: 0; flex-wrap: nowrap; }
+.node { display: grid; gap: 3px; justify-items: center; min-width: 110px; text-align: center; }
+.dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 600 11px/1 var(--ui); border: 2px solid var(--accent); color: var(--accent); background: var(--card2); }
+.dot.amz { border-color: var(--amz); color: var(--amz); } .dot.end { width: 12px; height: 12px; border: 0; background: var(--dim); margin: 7px; }
+.link { flex: 1; height: 2px; background: var(--line); min-width: 30px; margin-bottom: 30px; }
+.node .t { font-size: 12.5px; } .node .s { font: 11px/1.2 var(--mono); color: var(--dim); }
+.tag { font: 600 10px/1 var(--ui); letter-spacing: .06em; color: var(--ok); }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; }
+.stat b { font: 600 20px/1 var(--display); font-variant-numeric: tabular-nums; }
+svg.spark { width: 100%; height: 38px; display: block; }
+
+/* grid */
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font: 500 11px/1 var(--ui); color: var(--dim); text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th .sort { color: var(--accent); }
+td { padding: 9px 10px; border-bottom: 1px solid #22232a; white-space: nowrap; }
+tr.sel td { background: var(--sel); }
+.pill { font: 500 10.5px/1 var(--ui); padding: 4px 7px; border-radius: 6px; background: var(--chip); color: var(--muted); }
+.split { display: grid; grid-template-columns: 1fr 320px; gap: 14px; min-width: 0; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 9px; align-content: start; }
+.field { display: grid; gap: 4px; } .field label { font-size: 11px; color: var(--dim); }
+.input { border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; background: #1a1b22; }
+.two { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
+.tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--line); }
+.tabs span { padding: 8px 2px; color: var(--muted); } .tabs span.on { color: var(--ink); border-bottom: 2px solid var(--accent); }
+
+/* tray */
+.desk { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-end; }
+.menu { width: 290px; background: #202128; border: 1px solid var(--line); border-radius: 10px; padding: 6px; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+.mi { padding: 8px 10px; border-radius: 6px; display: flex; gap: 10px; align-items: center; }
+.mi.hl { background: var(--sel); } .mi .k { margin-left: auto; color: var(--dim); font-size: 11px; }
+.sep { height: 1px; background: var(--line); margin: 5px 4px; }
+.sub { width: 250px; }
+.taskbar { height: 40px; width: 300px; background: #101116; border: 1px solid var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 12px; color: var(--dim); font-size: 11.5px; }
+.trayicon { width: 20px; height: 20px; border-radius: 5px; background: var(--accent); display: grid; place-items: center; color: var(--accentInk); font: 700 11px/1 var(--ui); outline: 2px solid var(--ok); outline-offset: 2px; }
+.opt { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.opt.on { border-color: var(--accent); background: #1f2540; }
+.radio { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--dim); margin-top: 2px; } .opt.on .radio { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--accent); background: #1f2540; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>sockmnezia desktop: key parts</h1>
+    <p class="lede">Mockups for <code>docs/10-desktop-plan.md</code>. Same Go core as Android; a denser desktop layout inspired by v2rayN (server grid, Ctrl+V import, tray switching), with our explicit, fail-closed chains. All hosts are example addresses.</p>
+  </header>
+
+  <section>
+    <h2>1 · Connect</h2>
+    <div class="scroll"><div class="win">
+      <div class="titlebar">sockmnezia<span class="sp"></span><span class="dots"><span></span><span></span><span></span></span></div>
+      <div class="body">
+        <div class="side"><div class="brand">sockmnezia</div>
+          <div class="nav on">Connect</div><div class="nav">Servers &amp; chains</div><div class="nav">Routing</div><div class="nav">Logs</div><div class="nav">Settings</div>
+        </div>
+        <div class="main">
+          <div class="card">
+            <div class="row"><span class="cap grow">Connected through · Work</span><span class="btn">⇄ Switch</span><span class="btn">Edit</span></div>
+            <div class="steps">
+              <div class="node"><span class="dot end"></span><span class="t">This PC</span><span class="s">&nbsp;</span></div><div class="link"></div>
+              <div class="node"><span class="dot">1</span><span class="t">home-nas</span><span class="s">vless · ws/tls</span></div><div class="link"></div>
+              <div class="node"><span class="dot amz">A</span><span class="t">Amnezia · Netherlands</span><span class="s">198.51.100.7</span></div><div class="link"></div>
+              <div class="node"><span class="dot">3</span><span class="t">my-vps</span><span class="s">vless · tcp/reality</span></div><div class="link"></div>
+              <div class="node"><span class="dot end"></span><span class="t">Internet</span><span class="tag">EXIT 203.0.113.9 [US]</span></div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="btn p big">■ Stop</span>
+            <div class="grid" style="display:grid;gap:6px"><span class="cap">System proxy</span><div class="seg"><span>Off</span><span class="on">System</span><span>PAC</span></div></div>
+            <span class="grow"></span>
+            <div style="display:grid;gap:6px;justify-items:end"><span class="cap">Exit · click to test</span><span class="mono okc">203.0.113.9 [US] · 412 ms</span></div>
+          </div>
+          <div class="stats">
+            <div class="stat"><span class="cap">Download</span><b>1.24 MB/s</b>
+              <svg class="spark" viewBox="0 0 200 38" preserveAspectRatio="none"><path d="M0 30 L20 28 L40 22 L60 25 L80 14 L100 18 L120 9 L140 12 L160 6 L180 10 L200 8 L200 38 L0 38Z" fill="#b6c4ff" opacity=".18"/><path d="M0 30 L20 28 L40 22 L60 25 L80 14 L100 18 L120 9 L140 12 L160 6 L180 10 L200 8" fill="none" stroke="#b6c4ff" stroke-width="1.5"/><circle cx="200" cy="8" r="2.5" fill="#b6c4ff"/></svg></div>
+            <div class="stat"><span class="cap">Upload</span><b>84 KB/s</b>
+              <svg class="spark" viewBox="0 0 200 38" preserveAspectRatio="none"><path d="M0 34 L20 33 L40 30 L60 32 L80 27 L100 29 L120 26 L140 28 L160 24 L180 27 L200 25 L200 38 L0 38Z" fill="#8bd39b" opacity=".16"/><path d="M0 34 L20 33 L40 30 L60 32 L80 27 L100 29 L120 26 L140 28 L160 24 L180 27 L200 25" fill="none" stroke="#8bd39b" stroke-width="1.5"/><circle cx="200" cy="25" r="2.5" fill="#8bd39b"/></svg></div>
+            <div class="stat"><span class="cap">Session</span><b>1.8 GB</b><span class="muted">running 3 h 12 min</span></div>
+          </div>
+          <div class="card">
+            <span class="cap">Local proxy · loopback only, password required</span>
+            <div class="row"><span class="mono grow">socks5://k3f9…:••••••••@127.0.0.1:41377</span><span class="btn">Copy</span></div>
+            <div class="row"><span class="mono grow">http://127.0.0.1:41378 <span class="dim">(same credentials)</span></span><span class="btn">Copy</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="statusbar"><span><span class="led"></span>Running</span><span>Work · 3 hops</span><span class="mono">SOCKS 127.0.0.1:41377</span><span>System proxy: on</span><span class="grow"></span><span class="mono">↓ 1.24 MB/s ↑ 84 KB/s</span></div>
+    </div></div>
+    <p class="note">The chain reads left to right, as on Android, top to bottom. Start/Stop is the main action; the system proxy mode is next to it because it is the desktop-only switch people use most.</p>
+  </section>
+
+  <section>
+    <h2>2 · Servers &amp; chains</h2>
+    <div class="scroll"><div class="win">
+      <div class="titlebar">sockmnezia — Servers &amp; chains<span class="sp"></span><span class="dots"><span></span><span></span><span></span></span></div>
+      <div class="body">
+        <div class="side"><div class="brand">sockmnezia</div>
+          <div class="nav">Connect</div><div class="nav on">Servers &amp; chains</div><div class="nav">Routing</div><div class="nav">Logs</div><div class="nav">Settings</div>
+        </div>
+        <div class="main">
+          <div class="row"><div class="tabs grow"><span class="on">Servers (6)</span><span>Chains (3)</span></div></div>
+          <div class="row"><span class="btn p">+ Add ▾</span><span class="btn">Test all</span><span class="btn">Share</span><span class="btn">Delete</span><span class="grow"></span><span class="input" style="width:200px;color:var(--dim)">Filter…  Ctrl+V imports</span></div>
+          <div class="split">
+            <div class="scroll" style="min-width:0"><table>
+              <tr><th></th><th>Name</th><th>Protocol</th><th>Address</th><th>Transport</th><th>Ping <span class="sort">▲</span></th><th>Exit</th></tr>
+              <tr class="sel"><td class="okc">●</td><td>my-vps</td><td><span class="pill">vless</span></td><td class="mono">203.0.113.9:443</td><td>tcp / reality</td><td class="okc">212 ms</td><td class="mono">203.0.113.9 [US]</td></tr>
+              <tr><td></td><td>home-nas</td><td><span class="pill">vless</span></td><td class="mono">nas.example.com:8443</td><td>ws / tls</td><td>238 ms</td><td class="mono">192.0.2.40 [DE]</td></tr>
+              <tr><td></td><td>office</td><td><span class="pill">trojan</span></td><td class="mono">office.example.com:443</td><td>grpc / tls</td><td>301 ms</td><td class="mono">198.51.100.22 [NL]</td></tr>
+              <tr><td></td><td>backup-ss</td><td><span class="pill">ss</span></td><td class="mono">192.0.2.77:8388</td><td>—</td><td>455 ms</td><td class="mono">192.0.2.77 [FI]</td></tr>
+              <tr><td></td><td>lab-socks</td><td><span class="pill">socks</span></td><td class="mono">198.51.100.5:1080</td><td>—</td><td class="dim">testing…</td><td></td></tr>
+              <tr><td></td><td>old-vmess</td><td><span class="pill">vmess</span></td><td class="mono">old.example.com:443</td><td>ws / tls</td><td class="warnc">failed</td><td></td></tr>
+            </table></div>
+            <div class="panel">
+              <div class="row"><b class="grow">my-vps</b><div class="seg"><span class="on">Fields</span><span>Link / JSON</span></div></div>
+              <div class="field"><label>Name</label><div class="input">my-vps</div></div>
+              <div class="two"><div class="field"><label>Address</label><div class="input mono">203.0.113.9</div></div><div class="field"><label>Port</label><div class="input mono">443</div></div></div>
+              <div class="field"><label>UUID</label><div class="input mono">00000000-0000-4000-…</div></div>
+              <div class="two"><div class="field"><label>Transport</label><div class="input">tcp ▾</div></div><div class="field"><label>Security</label><div class="input">reality ▾</div></div></div>
+              <div class="field"><label>SNI</label><div class="input mono">www.example.com</div></div>
+              <div class="field"><label>Public key</label><div class="input mono">A1b2…</div></div>
+              <div class="row"><span class="btn">Test</span><span class="grow"></span><span class="btn">Connect</span><span class="btn p">Save</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="statusbar"><span><span class="led"></span>Running</span><span>my-vps</span><span class="mono">SOCKS 127.0.0.1:41377</span><span class="grow"></span><span>Test all: 5 of 6 done</span></div>
+    </div></div>
+    <p class="note">Fewer columns than v2rayN: what you need to pick a server. Ping sorts with failures last. The right panel is the same endpoint editor as on Android (fields or link/JSON); double-click a row to connect through it. The Chains tab has the same layout with a drag-and-drop hop list in the panel.</p>
+  </section>
+
+  <section>
+    <h2>3 · Tray and system proxy</h2>
+    <div class="desk">
+      <div style="display:grid;gap:10px">
+        <div class="row" style="align-items:flex-start;gap:6px">
+          <div class="menu">
+            <div class="mi"><span class="led"></span>Running · Work<span class="k">412 ms</span></div>
+            <div class="sep"></div>
+            <div class="mi">■ Stop</div>
+            <div class="mi hl">⇄ Connect through<span class="k">▸</span></div>
+            <div class="mi">System proxy<span class="k">System ▸</span></div>
+            <div class="mi">Copy SOCKS address</div>
+            <div class="sep"></div>
+            <div class="mi">Open sockmnezia</div>
+            <div class="mi">Quit</div>
+          </div>
+          <div class="menu sub">
+            <div class="mi dim" style="font-size:11px">CHAINS</div>
+            <div class="mi">✓ Work</div><div class="mi">Amnezia</div><div class="mi">Travel</div>
+            <div class="sep"></div>
+            <div class="mi dim" style="font-size:11px">SERVERS</div>
+            <div class="mi">my-vps</div><div class="mi">home-nas</div>
+            <div class="sep"></div>
+            <div class="mi">More…</div>
+          </div>
+        </div>
+        <div class="taskbar"><span>EN</span><span>12:04</span><span class="trayicon">s</span></div>
+      </div>
+      <div class="card" style="width:430px">
+        <span class="cap">Settings · System proxy</span>
+        <div class="opt"><span class="radio"></span><div><b>Off</b><div class="muted">Apps use the proxy only if you set them up (SOCKS or HTTP, with the password).</div></div></div>
+        <div class="opt on"><span class="radio"></span><div><b>System proxy</b><div class="muted">Windows / GNOME / KDE use an HTTP port on 127.0.0.1. The system can't store a password, so this port has none while the mode is on.</div><div class="warnc" style="margin-top:6px">Any program on this computer, from any user account, can use it while it is on.</div></div></div>
+        <div class="opt"><span class="radio"></span><div><b>PAC</b><div class="muted">Only addresses your routing sends through the proxy; the rest go direct.</div></div></div>
+        <div class="note" style="margin:0">Previous system settings are saved and restored on stop, quit, and after a crash.</div>
+      </div>
+    </div>
+    <p class="note">The tray switches chains and servers (recent ones first) and the system proxy without opening the window. The system-proxy option shown is plan option A; it needs the owner's decision (§3 of the plan).</p>
+  </section>
+</div>
