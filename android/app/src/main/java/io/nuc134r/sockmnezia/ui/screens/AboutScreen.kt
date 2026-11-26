@@ -30,6 +30,19 @@ import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Section
 import io.nuc134r.sockmnezia.ui.SwitchRow
 import io.nuc134r.sockmnezia.ui.act
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import io.nuc134r.sockmnezia.core.DownloadProgress
+import io.nuc134r.sockmnezia.service.UpdateInstaller
+import io.nuc134r.sockmnezia.ui.formatBytes
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 const val REPO_URL = "https://github.com/73hnuc134r/sockmnezia"
 
@@ -81,10 +94,46 @@ fun AboutScreen() {
 /** Shown on Home and About when a newer release exists. */
 @Composable
 fun UpdateCard() {
+    val ctx = LocalContext.current
     val uri = LocalUriHandler.current
+    val scope = rememberCoroutineScope()
+    val snackbar = LocalSnackbar.current
     val u: UpdateInfo? by Core.update.collectAsState()
     val info = u?.takeIf { it.newer } ?: return
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf<DownloadProgress?>(null) }
+    LaunchedEffect(downloading) {
+        while (downloading) {
+            progress = runCatching { Core.updateProgress() }.getOrNull()
+            delay(300)
+        }
+        progress = null
+    }
     Text(stringResource(R.string.update_available, info.version))
     if (info.notes.isNotBlank()) Hint(info.notes.take(800))
-    TextButton(onClick = { uri.openUri(info.url) }) { Text(stringResource(R.string.open_release)) }
+    if (downloading) {
+        val p = progress
+        if (p != null && p.total > 0 && !p.verifying) {
+            LinearProgressIndicator(progress = { p.done.toFloat() / p.total }, modifier = Modifier.fillMaxWidth())
+            Hint(stringResource(R.string.update_downloading, formatBytes(p.done), formatBytes(p.total)))
+        } else {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Hint(stringResource(if (p?.verifying == true) R.string.update_verifying else R.string.downloading))
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(enabled = !downloading, onClick = {
+            // First time: Android asks to allow installs from this app; then Update again.
+            if (!UpdateInstaller.canInstall(ctx)) return@Button
+            downloading = true
+            scope.act(ctx, snackbar) {
+                try {
+                    val apk = Core.downloadUpdate(File(ctx.cacheDir, "updates"))
+                    withContext(Dispatchers.IO) { UpdateInstaller.install(ctx, apk) }
+                } finally { downloading = false }
+            }
+        }) { Text(stringResource(R.string.update_install)) }
+        TextButton(onClick = { uri.openUri(info.url) }) { Text(stringResource(R.string.open_release)) }
+    }
+    Hint(stringResource(R.string.update_install_hint))
 }

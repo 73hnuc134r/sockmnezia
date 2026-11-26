@@ -42,8 +42,11 @@ type Engine struct {
 	startedAt time.Time
 	lastErr   *Error
 
-	geoBusy sync.Mutex                   // one geo update at a time (button and weekly job)
-	geoProg atomic.Pointer[geo.Progress] // progress of the running geo update, nil when none runs
+	geoBusy    sync.Mutex                       // one geo update at a time (button and weekly job)
+	updBusy    sync.Mutex                       // one app update download at a time
+	updProg    atomic.Pointer[DownloadProgress] // progress of the running app update download
+	lastUpdate *Update                          // the newest release from the last CheckUpdate
+	geoProg    atomic.Pointer[geo.Progress]     // progress of the running geo update, nil when none runs
 }
 
 // Open loads (or creates) the state in dir.

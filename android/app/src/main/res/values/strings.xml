@@ -327,6 +327,11 @@
     <string name="beta_updates">Beta versions</string>
     <string name="check_now">Check now</string>
     <string name="up_to_date">You have the latest version</string>
+    <string name="update_install">Update</string>
+    <string name="update_downloading">Downloading %1$s of %2$s</string>
+    <string name="update_verifying">Checking the download…</string>
+    <string name="update_install_hint">Downloads the APK for this phone from the release, checks it against the release\'s SHA256SUMS and installs it; Android asks you to confirm. The first time, allow sockmnezia to install apps, then tap Update again. The proxy or VPN starts again after the update if it was running.</string>
+    <string name="update_install_failed">Update not installed: %1$s</string>
     <string name="update_available">Version %1$s is available</string>
     <string name="open_release">Open release page</string>
     <string name="licenses">Licenses</string>
@@ -353,6 +358,7 @@
     <string name="err_json_only">This server can only be edited as JSON.</string>
     <string name="err_vpn_permission">Allow the VPN connection first: open sockmnezia and press Start.</string>
     <string name="err_vpn_no_apps">None of the apps chosen for the VPN is installed. Choose apps in Settings → VPN.</string>
+    <string name="err_update_invalid">The update could not be downloaded safely (no file for this phone, or it does not match the release\'s checksums).</string>
     <string name="err_no_chain">Choose or create a chain first.</string>
     <string name="err_server_in_use">The server is used in chains; remove it from them first:</string>
     <string name="err_chain_empty">Add at least one hop.</string>

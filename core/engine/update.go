@@ -16,10 +16,11 @@ const ReleasesAPI = "https://api.github.com/repos/73hnuc134r/sockmnezia/releases
 
 // Update describes the newest release.
 type Update struct {
-	Newer   bool   `json:"newer"`
-	Version string `json:"version"`
-	URL     string `json:"url"`   // release page
-	Notes   string `json:"notes"` // release body (CHANGELOG section)
+	Newer   bool    `json:"newer"`
+	Version string  `json:"version"`
+	URL     string  `json:"url"`   // release page
+	Notes   string  `json:"notes"` // release body (CHANGELOG section)
+	Assets  []Asset `json:"-"`     // the release's files, for DownloadUpdate
 }
 
 // CheckUpdate compares current with the newest release (pre-releases only when beta). Runs through the proxy
@@ -51,6 +52,11 @@ func (e *Engine) CheckUpdate(ctx context.Context, apiURL, current string, beta b
 		Body       string `json:"body"`
 		Draft      bool   `json:"draft"`
 		Prerelease bool   `json:"prerelease"`
+		Assets     []struct {
+			Name string `json:"name"`
+			URL  string `json:"browser_download_url"`
+			Size int64  `json:"size"`
+		} `json:"assets"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&rels); err != nil {
 		return nil, newErr(CodeNetwork, err)
@@ -63,11 +69,17 @@ func (e *Engine) CheckUpdate(ctx context.Context, apiURL, current string, beta b
 		v := strings.TrimPrefix(r.Tag, "v")
 		if best.Version == "" || CompareVersions(v, best.Version) > 0 {
 			best = &Update{Version: v, URL: r.URL, Notes: r.Body}
+			for _, a := range r.Assets {
+				best.Assets = append(best.Assets, Asset{Name: a.Name, URL: a.URL, Size: a.Size})
+			}
 		}
 	}
 	if best.Version != "" {
 		best.Newer = CompareVersions(best.Version, current) > 0
 	}
+	e.mu.Lock()
+	e.lastUpdate = best
+	e.mu.Unlock()
 	return best, nil
 }
 

@@ -58,6 +58,7 @@ fun errorText(ctx: Context, e: CoreError): String {
         "network" -> R.string.err_network
         "geo_busy" -> R.string.err_geo_busy
         "json_only" -> R.string.err_json_only
+        "update_invalid" -> R.string.err_update_invalid
         "vpn_permission" -> R.string.err_vpn_permission
         "vpn_no_apps" -> R.string.err_vpn_no_apps
         "no_chain" -> R.string.err_no_chain

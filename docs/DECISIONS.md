@@ -281,3 +281,13 @@ exactly one tun inbound only when the spec is in VPN/TUN mode. Android excludes 
 (`autoOutboundsInterface`). Owner's choices for Android: DNS configurable (public resolvers through the chain
 by default, DoH in Xray, or custom servers), LAN configurable (bypass by default), per-app selection in the
 first version, SOCKS/HTTP ports keep running beside the VPN.
+
+## D32 · In-app updates (2026-11-26)
+
+The update card downloads and installs the newer release instead of only linking to it. The core picks the
+release APK for the device's ABIs (`Build.SUPPORTED_ABIS`, then the universal APK), downloads it only from this
+repository's release downloads (through the proxy while it runs), and requires a matching `SHA256SUMS` entry
+from the same release; the app installs it with a `PackageInstaller` session (no FileProvider). Authenticity
+beyond HTTPS + checksums is Android's: an APK signed with another key does not install over the app. Installing
+kills the process; `MY_PACKAGE_REPLACED` starts the proxy/VPN again when it was running (independent of
+"start on boot"). Needs `REQUEST_INSTALL_PACKAGES`.

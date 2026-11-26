@@ -224,7 +224,11 @@ private fun AddHopSheet(
 ) {
     // Always fully open: these sheets have no useful half-open state.
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Scrolls: with many saved servers the list is taller than the screen.
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text(stringResource(R.string.chain_add_hop), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
             val amzUsed = hops.any { it.kind == HopKind.AMNEZIA }
             SheetOption(

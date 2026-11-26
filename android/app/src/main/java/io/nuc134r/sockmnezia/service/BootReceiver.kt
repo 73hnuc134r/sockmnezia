@@ -5,14 +5,19 @@ import android.content.Context
 import android.content.Intent
 import io.nuc134r.sockmnezia.AppPrefs
 
-/** Starts the proxy after boot when the user turned that on and it was running before. */
+/** Starts the proxy after boot when the user turned that on and it was running before, and after an update of
+ * the app (installing it stopped the running proxy/VPN) whenever it was running. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val prefs = AppPrefs(context)
-        prefs.bootedOnce = true
-        if (prefs.startOnBoot && prefs.shouldRun) {
-            runCatching { ProxyService.start(context) }
+        val start = when (intent.action) {
+            Intent.ACTION_BOOT_COMPLETED -> {
+                prefs.bootedOnce = true
+                prefs.startOnBoot && prefs.shouldRun
+            }
+            Intent.ACTION_MY_PACKAGE_REPLACED -> prefs.shouldRun
+            else -> false
         }
+        if (start) runCatching { ProxyService.start(context) }
     }
 }

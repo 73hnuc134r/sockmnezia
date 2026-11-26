@@ -70,9 +70,9 @@ fun ConnectionBar(nav: NavController) {
     var fabWidth by remember { mutableStateOf(0.dp) }
     val start = rememberStarter()
     val testing = probe == Probe.Testing
-    // At least three lines tall (status + two route lines) so the block is easy to tap for a check.
+    // At least four lines tall (status + three route lines) so the block is easy to tap for a check.
     val typo = MaterialTheme.typography
-    val minHeight = with(density) { typo.labelLarge.lineHeight.toDp() + typo.bodySmall.lineHeight.toDp() * 2 } + 16.dp
+    val minHeight = with(density) { typo.labelLarge.lineHeight.toDp() + typo.bodySmall.lineHeight.toDp() * 3 } + 16.dp
 
     // The FAB must live outside the Surface: Surface clips its content to its bounds, which cropped the
     // half of the button meant to stick out above it.

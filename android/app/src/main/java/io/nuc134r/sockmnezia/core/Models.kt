@@ -227,6 +227,10 @@ data class Endpoint(
 @Serializable
 data class ServerEdit(val link: String = "", val endpoint: Endpoint? = null)
 
+/** Progress of an app update download. */
+@Serializable
+data class DownloadProgress(val done: Long = 0, val total: Long = -1, val verifying: Boolean = false)
+
 /** What importing shared text adds (or would add, in a dry run). */
 @Serializable
 data class ImportResult(

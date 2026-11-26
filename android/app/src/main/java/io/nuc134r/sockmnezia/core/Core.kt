@@ -236,6 +236,15 @@ object Core {
     private val _update = MutableStateFlow<UpdateInfo?>(null)
     val update: StateFlow<UpdateInfo?> = _update.asStateFlow()
 
+    /** Downloads the newer release's APK for this device (verified against the release's SHA256SUMS). */
+    suspend fun downloadUpdate(dir: java.io.File): java.io.File = call {
+        java.io.File(it.downloadUpdate(android.os.Build.SUPPORTED_ABIS.joinToString(","), dir.absolutePath))
+    }
+
+    /** Progress of the running update download, null when none runs. */
+    suspend fun updateProgress(): DownloadProgress? =
+        call { it.updateProgressJSON() }.takeIf { it.isNotBlank() }?.let { CoreJson.decodeFromString(DownloadProgress.serializer(), it) }
+
     suspend fun checkUpdate(current: String, beta: Boolean): UpdateInfo =
         call { CoreJson.decodeFromString(UpdateInfo.serializer(), it.checkUpdateJSON(current, beta)) }.also { _update.value = it }
 

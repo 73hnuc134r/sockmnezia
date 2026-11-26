@@ -3,6 +3,14 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.1.1
+
+- In-app updates: when a newer release is available, "Update" downloads the APK for this phone, checks it
+  against the release's checksums and installs it (Android asks you to confirm; the first time, allow
+  sockmnezia to install apps). The proxy or VPN starts again after the update if it was running.
+- Chain editor: the "Add hop" list scrolls when you have many servers.
+- Home screen: the connection-check block is at least four lines tall.
+
 ## 1.1.0
 
 - VPN mode: switch Home between Proxy and VPN. In VPN mode the whole phone (or the apps you choose) goes

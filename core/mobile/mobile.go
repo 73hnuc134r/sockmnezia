@@ -473,6 +473,23 @@ func (c *Core) Forget() error { return wrap(c.e.Forget()) }
 // Version is the Xray-core version linked in.
 func XrayVersion() string { return xrayVersion() }
 
+// DownloadUpdate downloads the newer release's APK for the device (abis: comma-separated, preferred first)
+// into dir, verified against SHA256SUMS; returns its path. See UpdateProgressJSON.
+func (c *Core) DownloadUpdate(abis, dir string) (string, error) {
+	cx, cancel := ctx(15 * time.Minute)
+	defer cancel()
+	p, err := c.e.DownloadUpdate(cx, strings.Split(abis, ","), dir)
+	return p, wrap(err)
+}
+
+// UpdateProgressJSON returns the running update download's progress (engine.DownloadProgress), or "".
+func (c *Core) UpdateProgressJSON() string {
+	if p := c.e.UpdateProgress(); p != nil {
+		return toJSON(p)
+	}
+	return ""
+}
+
 // CheckUpdateJSON returns {"newer","version","url","notes"} for the newest release.
 func (c *Core) CheckUpdateJSON(current string, beta bool) (string, error) {
 	cx, cancel := ctx(40 * time.Second)
