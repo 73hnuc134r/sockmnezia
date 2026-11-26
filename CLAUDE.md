@@ -3,7 +3,7 @@
 Android app (Windows/Linux later): a hardened local SOCKS5/HTTP proxy that runs an Amnezia Premium
 subscription's VLESS config in embedded Xray-core, optionally chained to the user's own server.
 Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (add an entry for every non-obvious choice).
-Research and protocol: `docs/01…08`; chains (multihop) and sharing: `docs/09`; desktop app plan: `docs/10`. `reference/` is a frozen executable spec, not product code.
+Research and protocol: `docs/01…08`; chains (multihop) and sharing: `docs/09`; desktop app plan: `docs/10`; Android VPN mode plan: `docs/11`. `reference/` is a frozen executable spec, not product code.
 
 ## Layout
 - `core/` — Go module (`github.com/nuc134r/sockmnezia/core`):
