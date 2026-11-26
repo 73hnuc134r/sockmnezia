@@ -174,8 +174,8 @@ fun HomeScreen(nav: NavController) {
                 FilledTonalButton(onClick = { nav.navigate(Routes.HEALTH) }) { Text(stringResource(R.string.health_open)) }
             }
         }
-        // Room for the selector and start/stop buttons that float over the bottom of this list.
-        Spacer(Modifier.height(72.dp))
+        // Room for the switch and start/stop buttons that stick out above the connection bar.
+        Spacer(Modifier.height(32.dp))
     }
 }
 

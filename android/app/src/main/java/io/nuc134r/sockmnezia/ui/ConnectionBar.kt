@@ -7,12 +7,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.navigation.NavController
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -57,7 +57,7 @@ import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.core.Probe
 import io.nuc134r.sockmnezia.service.ProxyService
 
-/** Height of the start/stop button. Its centre sits on the top edge of the bar, so its lower half overlaps
+/** Height of the start/stop and switch buttons. Its centre sits on the top edge of the bar, so its lower half overlaps
  * the first line of the connection-check block (which leaves room for it) and its upper half the content above. */
 private val StartStopButtonHeight = 56.dp
 
@@ -133,21 +133,22 @@ fun ConnectionBar(nav: NavController) {
                 }
             }
         }
-        // "Switch" (chain / server selector), right-aligned above the start/stop button.
-        ExtendedFloatingActionButton(
-            onClick = { selecting = true },
-            icon = { Icon(SwapIcon, null) },
-            text = { Text(stringResource(R.string.chain_switch)) },
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        // Switch (chain / server selector) and start/stop: two same-size icon buttons side by side, start/stop
+        // on the right, straddling the top edge of the bar. Labels are their content descriptions.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(end = 16.dp)
-                .offset(y = -(StartStopButtonHeight / 2) - 8.dp - SwitchButtonHeight)
-                .height(SwitchButtonHeight),
-        )
-        ExtendedFloatingActionButton(
-            onClick = {
+                .offset(y = -(StartStopButtonHeight / 2))
+                .onSizeChanged { fabWidth = with(density) { it.width.toDp() } },
+        ) {
+            FloatingActionButton(
+                onClick = { selecting = true },
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ) { Icon(SwapIcon, stringResource(R.string.chain_switch)) }
+            FloatingActionButton(onClick = {
                 if (status.running) {
                     ProxyService.stop(ctx)
                 } else if (Build.VERSION.SDK_INT >= 33 &&
@@ -157,15 +158,13 @@ fun ConnectionBar(nav: NavController) {
                 } else {
                     ProxyService.start(ctx)
                 }
-            },
-            icon = { Icon(if (status.running) Icons.Default.Close else Icons.Default.PlayArrow, null) },
-            text = { Text(stringResource(if (status.running) R.string.action_stop else R.string.action_start)) },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(end = 16.dp)
-                .offset(y = -(StartStopButtonHeight / 2))
-                .onSizeChanged { fabWidth = with(density) { it.width.toDp() } },
-        )
+            }) {
+                Icon(
+                    if (status.running) Icons.Default.Close else Icons.Default.PlayArrow,
+                    stringResource(if (status.running) R.string.action_stop else R.string.action_start),
+                )
+            }
+        }
     }
     if (selecting) SelectionSheet(nav, onDismiss = { selecting = false })
 }
@@ -187,9 +186,6 @@ private fun routeText(chain: List<String>, countries: List<String>, exit: ChainR
         }
     }
 }
-
-/** Height of the "Switch" button above start/stop (smaller than start/stop, which is the main action). */
-private val SwitchButtonHeight = 44.dp
 
 /** Material "swap_horiz" (left/right arrows); the core icon set does not include it. */
 private val SwapIcon: ImageVector by lazy {
