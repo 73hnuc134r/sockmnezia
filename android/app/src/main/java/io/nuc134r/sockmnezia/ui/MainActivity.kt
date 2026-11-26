@@ -45,6 +45,7 @@ import io.nuc134r.sockmnezia.ui.screens.HomeScreen
 import io.nuc134r.sockmnezia.ui.screens.LogsScreen
 import io.nuc134r.sockmnezia.ui.screens.RoutingScreen
 import io.nuc134r.sockmnezia.ui.screens.RuleEditorScreen
+import io.nuc134r.sockmnezia.ui.screens.ServerEditScreen
 import io.nuc134r.sockmnezia.ui.screens.SettingsScreen
 import io.nuc134r.sockmnezia.ui.theme.SockmneziaTheme
 
@@ -58,6 +59,9 @@ object Routes {
     const val ABOUT = "about"
     const val RULE = "rule/{index}"
     const val CHAIN = "chain/{id}"
+    const val SELECT = "select"
+    const val SERVER = "server/{id}"
+    fun server(id: String) = "server/$id"
     /** Chain route argument for a new chain. */
     const val NEW = "new"
     fun chain(id: String) = "chain/$id"
@@ -95,6 +99,8 @@ fun AppRoot() {
         Routes.ABOUT -> R.string.title_about
         Routes.RULE -> R.string.title_rule
         Routes.CHAIN -> R.string.title_chain
+        Routes.SELECT -> R.string.selector_title
+        Routes.SERVER -> R.string.title_server
         else -> R.string.app_name
     }
     CompositionLocalProvider(LocalSnackbar provides snackbar) {
@@ -154,6 +160,10 @@ fun AppRoot() {
                 composable(Routes.HEALTH) { HealthScreen() }
                 composable(Routes.LOGS) { LogsScreen() }
                 composable(Routes.ABOUT) { AboutScreen() }
+                composable(Routes.SELECT) { SelectScreen(nav) }
+                composable(Routes.SERVER, arguments = listOf(navArgument("id") { type = NavType.StringType })) {
+                    ServerEditScreen(nav, it.arguments?.getString("id") ?: Routes.NEW)
+                }
                 composable(Routes.CHAIN, arguments = listOf(navArgument("id") { type = NavType.StringType })) {
                     ChainEditScreen(nav, it.arguments?.getString("id") ?: Routes.NEW)
                 }

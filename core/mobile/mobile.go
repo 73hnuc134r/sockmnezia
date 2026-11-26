@@ -5,12 +5,14 @@ package mobile
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/nuc134r/sockmnezia/core/engine"
 	"github.com/nuc134r/sockmnezia/core/geo"
+	"github.com/nuc134r/sockmnezia/core/links"
 	"github.com/nuc134r/sockmnezia/core/routing"
 	"github.com/nuc134r/sockmnezia/core/runner"
 )
@@ -239,6 +241,57 @@ func (c *Core) OwnServersJSON() string {
 func (c *Core) AddOwnServer(link, name string) (string, error) {
 	id, err := c.e.AddOwnServer(link, name)
 	return id, wrap(err)
+}
+
+// ServerEditJSON returns {"link": share link or outbound JSON, "endpoint": links.Endpoint or null (JSON only)}.
+func (c *Core) ServerEditJSON(id string) (string, error) {
+	link, ep, err := c.e.ServerForEdit(id)
+	if err != nil {
+		return "", wrap(err)
+	}
+	return toJSON(map[string]any{"link": link, "endpoint": ep}), nil
+}
+
+// EndpointToLink turns editor fields (links.Endpoint JSON) into a link, validated like a pasted one.
+func EndpointToLink(endpointJSON string) (string, error) {
+	var ep links.Endpoint
+	if err := json.Unmarshal([]byte(endpointJSON), &ep); err != nil {
+		return "", wrap(&engine.Error{Code: engine.CodeInvalidLink, Detail: err.Error()})
+	}
+	link, err := ep.Link()
+	if err == nil {
+		_, err = links.Parse(link)
+	}
+	if err != nil {
+		code := engine.CodeInvalidLink
+		if errors.Is(err, links.ErrUnsupported) {
+			code = engine.CodeUnsupportedLink
+		}
+		return "", wrap(&engine.Error{Code: code, Detail: err.Error()})
+	}
+	return link, nil
+}
+
+// LinkToEndpointJSON parses a link or outbound JSON into editor fields (links.Endpoint JSON); error code
+// json_only when only the JSON can express it.
+func LinkToEndpointJSON(link string) (string, error) {
+	ep, err := links.EndpointFromLink(link)
+	if err != nil {
+		code := engine.CodeInvalidLink
+		switch {
+		case errors.Is(err, links.ErrJSONOnly):
+			code = engine.CodeJSONOnly
+		case errors.Is(err, links.ErrUnsupported):
+			code = engine.CodeUnsupportedLink
+		}
+		return "", wrap(&engine.Error{Code: code, Detail: err.Error()})
+	}
+	return toJSON(ep), nil
+}
+
+// UpdateOwnServer replaces a saved server's settings, keeping its ID (chains follow).
+func (c *Core) UpdateOwnServer(id, link, name string) error {
+	return wrap(c.e.UpdateOwnServer(id, link, name))
 }
 
 // RemoveOwnServer deletes a server.

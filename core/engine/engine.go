@@ -298,6 +298,72 @@ func (e *Engine) RemoveOwnServer(id string) error {
 	return e.restartOrStopLocked()
 }
 
+// UpdateOwnServer replaces a saved server's settings (link or outbound JSON, as from the endpoint editor),
+// keeping its ID so the chains that use it follow. name, when not empty, overrides the link's name. Refused
+// when a chain using the server would no longer be valid (e.g. a UDP transport after the first hop). A
+// running proxy that uses the server restarts.
+func (e *Engine) UpdateOwnServer(id, link, name string) error {
+	s, err := links.Parse(link)
+	if err != nil {
+		if errors.Is(err, links.ErrUnsupported) {
+			return newErr(CodeUnsupportedLink, err)
+		}
+		return newErr(CodeInvalidLink, err)
+	}
+	if strings.TrimSpace(name) != "" {
+		s.Name = strings.TrimSpace(name)
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	srv := e.serverLocked(id)
+	if srv == nil {
+		return newErr(CodeNoOwnServer, errors.New("unknown server"))
+	}
+	old := *srv
+	srv.Name, srv.Link, srv.Server = s.Name, strings.TrimSpace(link), s
+	for i := range e.st.Chains {
+		c := &e.st.Chains[i]
+		for _, h := range c.Hops {
+			if h.Kind == HopServer && h.Server == id {
+				if verr := e.validateLocked(c); verr != nil {
+					*srv = old
+					verr.Detail = c.Name + ": " + verr.Detail
+					return verr
+				}
+				break
+			}
+		}
+	}
+	if err := e.persist(); err != nil {
+		return err
+	}
+	if c := e.activeChainLocked(); c != nil {
+		for _, h := range c.Hops {
+			if h.Server == id {
+				return e.restartIfRunningLocked()
+			}
+		}
+	}
+	return nil
+}
+
+// ServerForEdit returns a saved server's share link (or outbound JSON) and, when a link can describe it,
+// its editable fields (nil: JSON only).
+func (e *Engine) ServerForEdit(id string) (string, *links.Endpoint, error) {
+	e.mu.Lock()
+	s := e.serverLocked(id)
+	if s == nil || s.Server == nil {
+		e.mu.Unlock()
+		return "", nil, newErr(CodeNoOwnServer, errors.New("unknown server"))
+	}
+	link := shareServerLocked(s)
+	e.mu.Unlock()
+	if ep, err := links.EndpointFromLink(link); err == nil {
+		return link, &ep, nil
+	}
+	return link, nil, nil
+}
+
 // RenameOwnServer changes the display name.
 func (e *Engine) RenameOwnServer(id, name string) error {
 	e.mu.Lock()

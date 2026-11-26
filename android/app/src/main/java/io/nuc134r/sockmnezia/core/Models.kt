@@ -157,6 +157,40 @@ data class GeoProgress(
         get() = if (total > 0 && index > 0) ((index - 1) + done.toFloat() / total) / count else null
 }
 
+/** An own server as editable fields (core links.Endpoint). Fields that don't apply are ignored by the core. */
+@Serializable
+data class Endpoint(
+    val name: String = "",
+    val protocol: String = "vless",
+    val address: String = "",
+    val port: Int = 443,
+    val id: String = "",
+    val password: String = "",
+    val user: String = "",
+    val method: String = "",
+    val flow: String = "",
+    val encryption: String = "",
+    val network: String = "tcp",
+    val security: String = "tls",
+    val sni: String = "",
+    val fp: String = "",
+    val alpn: String = "",
+    val pbk: String = "",
+    val sid: String = "",
+    val spx: String = "",
+    val path: String = "",
+    val host: String = "",
+    @SerialName("service_name") val serviceName: String = "",
+    val mode: String = "",
+    @SerialName("header_type") val headerType: String = "",
+    val authority: String = "",
+    val extra: String = "",
+)
+
+/** A saved server for the editor: its link (or outbound JSON) and fields (null: JSON only). */
+@Serializable
+data class ServerEdit(val link: String = "", val endpoint: Endpoint? = null)
+
 /** What importing shared text adds (or would add, in a dry run). */
 @Serializable
 data class ImportResult(

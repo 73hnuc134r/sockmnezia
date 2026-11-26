@@ -36,6 +36,7 @@ const (
 	CodeInvalidLink           = "invalid_link"
 	CodeNotRunning            = "not_running"
 	CodeGeoBusy               = "geo_busy"      // a geo update is already running
+	CodeJSONOnly              = "json_only"     // the server has settings no link or editor field can carry
 	CodeNoChain               = "no_chain"      // no chain saved/selected
 	CodeServerInUse           = "server_in_use" // Detail: names of the chains using it
 	CodeChainEmpty            = "chain_empty"

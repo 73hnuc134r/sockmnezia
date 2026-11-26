@@ -3,6 +3,15 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.0.4
+
+- "Switch" opens a full screen instead of a sheet: chains and single servers, each with Test and a ⋮ menu.
+  Server rows no longer list the chains they are used in.
+- Server editor: add or edit a server field by field (protocol, address, port, credentials, transport,
+  TLS/Reality and their settings) or as a link / Xray JSON, and switch between the two. Editing keeps the
+  server in the chains that use it, and an edit that would break one of them is refused. "Import links"
+  next to "Add server" takes several links or a shared chain.
+
 ## 1.0.3
 
 - Home screen: Switch and start/stop are now two same-size round icon buttons side by side, where start/stop

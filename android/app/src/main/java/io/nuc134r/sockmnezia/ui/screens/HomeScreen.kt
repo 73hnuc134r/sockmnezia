@@ -50,7 +50,6 @@ import io.nuc134r.sockmnezia.health.evaluate
 import io.nuc134r.sockmnezia.health.worst
 import io.nuc134r.sockmnezia.ui.ChainStepper
 import io.nuc134r.sockmnezia.ui.Hint
-import io.nuc134r.sockmnezia.ui.SelectionSheet
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
@@ -103,14 +102,13 @@ fun HomeScreen(nav: NavController) {
             }
         }
 
-        var switching by remember { mutableStateOf(false) }
         Section {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     status.chainName ?: stringResource(R.string.chain),
                     style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f),
                 )
-                OutlinedButton(onClick = { switching = true }) { Text(stringResource(R.string.chain_switch)) }
+                OutlinedButton(onClick = { nav.navigate(Routes.SELECT) }) { Text(stringResource(R.string.chain_switch)) }
                 status.chainId?.let { id ->
                     TextButton(onClick = { nav.navigate(Routes.chain(id)) }) { Text(stringResource(R.string.chain_edit)) }
                 }
@@ -123,7 +121,6 @@ fun HomeScreen(nav: NavController) {
                 status.chainError?.let { Hint(errorText(ctx, it), warn = true) }
             }
         }
-        if (switching) SelectionSheet(nav, onDismiss = { switching = false })
 
         if (status.amneziaHop > 0) {
             Section(stringResource(R.string.amnezia)) {

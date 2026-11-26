@@ -72,7 +72,6 @@ fun ConnectionBar(nav: NavController) {
     val status by Core.status.collectAsState()
     val probe by Core.probe.collectAsState()
     var fabWidth by remember { mutableStateOf(0.dp) }
-    var selecting by remember { mutableStateOf(false) }
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         ProxyService.start(ctx)
     }
@@ -144,7 +143,7 @@ fun ConnectionBar(nav: NavController) {
                 .onSizeChanged { fabWidth = with(density) { it.width.toDp() } },
         ) {
             FloatingActionButton(
-                onClick = { selecting = true },
+                onClick = { nav.navigate(Routes.SELECT) },
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ) { Icon(SwapIcon, stringResource(R.string.chain_switch)) }
@@ -166,7 +165,6 @@ fun ConnectionBar(nav: NavController) {
             }
         }
     }
-    if (selecting) SelectionSheet(nav, onDismiss = { selecting = false })
 }
 
 /** The route, phone first, then the exit address once the check has run: "exit ✓" when it is the last hop's

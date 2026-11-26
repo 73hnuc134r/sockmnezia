@@ -136,6 +136,27 @@ object Core {
         call { CoreJson.decodeFromString(ListSerializer(OwnServer.serializer()), it.ownServersJSON()) }
 
     suspend fun addOwnServer(link: String, name: String): String = call { it.addOwnServer(link, name) }.also { changed() }
+    /** A saved server for the endpoint editor. */
+    suspend fun serverEdit(id: String): ServerEdit =
+        call { CoreJson.decodeFromString(ServerEdit.serializer(), it.serverEditJSON(id)) }
+
+    /** Replaces a saved server's settings, keeping its ID (chains that use it follow). */
+    suspend fun updateOwnServer(id: String, link: String) = call { it.updateOwnServer(id, link, "") }.also { changed() }
+
+    /** Editor fields -> link, validated like a pasted link. */
+    fun endpointToLink(e: Endpoint): String = try {
+        Mobile.endpointToLink(CoreJson.encodeToString(Endpoint.serializer(), e))
+    } catch (x: Exception) {
+        throw asCoreException(x)
+    }
+
+    /** Link or outbound JSON -> editor fields (error code json_only when only JSON can express it). */
+    fun linkToEndpoint(link: String): Endpoint = try {
+        CoreJson.decodeFromString(Endpoint.serializer(), Mobile.linkToEndpointJSON(link))
+    } catch (x: Exception) {
+        throw asCoreException(x)
+    }
+
     suspend fun removeOwnServer(id: String) = call { it.removeOwnServer(id) }.also { changed() }
     suspend fun renameOwnServer(id: String, name: String) = call { it.renameOwnServer(id, name) }.also { changed() }
 

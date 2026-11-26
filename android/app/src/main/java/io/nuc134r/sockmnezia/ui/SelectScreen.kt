@@ -13,14 +13,10 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,14 +57,15 @@ private sealed interface RowTest {
 private class MenuAction(val label: String, val onClick: () -> Unit)
 
 /**
- * What the proxy connects through: saved chains and, in a separate list, single servers (no one-hop chain
- * needed), plus creating a chain or adding a server. Tapping a row selects it. Test measures the exit
- * address and ping through that row in a separate temporary instance, without selecting it or touching the
- * running proxy. The ⋮ menu edits (chains) or renames (servers), shares, and deletes after a confirmation.
+ * Screen: what the proxy connects through. Saved chains and, in a separate list, single servers (no one-hop
+ * chain needed), plus creating a chain, adding a server (endpoint editor) or importing links. Tapping a row
+ * selects it and goes back. Test measures the exit address and ping through that row in a separate temporary
+ * instance, without selecting it or touching the running proxy. The ⋮ menu edits, shares, and deletes after
+ * a confirmation.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SelectionSheet(nav: NavController, onDismiss: () -> Unit) {
+fun SelectScreen(nav: NavController) {
+    val onDone: () -> Unit = { nav.popBackStack() }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = LocalSnackbar.current
@@ -79,7 +76,6 @@ fun SelectionSheet(nav: NavController, onDismiss: () -> Unit) {
     var deleteServer by remember { mutableStateOf<OwnServer?>(null) }
     var shareChain by remember { mutableStateOf<ChainInfo?>(null) }
     var shareServer by remember { mutableStateOf<OwnServer?>(null) }
-    var renaming by remember { mutableStateOf<OwnServer?>(null) }
     var adding by remember { mutableStateOf(false) }
     val tests = remember { mutableStateMapOf<String, RowTest>() }
     LaunchedEffect(revision) {
@@ -98,72 +94,62 @@ fun SelectionSheet(nav: NavController, onDismiss: () -> Unit) {
     }
     val deleted = stringResource(R.string.hop_missing)
     val labelEdit = stringResource(R.string.chain_edit)
-    val labelRename = stringResource(R.string.rename)
     val labelShare = stringResource(R.string.share)
     val labelDelete = stringResource(R.string.delete)
 
-    // Always fully open: these sheets have no useful half-open state.
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-            Text(
-                stringResource(R.string.selector_title), style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        ListHeader(stringResource(R.string.selector_chains))
+        chains.forEach { c ->
+            val key = "c:${c.id}"
+            SelectRow(
+                selected = c.active,
+                title = c.name,
+                subtitle = c.hops.joinToString(" → ") { if (it.missing) deleted else it.name },
+                warning = if (c.error != null) stringResource(R.string.chain_cannot_run) else null,
+                test = tests[key],
+                onSelect = {
+                    scope.act(ctx, snackbar) { Core.setActiveChain(c.id) }
+                    onDone()
+                },
+                onTest = { runTest(key) { Core.testSaved(chainId = c.id) } },
+                menu = listOf(
+                    MenuAction(labelEdit) { nav.navigate(Routes.chain(c.id)) },
+                    MenuAction(labelShare) { shareChain = c },
+                    MenuAction(labelDelete) { deleteChain = c },
+                ),
             )
-            ListHeader(stringResource(R.string.selector_chains))
-            chains.forEach { c ->
-                val key = "c:${c.id}"
-                SelectRow(
-                    selected = c.active,
-                    title = c.name,
-                    subtitle = c.hops.joinToString(" → ") { if (it.missing) deleted else it.name },
-                    warning = if (c.error != null) stringResource(R.string.chain_cannot_run) else null,
-                    test = tests[key],
-                    onSelect = {
-                        scope.act(ctx, snackbar) { Core.setActiveChain(c.id) }
-                        onDismiss()
-                    },
-                    onTest = { runTest(key) { Core.testSaved(chainId = c.id) } },
-                    menu = listOf(
-                        MenuAction(labelEdit) { onDismiss(); nav.navigate(Routes.chain(c.id)) },
-                        MenuAction(labelShare) { shareChain = c },
-                        MenuAction(labelDelete) { deleteChain = c },
-                    ),
-                )
-            }
-            TextButton(onClick = { onDismiss(); nav.navigate(Routes.chain(Routes.NEW)) }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                Text(stringResource(R.string.chain_new))
-            }
-            HorizontalDivider(Modifier.padding(vertical = 4.dp))
-            ListHeader(stringResource(R.string.selector_servers))
-            if (servers.isEmpty()) {
-                Hint(stringResource(R.string.selector_no_servers), modifier = Modifier.padding(horizontal = 16.dp))
-            }
-            servers.forEach { s ->
-                val key = "s:${s.id}"
-                SelectRow(
-                    selected = s.active,
-                    title = s.name,
-                    subtitle = listOfNotNull(
-                        s.detail,
-                        if (s.usedIn.isNotEmpty()) stringResource(R.string.server_used_in, s.usedIn.joinToString(", ")) else null,
-                    ).joinToString("\n"),
-                    warning = null,
-                    test = tests[key],
-                    onSelect = {
-                        scope.act(ctx, snackbar) { Core.setActiveServer(s.id) }
-                        onDismiss()
-                    },
-                    onTest = { runTest(key) { Core.testSaved(serverId = s.id) } },
-                    menu = listOf(
-                        MenuAction(labelRename) { renaming = s },
-                        MenuAction(labelShare) { shareServer = s },
-                        MenuAction(labelDelete) { deleteServer = s },
-                    ),
-                )
-            }
-            TextButton(onClick = { adding = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                Text(stringResource(R.string.add_server))
-            }
+        }
+        TextButton(onClick = { nav.navigate(Routes.chain(Routes.NEW)) }, modifier = Modifier.padding(horizontal = 8.dp)) {
+            Text(stringResource(R.string.chain_new))
+        }
+        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        ListHeader(stringResource(R.string.selector_servers))
+        if (servers.isEmpty()) {
+            Hint(stringResource(R.string.selector_no_servers), modifier = Modifier.padding(horizontal = 16.dp))
+        }
+        servers.forEach { s ->
+            val key = "s:${s.id}"
+            SelectRow(
+                selected = s.active,
+                title = s.name,
+                subtitle = s.detail,
+                warning = null,
+                test = tests[key],
+                onSelect = {
+                    scope.act(ctx, snackbar) { Core.setActiveServer(s.id) }
+                    onDone()
+                },
+                onTest = { runTest(key) { Core.testSaved(serverId = s.id) } },
+                menu = listOf(
+                    MenuAction(labelEdit) { nav.navigate(Routes.server(s.id)) },
+                    MenuAction(labelShare) { shareServer = s },
+                    MenuAction(labelDelete) { deleteServer = s },
+                ),
+            )
+        }
+        Row(Modifier.padding(horizontal = 8.dp)) {
+            TextButton(onClick = { nav.navigate(Routes.server(Routes.NEW)) }) { Text(stringResource(R.string.add_server)) }
+            TextButton(onClick = { adding = true }) { Text(stringResource(R.string.import_links)) }
         }
     }
 
@@ -176,21 +162,6 @@ fun SelectionSheet(nav: NavController, onDismiss: () -> Unit) {
         ConfirmDelete(stringResource(R.string.delete_server_q, s.name), onDismiss = { deleteServer = null }) {
             scope.act(ctx, snackbar) { Core.removeOwnServer(s.id) }
         }
-    }
-    renaming?.let { s ->
-        var name by remember(s.id) { mutableStateOf(s.name) }
-        AlertDialog(
-            onDismissRequest = { renaming = null },
-            title = { Text(stringResource(R.string.rename)) },
-            text = { OutlinedTextField(name, { name = it }, singleLine = true) },
-            confirmButton = {
-                TextButton(onClick = {
-                    renaming = null
-                    scope.act(ctx, snackbar) { Core.renameOwnServer(s.id, name) }
-                }) { Text(stringResource(R.string.save)) }
-            },
-            dismissButton = { TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.cancel)) } },
-        )
     }
     shareChain?.let { c ->
         ChainShareSheet(c.id, c.name, withAmnezia = c.hops.any { it.isAmnezia }, onDismiss = { shareChain = null })

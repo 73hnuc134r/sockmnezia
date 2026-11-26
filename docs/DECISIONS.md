@@ -247,3 +247,18 @@ it in one bottom sheet (Home card button, or a small button above start/stop) wi
 servers. Each row has Test, which runs `Engine.TestSaved` in a temporary instance (D26 keeps the running
 proxy's hops intact) and never changes the selection, and a ⋮ menu: edit (chains) or rename (servers), share,
 delete after a confirmation. With "New chain" and "Add server" in the sheet, the Servers tab was removed.
+
+## D29 · Selection screen and endpoint editor (2026-11-26)
+
+Owner's request: the D28 sheet became a regular screen (`Routes.SELECT`), and servers get an editor
+(`Routes.SERVER`) with two modes, fields or link/JSON text. The fields are `links.Endpoint`, which maps 1:1
+to share-link parameters: `EndpointFromLink` goes through `Parse` and `Format`, and `Endpoint.Link()` builds a
+link that the app saves through the same `Parse` as a pasted one, so there is one validation path. A server
+whose outbound has settings no link can carry (raw JSON with extras) is edited as JSON only (`json_only`).
+`UpdateOwnServer` keeps the ID, so chains follow an edit; it is refused when a chain using the server would
+no longer be valid. Rename is the editor's Name field. Pasting several links or a chain stays a separate
+"Import links" action with its preview (D27).
+
+Tests: the runner integration tests wait out Xray's dial retries after a request that is expected to fail
+(`mustFail`), so the next test starting an instance doesn't race a still-retrying dial (seen as a flaky
+`TestUDP` under `-race`).

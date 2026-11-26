@@ -224,3 +224,33 @@ func TestTestSavedLeavesTheSelection(t *testing.T) {
 		t.Fatalf("testing changed the running proxy: %+v", after)
 	}
 }
+
+func TestUpdateOwnServer(t *testing.T) {
+	e, _ := Open(t.TempDir(), nil, "linux")
+	a, _ := e.AddOwnServer("trojan://p@a.example.com:443#a", "")
+	b, _ := e.AddOwnServer("trojan://p@b.example.com:443#b", "")
+	cid, _ := e.SaveChain(Chain{Name: "pair", Hops: []ChainHop{{Kind: HopServer, Server: a}, {Kind: HopServer, Server: b}}})
+	if err := e.UpdateOwnServer(b, "vless://00000000-0000-4000-8000-000000000001@b2.example.com:8443?type=ws&path=%2Fw#b2", ""); err != nil {
+		t.Fatal(err)
+	}
+	link, ep, err := e.ServerForEdit(b)
+	if err != nil || ep == nil || ep.Address != "b2.example.com" || ep.Port != 8443 || ep.Name != "b2" || ep.Path != "/w" {
+		t.Fatalf("%s %+v %v", link, ep, err)
+	}
+	// Same ID: the chain follows the edit.
+	for _, c := range e.Chains() {
+		if c.ID == cid && c.Hops[1].Name != "b2" {
+			t.Fatalf("%+v", c)
+		}
+	}
+	// An invalid edit is refused and leaves the server as it was.
+	if err := e.UpdateOwnServer(b, "vless://00000000-0000-4000-8000-000000000001@b.example.com:443?type=kcp", ""); code(err) != CodeUnsupportedLink {
+		t.Fatal(err)
+	}
+	if _, ep, _ := e.ServerForEdit(b); ep.Address != "b2.example.com" {
+		t.Fatal("refused edit changed the server")
+	}
+	if err := e.UpdateOwnServer("gone", "trojan://p@x.example.com:443", ""); code(err) != CodeNoOwnServer {
+		t.Fatal(err)
+	}
+}
