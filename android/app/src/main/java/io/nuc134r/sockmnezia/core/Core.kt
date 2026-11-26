@@ -103,6 +103,9 @@ object Core {
     fun randomPassword(): String = Mobile.randomPassword()
 
     suspend fun exitIp(): String = call { it.exitIP() }
+    /** Forgets every remembered Test result. */
+    suspend fun clearTests() = call { it.clearTests() }
+
     /** Measures a saved chain or a single server without selecting it (the running proxy is untouched). */
     suspend fun testSaved(chainId: String = "", serverId: String = ""): ChainResult =
         call { CoreJson.decodeFromString(ChainResult.serializer(), it.testSavedJSON(chainId, serverId)) }

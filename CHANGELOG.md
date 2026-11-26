@@ -3,6 +3,10 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.1.4
+
+- "Test all" first clears every remembered ping, so old results never sit next to new ones.
+
 ## 1.1.3
 
 - Chain editor: "Add hop" opens the same server list as Switch (host groups, tags, ping, Test all, sort,

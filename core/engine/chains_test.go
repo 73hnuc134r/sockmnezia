@@ -283,6 +283,10 @@ func TestLastTestKept(t *testing.T) {
 	if c := e2.Chains(); c[len(c)-1].Last == nil {
 		t.Fatal("chain result not listed")
 	}
+	if err := e2.ClearTests(); err != nil || len(e2.Snapshot().Tests) != 0 || e2.Chains()[len(e2.Chains())-1].Last != nil {
+		t.Fatal("results kept after ClearTests", err)
+	}
+	e2.TestSaved(ctx, cid, "")
 	e2.DeleteChain(cid)
 	if e2.LastTest(cid, "") != nil {
 		t.Fatal("result kept for a deleted chain")

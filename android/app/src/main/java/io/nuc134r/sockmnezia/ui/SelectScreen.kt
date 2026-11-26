@@ -121,6 +121,10 @@ fun SelectScreen(nav: NavController, pickHop: String? = null) {
     fun testChain(c: ChainInfo) = scope.launch { test("c:${c.id}") { Core.testSaved(chainId = c.id) } }
     fun testServer(s: OwnServer) = scope.launch { test("s:${s.id}") { Core.testSaved(serverId = s.id) } }
     fun testAll() = scope.launch {
+        // Start from a clean list: old pings must not sit next to new ones.
+        runCatching { Core.clearTests() }
+        runCatching { chains = Core.chains() }
+        runCatching { servers = Core.ownServers() }
         val sem = Semaphore(TestConcurrency)
         ((if (picking) emptyList() else chains).map { c -> suspend { test("c:${c.id}") { Core.testSaved(chainId = c.id) } } } +
             servers.map { s -> suspend { test("s:${s.id}") { Core.testSaved(serverId = s.id) } } })

@@ -196,6 +196,9 @@ func (c *Core) TestChainJSON() (string, error) {
 	return toJSON(map[string]any{"ip": ip, "ms": ms, "country": country}), nil
 }
 
+// ClearTests forgets every remembered Test result.
+func (c *Core) ClearTests() error { return wrap(c.e.ClearTests()) }
+
 // TestSavedJSON measures a saved chain (chainID) or single server (serverID) without selecting it:
 // {"ip","ms","country"}. The running proxy is not touched.
 func (c *Core) TestSavedJSON(chainID, serverID string) (string, error) {

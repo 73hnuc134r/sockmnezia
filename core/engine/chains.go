@@ -50,6 +50,17 @@ func testKey(chainID, serverID string) string {
 	return "c:" + chainID
 }
 
+// ClearTests forgets every remembered Test result ("Test all" starts from a clean list).
+func (e *Engine) ClearTests() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if len(e.st.Tests) == 0 {
+		return nil
+	}
+	e.st.Tests = nil
+	return e.persist()
+}
+
 // LastTest returns the last Test result of a saved chain or server, nil if never tested.
 func (e *Engine) LastTest(chainID, serverID string) *TestResult {
 	e.mu.Lock()
