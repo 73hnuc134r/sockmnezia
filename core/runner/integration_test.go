@@ -205,8 +205,16 @@ func (c *client) mustGet(host, want string) {
 	}
 }
 
+// retryWindow covers Xray's dial retries (vless outbound: 5 attempts with backoff) after a request failed.
+const retryWindow = 3 * time.Second
+
 func (c *client) mustFail(host string) {
 	c.t.Helper()
+	// A failed request leaves Xray retrying the dial in the background for a few seconds. Let those retries
+	// finish before this test's instances close and the next test starts one: starting an instance writes
+	// process-wide dialer globals that a retrying dial reads, which the race detector reports (D25/D26).
+	// Registered after startClient's cleanup, so it runs first.
+	c.t.Cleanup(func() { time.Sleep(retryWindow) })
 	if got, err := c.get(host, c.in.User, c.in.Pass); err == nil && got != "" {
 		c.t.Fatalf("GET %s should fail, got %q", host, got)
 	}
