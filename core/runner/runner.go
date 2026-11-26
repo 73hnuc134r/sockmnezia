@@ -107,7 +107,7 @@ func (i *Instance) Traffic() (up, down int64) {
 	if m == nil {
 		return 0, 0
 	}
-	for _, tag := range []string{"socks-in", "http-in"} {
+	for _, tag := range []string{"socks-in", "http-in", "tun-in"} { // xrayconf.TagSocksIn, TagHTTPIn, TagTunIn
 		if c := m.GetCounter("inbound>>>" + tag + ">>>traffic>>>uplink"); c != nil {
 			up += c.Value()
 		}

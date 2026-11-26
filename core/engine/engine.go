@@ -38,6 +38,7 @@ type Engine struct {
 	st        *State
 	secrets   atomic.Pointer[[]string] // for log redaction; readable without mu
 	inst      *runner.Instance
+	vpnFD     int // the VpnService tun while VPN mode runs, -1 otherwise
 	startedAt time.Time
 	lastErr   *Error
 
@@ -54,7 +55,7 @@ func Open(dir string, box SecretBox, osName string) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &Engine{dir: dir, box: box, OS: osName, st: st}
+	e := &Engine{dir: dir, box: box, OS: osName, st: st, vpnFD: -1}
 	e.updateSecrets()
 	geo.SetAssetDir(e.GeoDir())
 	runner.SetLevel(st.Options.LogLevel)
@@ -412,6 +413,16 @@ func (e *Engine) SetSettings(s Settings) error {
 	if _, ok := geo.SourceByID(s.Options.GeoSource); !ok && s.Options.GeoSource != "custom" {
 		return &Error{Code: CodeInvalidSettings, Field: "geo_source", Detail: "unknown source"}
 	}
+	switch s.Options.Mode {
+	case "":
+		s.Options.Mode = ModeProxy
+	case ModeProxy, ModeVPN:
+	default:
+		return &Error{Code: CodeInvalidSettings, Field: "mode", Detail: "unknown mode"}
+	}
+	if err := validateVPN(&s.Options.VPN); err != nil {
+		return err
+	}
 	s.Options.LegacyFetchViaOwn = false
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -433,7 +444,7 @@ func (e *Engine) buildLocked() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	spec := xrayconf.Spec{Hops: hops, Inbound: e.st.Inbound, Routing: e.st.Routing, LogLevel: e.st.Options.LogLevel}
+	spec := xrayconf.Spec{Hops: hops, Inbound: e.st.Inbound, Routing: e.st.Routing, LogLevel: e.st.Options.LogLevel, VPN: e.vpnSpecLocked()}
 	if site, ip := e.st.Routing.UsesGeo(); site || ip {
 		gs := geo.Stat(e.GeoDir())
 		if (site && !gs.HasGeoSite) || (ip && !gs.HasGeoIP) {
@@ -509,7 +520,11 @@ func (e *Engine) startLocked() error {
 	if c := e.activeChainLocked(); c != nil {
 		hops = len(c.Hops)
 	}
-	runner.Record("info", fmt.Sprintf("proxy started on %s:%d (%d hops)", e.st.Inbound.Listen, e.st.Inbound.SocksPort, hops))
+	mode := ModeProxy
+	if e.vpnFD >= 0 {
+		mode = ModeVPN
+	}
+	runner.Record("info", fmt.Sprintf("proxy started on %s:%d (%d hops, %s mode)", e.st.Inbound.Listen, e.st.Inbound.SocksPort, hops, mode))
 	return nil
 }
 
@@ -543,11 +558,13 @@ func (e *Engine) stopLocked() {
 		e.inst = nil
 		runner.Record("info", "proxy stopped")
 	}
+	e.vpnFD = -1 // the app closes its descriptor after Stop
 }
 
 // Status is shown on the main screen and in the notification.
 type Status struct {
 	Running        bool      `json:"running"`
+	VPN            bool      `json:"vpn"` // running in VPN mode
 	Listen         string    `json:"listen"`
 	SocksPort      int       `json:"socks_port"`
 	HTTPPort       int       `json:"http_port"`
@@ -580,7 +597,7 @@ func (e *Engine) Status() Status {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	s := Status{
-		Running: e.inst != nil, Listen: e.st.Inbound.Listen,
+		Running: e.inst != nil, VPN: e.inst != nil && e.vpnFD >= 0, Listen: e.st.Inbound.Listen,
 		SocksPort: e.st.Inbound.SocksPort, HTTPPort: e.st.Inbound.HTTPPort,
 		AuthFailures: runner.AuthFailures(), HasKey: e.st.Amnezia.Key != "",
 		HasGatewayKey: len(e.st.Amnezia.GatewayPEMs) > 0, HasConfig: e.st.Amnezia.Last != nil,

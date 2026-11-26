@@ -350,3 +350,83 @@ func TestHops(t *testing.T) {
 		t.Fatal(d, err)
 	}
 }
+
+func TestVPNMode(t *testing.T) {
+	hops := []Hop{OwnHop(own(t, vpsLink))}
+	m := build(t, Spec{Hops: hops, Inbound: goodIn, VPN: &VPN{}})
+	ins := m["inbounds"].([]any)
+	if len(ins) != 2 {
+		t.Fatal(ins)
+	}
+	tun := ins[1].(map[string]any)
+	if tun["tag"] != TagTunIn || tun["protocol"] != "tun" || tun["listen"] != nil || tun["settings"].(map[string]any)["mtu"].(float64) != 1500 {
+		t.Fatalf("%v", tun)
+	}
+	if m["dns"] != nil {
+		t.Fatal("dns section without DoH")
+	}
+	// The SOCKS inbound keeps its password beside the tun; locked rules stay first.
+	if ins[0].(map[string]any)["settings"].(map[string]any)["auth"] != "password" {
+		t.Fatal("socks lost its auth")
+	}
+
+	m = build(t, Spec{Hops: hops, Inbound: goodIn, VPN: &VPN{MTU: 1400, DoH: []string{"https://1.1.1.1/dns-query", "https://[2606:4700:4700::1111]/dns-query"}}})
+	d := m["dns"].(map[string]any)
+	if len(d["servers"].([]any)) != 2 {
+		t.Fatal(d)
+	}
+	rules := m["routing"].(map[string]any)["rules"].([]any)
+	r := rules[len(routing.Locked())].(map[string]any)
+	if r["outboundTag"] != TagDNSOut || r["port"] != "53" || r["inboundTag"].([]any)[0] != TagTunIn {
+		t.Fatalf("dns rule not right after the locked rules: %v", rules)
+	}
+	if tags(outs(m)) != "hop1,direct,block,dns-out" {
+		t.Fatal(tags(outs(m)))
+	}
+
+	for _, bad := range []string{"http://1.1.1.1/dns-query", "https://dns.google/dns-query", "8.8.8.8"} {
+		if _, err := Build(Spec{Hops: hops, Inbound: goodIn, VPN: &VPN{DoH: []string{bad}}}); err == nil {
+			t.Errorf("DoH server %q accepted", bad)
+		}
+	}
+	if _, err := Build(Spec{Hops: hops, Inbound: goodIn, VPN: &VPN{MTU: 500}}); err == nil {
+		t.Error("MTU 500 accepted")
+	}
+}
+
+func TestAuditVPN(t *testing.T) {
+	b, _ := Build(Spec{Hops: []Hop{OwnHop(own(t, vpsLink))}, Inbound: goodIn, VPN: &VPN{DoH: []string{"https://1.1.1.1/dns-query"}}})
+	if err := Audit(b); err != nil {
+		t.Fatal(err)
+	}
+	proxyOnly, _ := Build(Spec{Hops: []Hop{OwnHop(own(t, vpsLink))}, Inbound: goodIn})
+	mutate := func(src []byte, f func(map[string]any)) []byte {
+		var m map[string]any
+		json.Unmarshal(src, &m)
+		f(m)
+		out, _ := json.Marshal(m)
+		return out
+	}
+	cases := map[string][]byte{
+		"dns section in proxy mode": mutate(proxyOnly, func(m map[string]any) {
+			m["dns"] = map[string]any{"servers": []any{"https://1.1.1.1/dns-query"}}
+		}),
+		"dns outbound in proxy mode": mutate(proxyOnly, func(m map[string]any) {
+			m["outbounds"] = append(m["outbounds"].([]any), map[string]any{"tag": TagDNSOut, "protocol": "dns"})
+		}),
+		"local resolver":      mutate(b, func(m map[string]any) { m["dns"] = map[string]any{"servers": []any{"localhost"}} }),
+		"dns without servers": mutate(b, func(m map[string]any) { m["dns"] = map[string]any{} }),
+		"second tun": mutate(b, func(m map[string]any) {
+			m["inbounds"] = append(m["inbounds"].([]any), map[string]any{"tag": TagTunIn, "protocol": "tun"})
+		}),
+		"tun with a port": mutate(b, func(m map[string]any) {
+			m["inbounds"].([]any)[1].(map[string]any)["port"] = 1080
+		}),
+		"tun only, no proxy inbound": mutate(b, func(m map[string]any) { m["inbounds"] = m["inbounds"].([]any)[1:] }),
+	}
+	for name, cfg := range cases {
+		if Audit(cfg) == nil {
+			t.Errorf("audit passed: %s", name)
+		}
+	}
+}

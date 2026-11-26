@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"net/url"
 	"strings"
 	"sync/atomic"
 
@@ -57,6 +58,8 @@ const (
 	TagBlock         = "block"
 	TagSocksIn       = "socks-in"
 	TagHTTPIn        = "http-in"
+	TagTunIn         = "tun-in"  // VPN mode (D31)
+	TagDNSOut        = "dns-out" // VPN mode with DNS-over-HTTPS: answers DNS queries arriving on the tun
 )
 
 // Inbound is the local proxy.
@@ -69,8 +72,19 @@ type Inbound struct {
 	UDP       bool   `json:"udp"`
 }
 
+// VPN is the system-wide mode (Android VpnService, desktop TUN; D31): Xray's own tun inbound in the same
+// instance, next to the SOCKS/HTTP inbounds. The tun file descriptor is handed to Xray by the runner.
+type VPN struct {
+	MTU int
+	// DoH, when set, answers DNS queries arriving on the tun (UDP port 53, any address) with Xray's DNS
+	// module over these DNS-over-HTTPS URLs (IP literals, so no bootstrap lookup), sent through the chain.
+	// Empty: DNS packets are ordinary traffic and go through the chain like everything else.
+	DoH []string
+}
+
 // Spec is everything Build needs.
 type Spec struct {
+	VPN      *VPN  // nil: proxy mode only
 	Hops     []Hop // phone first, exit last
 	Inbound  Inbound
 	Routing  routing.Settings
@@ -423,6 +437,41 @@ func Build(s Spec) ([]byte, error) {
 		"settings": map[string]any{"auth": "password", "accounts": account, "udp": in.UDP, "ip": in.Listen},
 		"sniffing": sniffing,
 	}}
+	var dnsCfg map[string]any
+	if v := s.VPN; v != nil {
+		mtu := v.MTU
+		if mtu == 0 {
+			mtu = 1500
+		}
+		if mtu < 1280 || mtu > 9000 {
+			return nil, ferr("vpn", "MTU %d out of range (1280-9000)", mtu)
+		}
+		inbounds = append(inbounds, map[string]any{
+			"tag": TagTunIn, "protocol": "tun",
+			"settings": map[string]any{"name": "sockmnezia", "mtu": mtu},
+			"sniffing": sniffing,
+		})
+		if len(v.DoH) > 0 {
+			var servers []any
+			for _, u := range v.DoH {
+				pu, err := url.Parse(u)
+				if err != nil || pu.Scheme != "https" {
+					return nil, ferr("vpn", "DNS-over-HTTPS server %q must be an https:// URL", u)
+				}
+				if _, err := netip.ParseAddr(pu.Hostname()); err != nil {
+					return nil, ferr("vpn", "DNS-over-HTTPS server %q must use an IP address", u)
+				}
+				servers = append(servers, u)
+			}
+			dnsCfg = map[string]any{"servers": servers, "queryStrategy": "UseIP"}
+			outs = append(outs, map[string]any{"tag": TagDNSOut, "protocol": "dns"})
+			// Right after the locked rules: DNS from the tun goes to Xray's DNS module, which resolves over DoH
+			// through the chain (the module's own requests use the default outbound, the chain head).
+			n := len(routing.Locked())
+			dnsRule := map[string]any{"type": "field", "inboundTag": []any{TagTunIn}, "network": "udp", "port": "53", "outboundTag": TagDNSOut}
+			rules = append(rules[:n], append([]map[string]any{dnsRule}, rules[n:]...)...)
+		}
+	}
 	if in.HTTPPort != 0 {
 		inbounds = append(inbounds, map[string]any{
 			"tag": TagHTTPIn, "listen": in.Listen, "port": in.HTTPPort, "protocol": "http",
@@ -448,6 +497,9 @@ func Build(s Spec) ([]byte, error) {
 		},
 		// In-process counters only; there is no API inbound to read them from outside.
 		"stats": map[string]any{},
+	}
+	if dnsCfg != nil {
+		cfg["dns"] = dnsCfg
 	}
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -501,20 +553,55 @@ func Audit(cfg []byte) error {
 	if err := json.Unmarshal(cfg, &c); err != nil {
 		return err
 	}
-	for k := range c {
+	ins, _ := c["inbounds"].([]any)
+	tuns := 0
+	for _, x := range ins {
+		if in, _ := x.(map[string]any); in["protocol"] == "tun" {
+			tuns++
+			if in["tag"] != TagTunIn || in["listen"] != nil || in["port"] != nil {
+				return errors.New("unexpected tun inbound")
+			}
+		}
+	}
+	vpn := tuns == 1
+	if tuns > 1 {
+		return errors.New("more than one tun inbound")
+	}
+	for k, v := range c {
 		switch k {
 		case "log", "inbounds", "outbounds", "routing", "policy", "stats":
+		case "dns": // only in VPN mode, and only DNS-over-HTTPS to IP addresses (never the local resolver)
+			if !vpn {
+				return errors.New(`top-level "dns" outside VPN mode`)
+			}
+			d, _ := v.(map[string]any)
+			srv, _ := d["servers"].([]any)
+			if len(srv) == 0 {
+				return errors.New("dns without servers would use the local resolver")
+			}
+			for _, x := range srv {
+				u, _ := x.(string)
+				pu, err := url.Parse(u)
+				if err != nil || pu.Scheme != "https" {
+					return fmt.Errorf("dns server %v is not DNS-over-HTTPS", x)
+				}
+				if _, err := netip.ParseAddr(pu.Hostname()); err != nil {
+					return fmt.Errorf("dns server %v needs a bootstrap lookup", x)
+				}
+			}
 		default:
 			return fmt.Errorf("top-level %q is not allowed", k)
 		}
 	}
-	ins, _ := c["inbounds"].([]any)
-	if len(ins) == 0 || len(ins) > 2 {
-		return errors.New("expected 1-2 inbounds")
+	if n := len(ins) - tuns; n < 1 || n > 2 {
+		return errors.New("expected 1-2 proxy inbounds")
 	}
 	for _, x := range ins {
 		in, _ := x.(map[string]any)
 		p, _ := in["protocol"].(string)
+		if p == "tun" {
+			continue
+		}
 		if p != "socks" && p != "http" {
 			return fmt.Errorf("inbound protocol %q is not allowed", p)
 		}
@@ -552,6 +639,10 @@ func Audit(cfg []byte) error {
 		o, _ := x.(map[string]any)
 		switch o["protocol"] {
 		case "vless", "vmess", "trojan", "shadowsocks", "socks", "http", "freedom", "blackhole":
+		case "dns":
+			if !vpn || o["tag"] != TagDNSOut || c["dns"] == nil {
+				return errors.New("dns outbound outside VPN mode with DNS-over-HTTPS")
+			}
 		default:
 			return fmt.Errorf("outbound protocol %v is not allowed", o["protocol"])
 		}

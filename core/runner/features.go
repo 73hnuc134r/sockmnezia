@@ -1,8 +1,9 @@
 package runner
 
 // Only the Xray features the generated configs use are linked in. Leaving out app/commander, metrics,
-// observatory, reverse, dokodemo, tun, wireguard etc. means a config asking for them fails to load: there is
-// no way to open an API or management port, even by mistake.
+// observatory, reverse, dokodemo, wireguard etc. means a config asking for them fails to load: there is
+// no way to open an API or management port, even by mistake. The tun inbound and the dns outbound are linked
+// for VPN mode (D31); xrayconf.Audit allows them only in a VPN spec.
 import (
 	_ "github.com/xtls/xray-core/app/dispatcher"
 	_ "github.com/xtls/xray-core/app/dns"
@@ -14,11 +15,13 @@ import (
 	_ "github.com/xtls/xray-core/app/stats"
 
 	_ "github.com/xtls/xray-core/proxy/blackhole"
+	_ "github.com/xtls/xray-core/proxy/dns"
 	_ "github.com/xtls/xray-core/proxy/freedom"
 	_ "github.com/xtls/xray-core/proxy/http"
 	_ "github.com/xtls/xray-core/proxy/shadowsocks"
 	_ "github.com/xtls/xray-core/proxy/socks"
 	_ "github.com/xtls/xray-core/proxy/trojan"
+	_ "github.com/xtls/xray-core/proxy/tun"
 	_ "github.com/xtls/xray-core/proxy/vless/outbound"
 	_ "github.com/xtls/xray-core/proxy/vmess/outbound"
 

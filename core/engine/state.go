@@ -71,6 +71,9 @@ type Options struct {
 	LogLevel          string `json:"log_level"`               // warning by default
 	ExitIPURL         string `json:"exit_ip_url"`             // plain-text "what is my IP" endpoint
 	RefreshAfterHrs   int    `json:"refresh_after_hrs"`       // re-fetch the Amnezia config on start when older (0 = never)
+	// Mode is ModeProxy or ModeVPN: what the app starts (the core runs whatever it is started with).
+	Mode string     `json:"mode,omitempty"`
+	VPN  VPNOptions `json:"vpn"`
 }
 
 // Amnezia is the subscription side of the state.
@@ -188,6 +191,8 @@ func defaultState() *State {
 			LogLevel:        "warning",
 			ExitIPURL:       "https://api.ipify.org",
 			RefreshAfterHrs: 24,
+			Mode:            ModeProxy,
+			VPN:             defaultVPNOptions(),
 		},
 	}
 }

@@ -536,6 +536,21 @@ func TestGatewayShapedConfigLoads(t *testing.T) {
 	}
 }
 
+func TestVPNConfigLoads(t *testing.T) {
+	// Xray accepts the VPN-mode config (tun inbound, DoH dns module and dns outbound) without starting it.
+	in := xrayconf.Inbound{SocksPort: 20002, User: "user", Pass: "password"}
+	x, _ := json.Marshal(mockgw.XrayConfig(testUUID))
+	for _, vpn := range []*xrayconf.VPN{{}, {DoH: []string{"https://1.1.1.1/dns-query", "https://[2001:4860:4860::8888]/dns-query"}}} {
+		cfg, err := xrayconf.Build(xrayconf.Spec{Hops: []xrayconf.Hop{xrayconf.AmneziaHop(x)}, Inbound: in, VPN: vpn})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Check(cfg); err != nil {
+			t.Fatalf("Xray rejects the VPN config (DoH %v): %v", vpn.DoH, err)
+		}
+	}
+}
+
 func TestPortInUse(t *testing.T) {
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer l.Close()

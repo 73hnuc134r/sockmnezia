@@ -139,6 +139,17 @@ func (c *Core) Start() error {
 	return wrap(c.e.Start(cx))
 }
 
+// StartVPN runs the proxy with the VpnService's tun file descriptor (VPN mode, D31). The app keeps the
+// descriptor open until after Stop.
+func (c *Core) StartVPN(fd int) error {
+	cx, cancel := ctx(90 * time.Second)
+	defer cancel()
+	return wrap(c.e.StartVPN(cx, fd))
+}
+
+// VPNInterfaceJSON returns the parameters for VpnService.Builder (engine.VPNInterface).
+func (c *Core) VPNInterfaceJSON() string { return toJSON(c.e.VPNInterface()) }
+
 // Stop stops the proxy.
 func (c *Core) Stop() { c.e.Stop() }
 
