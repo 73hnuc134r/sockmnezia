@@ -3,6 +3,13 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.0.5
+
+- Home screen: the connection-check block is always at least three lines tall, so it is easy to tap.
+- Home screen: the Background work card only shows while a setting needs changing (battery optimization,
+  background restriction, notifications, data saver, pausing unused apps). Advice such as the phone-maker
+  note or unexpected stops stays on the Background work screen.
+
 ## 1.0.4
 
 - "Switch" opens a full screen instead of a sheet: chains and single servers, each with Test and a ⋮ menu.

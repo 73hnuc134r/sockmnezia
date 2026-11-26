@@ -47,7 +47,7 @@ import io.nuc134r.sockmnezia.core.FetchRequest
 import io.nuc134r.sockmnezia.health.DeviceStateReader
 import io.nuc134r.sockmnezia.health.Severity
 import io.nuc134r.sockmnezia.health.evaluate
-import io.nuc134r.sockmnezia.health.worst
+import io.nuc134r.sockmnezia.health.worstActionable
 import io.nuc134r.sockmnezia.ui.ChainStepper
 import io.nuc134r.sockmnezia.ui.Hint
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
@@ -89,7 +89,7 @@ fun HomeScreen(nav: NavController) {
         }
     }
     LifecycleResumeEffect(Unit) {
-        DeviceStateReader.unusedRestrictions(ctx) { u -> health = evaluate(DeviceStateReader.read(ctx, u)).worst() }
+        DeviceStateReader.unusedRestrictions(ctx) { u -> health = evaluate(DeviceStateReader.read(ctx, u)).worstActionable() }
         onPauseOrDispose { }
     }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {

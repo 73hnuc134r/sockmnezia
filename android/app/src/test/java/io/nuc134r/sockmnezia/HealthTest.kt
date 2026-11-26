@@ -4,8 +4,11 @@ import io.nuc134r.sockmnezia.health.CheckId
 import io.nuc134r.sockmnezia.health.DeviceState
 import io.nuc134r.sockmnezia.health.Severity
 import io.nuc134r.sockmnezia.health.evaluate
+import io.nuc134r.sockmnezia.health.needsAction
+import io.nuc134r.sockmnezia.health.worstActionable
 import io.nuc134r.sockmnezia.health.worst
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -51,5 +54,18 @@ class HealthTest {
     @Test fun bootNotSeenYet() {
         assertTrue(evaluate(good.copy(startOnBoot = true)).any { it.id == CheckId.BOOT })
         assertTrue(evaluate(good.copy(startOnBoot = true, bootSeen = true)).none { it.id == CheckId.BOOT })
+    }
+
+    @Test fun homeCardOnlyForSettingsToChange() {
+        // Xiaomi + stops in the log + power save: advice only, nothing to switch -> no Home card.
+        val advice = evaluate(good.copy(manufacturer = "Xiaomi", unexpectedStopsLastWeek = 2, powerSaveMode = true))
+        assertEquals(Severity.PROBLEM, advice.worst())
+        assertFalse(advice.needsAction())
+        assertEquals(Severity.OK, advice.worstActionable())
+        // A setting to change brings it back.
+        val battery = evaluate(good.copy(manufacturer = "Xiaomi", ignoringBatteryOptimizations = false))
+        assertTrue(battery.needsAction())
+        assertEquals(Severity.PROBLEM, battery.worstActionable())
+        assertTrue(evaluate(good.copy(notificationsEnabled = false)).needsAction())
     }
 }

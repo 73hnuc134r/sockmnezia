@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
@@ -76,6 +77,9 @@ fun ConnectionBar(nav: NavController) {
         ProxyService.start(ctx)
     }
     val testing = probe == Probe.Testing
+    // At least three lines tall (status + two route lines) so the block is easy to tap for a check.
+    val typo = MaterialTheme.typography
+    val minHeight = with(density) { typo.labelLarge.lineHeight.toDp() + typo.bodySmall.lineHeight.toDp() * 2 } + 16.dp
 
     // The FAB must live outside the Surface: Surface clips its content to its bounds, which cropped the
     // half of the button meant to stick out above it.
@@ -85,6 +89,7 @@ fun ConnectionBar(nav: NavController) {
                 Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                    .heightIn(min = minHeight)
                     .clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .clickable(enabled = !testing) {

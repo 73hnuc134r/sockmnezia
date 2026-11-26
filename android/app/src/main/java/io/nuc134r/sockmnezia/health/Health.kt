@@ -55,5 +55,18 @@ fun evaluate(s: DeviceState): List<Check> = buildList {
     }
 }
 
+/** Checks whose fix is a setting the user can change now. The phone-maker warning (can't be verified),
+ * the stop log (no single fix), power-save mode and the boot note are advice for the Background work
+ * screen and don't keep the Home card up on their own. */
+private val actionable = setOf(
+    CheckId.BATTERY_OPTIMIZATION, CheckId.BACKGROUND_RESTRICTED, CheckId.NOTIFICATIONS, CheckId.DATA_SAVER, CheckId.HIBERNATION,
+)
+
+/** True while a check that needs a settings change fails: the Home screen shows its card only then. */
+fun List<Check>.needsAction(): Boolean = any { it.id in actionable && it.severity >= Severity.WARNING }
+
+/** The worst of the checks that need a settings change (OK when none fails), for the Home card's tone. */
+fun List<Check>.worstActionable(): Severity = filter { it.id in actionable }.worst()
+
 /** The worst severity, for the summary on the main screen. */
 fun List<Check>.worst(): Severity = maxOfOrNull { it.severity } ?: Severity.OK
