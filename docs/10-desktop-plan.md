@@ -1,6 +1,6 @@
 # Plan: desktop app (Windows, Linux; macOS later)
 
-Status: proposal (2026-11-26). Mockups: `docs/mockups/desktop.html`.
+Status: decided, not started (2026-11-26): owner answered §8; implementation later. Mockups: `docs/mockups/desktop.html`.
 
 ## 0. Goal
 
@@ -122,12 +122,13 @@ shares on LAN; the state dir is per user with 0700/ACL; logs are redacted as in 
 | D4 | Secret store (DPAPI / libsecret), routing editor, logs, settings |
 | D5 | Installers, signed update check, release workflow, docs |
 
-## 8. Open questions for the owner
-1. UI technology: Wails (recommended) or Compose Desktop (UI reuse, JVM)?
-2. System proxy auth: option A (unauthenticated loopback port only while on), B or C (§3)?
-3. macOS in v1 or later?
-4. Subscriptions (server lists from a URL) — wanted at all?
+## 8. Owner's decisions (2026-11-26)
+1. UI technology: **Wails** (Go core in-process, OS webview).
+2. System proxy auth: **option A** — a separate unauthenticated HTTP port on 127.0.0.1, open only while the
+   system-proxy mode is on, with the warning shown in the mockup; the SOCKS/HTTP ports keep their password.
+3. **macOS later**, not in v1 (Windows and Linux first).
+4. **No subscriptions.**
 
 ## 9. Later
-TUN mode (wintun / Linux tun, needs admin; gvisor stack), subscriptions, QR from screen on Linux Wayland
+TUN mode (wintun / Linux tun, needs admin; gvisor stack), QR from screen on Linux Wayland
 (portal), per-app routing on Windows (process name rules exist in Xray routing).

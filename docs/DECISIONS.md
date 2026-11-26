@@ -262,3 +262,12 @@ no longer be valid. Rename is the editor's Name field. Pasting several links or 
 Tests: the runner integration tests wait out Xray's dial retries after a request that is expected to fail
 (`mustFail`), so the next test starting an instance doesn't race a still-retrying dial (seen as a flaky
 `TestUDP` under `-race`).
+
+## D30 · Desktop app decisions (2026-11-26)
+
+Owner's answers to `docs/10-desktop-plan.md` §8, for when the desktop work starts: Wails (Go core in-process,
+OS webview); Windows and Linux first, macOS later; no subscriptions. System proxy: OS proxy settings cannot
+carry credentials, so while the system-proxy mode is on the app opens a separate HTTP port on 127.0.0.1
+without authentication (loopback only, never on LAN, off by default, warned in the UI); the SOCKS/HTTP ports
+keep their password. This exception is built in `xrayconf` with a test, like every security rule.
+
