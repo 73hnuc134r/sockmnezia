@@ -5,8 +5,13 @@ shown in the app's update card. Write for people using the app, not for develope
 
 ## 1.1.2
 
-- Server list: servers are grouped by host, and each shows small coloured tags for its protocol, security
-  (no encryption stands out in red), transport and port.
+- Server list: servers are grouped by host (with the country of an IP host), and each shows small coloured
+  tags for its protocol, security (no encryption stands out in red), transport and port.
+- Every chain and server shows its last test as a small ping pill (green, amber or red, "failed", or untested)
+  that runs a test when tapped; results are kept. "Test all" tests everything a few at a time, and the list
+  sorts by name or by ping.
+- Swipe a row right to test it, left to delete it (asks first).
+- The same tags in the chain editor, the "Add hop" list and the chain on the Home screen.
 
 ## 1.1.1
 

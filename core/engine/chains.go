@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nuc134r/sockmnezia/core/links"
 	"github.com/nuc134r/sockmnezia/core/xrayconf"
@@ -19,16 +20,44 @@ type HopInfo struct {
 	Protocol string `json:"protocol,omitempty"`
 	Network  string `json:"network,omitempty"`
 	Security string `json:"security,omitempty"`
+	Port     int    `json:"port,omitempty"`
 	Missing  bool   `json:"missing,omitempty"` // the server was deleted (cannot happen through the API)
 }
 
 // ChainInfo is a saved chain as the UI shows it.
 type ChainInfo struct {
-	ID     string    `json:"id"`
-	Name   string    `json:"name"`
-	Hops   []HopInfo `json:"hops"`
-	Active bool      `json:"active"`
-	Error  *Error    `json:"error,omitempty"` // why the chain cannot run, nil when it can
+	ID     string      `json:"id"`
+	Name   string      `json:"name"`
+	Hops   []HopInfo   `json:"hops"`
+	Active bool        `json:"active"`
+	Error  *Error      `json:"error,omitempty"` // why the chain cannot run, nil when it can
+	Last   *TestResult `json:"last,omitempty"`  // the last Test of this chain
+}
+
+// TestResult is the outcome of the last Test of a saved chain or server.
+type TestResult struct {
+	At      time.Time `json:"at"`
+	Ms      int64     `json:"ms,omitempty"`
+	IP      string    `json:"ip,omitempty"`
+	Country string    `json:"country,omitempty"`
+	Error   string    `json:"error,omitempty"` // error code when it failed
+}
+
+func testKey(chainID, serverID string) string {
+	if serverID != "" {
+		return "s:" + serverID
+	}
+	return "c:" + chainID
+}
+
+// LastTest returns the last Test result of a saved chain or server, nil if never tested.
+func (e *Engine) LastTest(chainID, serverID string) *TestResult {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if r, ok := e.st.Tests[testKey(chainID, serverID)]; ok {
+		return &r
+	}
+	return nil
 }
 
 // stubAmnezia stands in for the Amnezia config when none is fetched yet, so a chain can be validated
@@ -198,7 +227,7 @@ func (e *Engine) hopInfoLocked(h ChainHop) HopInfo {
 		}
 		v.Name = s.Name
 		if s.Server != nil {
-			v.Protocol, v.Network, v.Security = s.Server.Protocol, s.Server.Network, s.Server.Security
+			v.Protocol, v.Network, v.Security, v.Port = s.Server.Protocol, s.Server.Network, s.Server.Security, s.Server.Port
 		}
 	}
 	return v
@@ -206,6 +235,9 @@ func (e *Engine) hopInfoLocked(h ChainHop) HopInfo {
 
 func (e *Engine) chainInfoLocked(c *Chain) ChainInfo {
 	ci := ChainInfo{ID: c.ID, Name: c.Name, Active: e.st.ActiveServer == "" && c.ID == e.st.ActiveChain, Error: e.validateLocked(c)}
+	if r, ok := e.st.Tests[testKey(c.ID, "")]; ok {
+		ci.Last = &r
+	}
 	for _, h := range c.Hops {
 		ci.Hops = append(ci.Hops, e.hopInfoLocked(h))
 	}
@@ -286,6 +318,7 @@ func (e *Engine) DeleteChain(id string) error {
 		}
 	}
 	e.st.Chains = out
+	delete(e.st.Tests, testKey(id, ""))
 	if e.st.ActiveChain != id {
 		return e.persist()
 	}

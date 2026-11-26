@@ -60,9 +60,7 @@ fun ChainStepper(hops: List<HopInfo>, modifier: Modifier = Modifier) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(hopName(h), style = MaterialTheme.typography.bodyMedium)
-                        if (h.detail.isNotBlank()) {
-                            Text(h.detail, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        HopTags(h, Modifier.padding(top = 2.dp))
                     }
                     if (i == hops.lastIndex) {
                         Text(
@@ -144,5 +142,19 @@ fun ServerTags(protocol: String, security: String, network: String, port: Int, m
         if (security.isNotBlank()) Tag(security, securityColor(security))
         if (network.isNotBlank() && network != "tcp" && network != "raw") Tag(network, neutral)
         if (port > 0) Tag(":$port", neutral)
+    }
+}
+
+/** Tags for a hop: "amnezia" and its location, or the server's protocol, security and transport (and the port
+ * where servers are listed side by side, to tell them apart). */
+@Composable
+fun HopTags(h: HopInfo, modifier: Modifier = Modifier, withPort: Boolean = false) {
+    if (h.isAmnezia) {
+        Row(modifier, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+            Tag("amnezia", tagColor(0xFF8A6200, 0xFFF5C26B))
+            if (h.country.isNotBlank()) Tag(h.country.uppercase(), MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    } else if (!h.missing) {
+        ServerTags(h.protocol, h.security, h.network, if (withPort) h.port else 0, modifier)
     }
 }

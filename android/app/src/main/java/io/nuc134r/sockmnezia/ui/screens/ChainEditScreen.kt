@@ -52,6 +52,8 @@ import io.nuc134r.sockmnezia.core.HopKind
 import io.nuc134r.sockmnezia.core.OwnServer
 import io.nuc134r.sockmnezia.ui.Hint
 import io.nuc134r.sockmnezia.ui.HopDot
+import io.nuc134r.sockmnezia.ui.HopTags
+import io.nuc134r.sockmnezia.ui.ServerTags
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
@@ -100,7 +102,7 @@ fun ChainEditScreen(nav: NavController, id: String) {
             HopInfo(kind = HopKind.AMNEZIA, name = status.countryName.ifBlank { "Amnezia" }, country = status.country)
         } else {
             val s = servers.firstOrNull { it.id == h.server }
-            HopInfo(server = h.server, name = s?.name.orEmpty(), protocol = s?.protocol.orEmpty(), network = s?.network.orEmpty(), security = s?.security.orEmpty(), missing = s == null)
+            HopInfo(server = h.server, name = s?.name.orEmpty(), protocol = s?.protocol.orEmpty(), network = s?.network.orEmpty(), security = s?.security.orEmpty(), port = s?.port ?: 0, missing = s == null)
         }
 
     fun move(i: Int, d: Int) {
@@ -127,9 +129,7 @@ fun ChainEditScreen(nav: NavController, id: String) {
                     HopDot(hi.isAmnezia, if (hi.isAmnezia) "A" else "${i + 1}")
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(hopName(hi), style = MaterialTheme.typography.bodyLarge)
-                        if (hi.detail.isNotBlank()) {
-                            Text(hi.detail, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        HopTags(hi, Modifier.padding(top = 2.dp), withPort = true)
                     }
                     IconButton(enabled = i > 0, onClick = { move(i, -1) }) {
                         Icon(Icons.Default.KeyboardArrowUp, stringResource(R.string.chain_move_up))
@@ -243,7 +243,8 @@ private fun AddHopSheet(
             servers.forEach { s ->
                 SheetOption(
                     dot = { HopDot(false, "•") }, title = s.name,
-                    subtitle = listOf(s.protocol, "${s.network}/${s.security}").joinToString(" · "),
+                    subtitle = null,
+                    tags = { ServerTags(s.protocol, s.security, s.network, s.port, Modifier.padding(top = 2.dp)) },
                 ) { onPick(ChainHop(HopKind.SERVER, s.id)) }
             }
             SheetOption(dot = { HopDot(false, "+") }, title = stringResource(R.string.hop_import), subtitle = null, onClick = onImport)
@@ -252,7 +253,14 @@ private fun AddHopSheet(
 }
 
 @Composable
-private fun SheetOption(dot: @Composable () -> Unit, title: String, subtitle: String?, enabled: Boolean = true, onClick: () -> Unit) {
+private fun SheetOption(
+    dot: @Composable () -> Unit,
+    title: String,
+    subtitle: String?,
+    enabled: Boolean = true,
+    tags: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -260,6 +268,7 @@ private fun SheetOption(dot: @Composable () -> Unit, title: String, subtitle: St
         dot()
         Column(Modifier.padding(start = 12.dp)) {
             Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+            tags?.invoke()
             subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }

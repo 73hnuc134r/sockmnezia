@@ -173,6 +173,10 @@ data class OwnServer(
     @SerialName("used_in") val usedIn: List<String> = emptyList(),
     /** Selected on its own (not as part of a chain). */
     val active: Boolean = false,
+    /** Country of [address] when it is an IP address (geo database; names are never resolved). */
+    @SerialName("host_country") val hostCountry: String = "",
+    /** The last Test of this server. */
+    val last: TestResult? = null,
 ) {
     /** "vless · tcp/reality" */
     val detail: String get() = listOf(protocol, "$network/$security").filter { it.isNotBlank() && it != "/" }.joinToString(" · ")
@@ -227,6 +231,18 @@ data class Endpoint(
 @Serializable
 data class ServerEdit(val link: String = "", val endpoint: Endpoint? = null)
 
+/** The last Test of a saved chain or server (kept by the core across restarts). */
+@Serializable
+data class TestResult(
+    val ms: Long = 0,
+    val ip: String = "",
+    val country: String = "",
+    /** Error code when the test failed. */
+    val error: String? = null,
+) {
+    val ok: Boolean get() = error.isNullOrBlank() && ms > 0
+}
+
 /** Progress of an app update download. */
 @Serializable
 data class DownloadProgress(val done: Long = 0, val total: Long = -1, val verifying: Boolean = false)
@@ -260,6 +276,7 @@ data class HopInfo(
     val protocol: String = "",
     val network: String = "",
     val security: String = "",
+    val port: Int = 0,
     val missing: Boolean = false,
 ) {
     val isAmnezia: Boolean get() = kind == HopKind.AMNEZIA
@@ -277,6 +294,8 @@ data class ChainInfo(
     val active: Boolean = false,
     /** Why the chain cannot run; null when it can. */
     val error: CoreError? = null,
+    /** The last Test of this chain. */
+    val last: TestResult? = null,
 ) {
     fun toChain() = Chain(id, name, hops.map { ChainHop(it.kind, it.server) })
 }

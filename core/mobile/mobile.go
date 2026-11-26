@@ -232,6 +232,9 @@ type ownView struct {
 	Security string   `json:"security"`
 	UsedIn   []string `json:"used_in"` // names of the chains that use this server
 	Active   bool     `json:"active"`  // selected on its own (not as part of a chain)
+	// HostCountry is the geoip country of Address when it is an IP address ("" for names: never resolved).
+	HostCountry string             `json:"host_country,omitempty"`
+	Last        *engine.TestResult `json:"last,omitempty"` // the last Test of this server
 }
 
 // OwnServersJSON lists saved servers (without credentials).
@@ -239,9 +242,11 @@ func (c *Core) OwnServersJSON() string {
 	st := c.e.Snapshot()
 	out := []ownView{}
 	for _, o := range st.Own {
-		v := ownView{ID: o.ID, Name: o.Name, UsedIn: append([]string{}, c.e.ChainsUsing(o.ID)...), Active: o.ID == st.ActiveServer}
+		v := ownView{ID: o.ID, Name: o.Name, UsedIn: append([]string{}, c.e.ChainsUsing(o.ID)...), Active: o.ID == st.ActiveServer,
+			Last: c.e.LastTest("", o.ID)}
 		if o.Server != nil {
 			v.Protocol, v.Address, v.Port, v.Network, v.Security = o.Server.Protocol, o.Server.Address, o.Server.Port, o.Server.Network, o.Server.Security
+			v.HostCountry = geo.LookupCountry(c.e.GeoDir(), o.Server.Address) // IP literals only, no DNS
 		}
 		out = append(out, v)
 	}

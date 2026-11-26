@@ -92,7 +92,11 @@
     <string name="srv_link_hint">Ссылка (vless://, vmess://, trojan://, ss://, socks://, http(s)://) или Xray outbound JSON. Чтобы добавить несколько серверов или цепочку, используйте «Импорт ссылок».</string>
     <string name="srv_saved">Сервер сохранён</string>
     <string name="test">Проверить</string>
-    <string name="test_result">выход %1$s · %2$d мс</string>
+    <string name="test_all">Проверить все</string>
+    <string name="sort_name">Имя</string>
+    <string name="sort_ping">Пинг</string>
+    <string name="ping_untested">— мс</string>
+    <string name="ping_failed">ошибка</string>
     <string name="more_actions">Другие действия</string>
     <string name="chain_switch">Сменить</string>
     <string name="chain_edit">Изменить</string>

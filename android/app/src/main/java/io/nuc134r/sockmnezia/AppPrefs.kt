@@ -29,6 +29,11 @@ class AppPrefs(context: Context) {
         get() = p.getBoolean("check_updates", true)
         set(v) = p.edit { putBoolean("check_updates", v) }
 
+    /** Server/chain list order: "name" or "ping". */
+    var listSort: String
+        get() = p.getString("list_sort", "name") ?: "name"
+        set(v) = p.edit { putString("list_sort", v) }
+
     var betaUpdates: Boolean
         get() = p.getBoolean("beta_updates", false)
         set(v) = p.edit { putBoolean("beta_updates", v) }

@@ -289,6 +289,7 @@ func (e *Engine) RemoveOwnServer(id string) error {
 		}
 	}
 	e.st.Own = out
+	delete(e.st.Tests, testKey("", id))
 	if e.st.Options.FetchVia == id {
 		e.st.Options.FetchVia = ""
 	}
@@ -338,6 +339,7 @@ func (e *Engine) UpdateOwnServer(id, link, name string) error {
 			}
 		}
 	}
+	delete(e.st.Tests, testKey("", id)) // measured with the old settings
 	if err := e.persist(); err != nil {
 		return err
 	}
@@ -697,7 +699,22 @@ func (e *Engine) TestSaved(ctx context.Context, chainID, serverID string) (ip st
 		c = e.chainLocked(chainID)
 	}
 	e.mu.Unlock()
-	return e.testHops(ctx, c)
+	ip, ms, country, err = e.testHops(ctx, c)
+	// Remember it for the lists (a cancelled test leaves the previous result).
+	if ctx.Err() == nil {
+		r := TestResult{At: time.Now(), Ms: ms, IP: ip, Country: country}
+		if err != nil {
+			r = TestResult{At: time.Now(), Error: Classify(err).Code}
+		}
+		e.mu.Lock()
+		if e.st.Tests == nil {
+			e.st.Tests = map[string]TestResult{}
+		}
+		e.st.Tests[testKey(chainID, serverID)] = r
+		e.persist()
+		e.mu.Unlock()
+	}
+	return ip, ms, country, err
 }
 
 // testHops measures a request through c in a temporary in-process instance (no listening port).

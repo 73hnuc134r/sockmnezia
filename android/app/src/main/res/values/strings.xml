@@ -93,7 +93,11 @@
     <string name="srv_link_hint">A link (vless://, vmess://, trojan://, ss://, socks://, http(s)://) or an Xray outbound JSON. To add several servers or a shared chain, use Import links.</string>
     <string name="srv_saved">Server saved</string>
     <string name="test">Check</string>
-    <string name="test_result">exit %1$s · %2$d ms</string>
+    <string name="test_all">Test all</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_ping">Ping</string>
+    <string name="ping_untested">— ms</string>
+    <string name="ping_failed">failed</string>
     <string name="more_actions">More actions</string>
     <string name="chain_switch">Switch</string>
     <string name="chain_edit">Edit</string>

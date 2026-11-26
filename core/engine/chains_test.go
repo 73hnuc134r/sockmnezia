@@ -254,3 +254,37 @@ func TestUpdateOwnServer(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLastTestKept(t *testing.T) {
+	e, _ := Open(t.TempDir(), nil, "linux")
+	a, _ := e.AddOwnServer("trojan://p@a.example.com:443#a", "")
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if e.LastTest("", a) != nil {
+		t.Fatal("result before any test")
+	}
+	e.TestSaved(ctx, "", a) // fails: the server doesn't exist
+	r := e.LastTest("", a)
+	if r == nil || r.Error != CodeNetwork || r.At.IsZero() {
+		t.Fatalf("%+v", r)
+	}
+	// Kept across a restart of the app, dropped when the server changes or goes away.
+	dir := e.dir
+	e2, _ := Open(dir, nil, "linux")
+	if e2.LastTest("", a) == nil {
+		t.Fatal("result not saved")
+	}
+	e2.UpdateOwnServer(a, "trojan://p@b.example.com:443#a", "")
+	if e2.LastTest("", a) != nil {
+		t.Fatal("result kept after the server changed")
+	}
+	cid, _ := e2.SaveChain(Chain{Hops: []ChainHop{{Kind: HopServer, Server: a}}})
+	e2.TestSaved(ctx, cid, "")
+	if c := e2.Chains(); c[len(c)-1].Last == nil {
+		t.Fatal("chain result not listed")
+	}
+	e2.DeleteChain(cid)
+	if e2.LastTest(cid, "") != nil {
+		t.Fatal("result kept for a deleted chain")
+	}
+}

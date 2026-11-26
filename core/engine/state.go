@@ -96,10 +96,12 @@ type State struct {
 	ActiveChain string      `json:"active_chain,omitempty"`
 	// ActiveServer selects a single own server instead of a chain (no one-hop chain needs to be saved).
 	// At most one of ActiveChain and ActiveServer is set.
-	ActiveServer string           `json:"active_server,omitempty"`
-	Inbound      xrayconf.Inbound `json:"inbound"`
-	Routing      routing.Settings `json:"routing"`
-	Options      Options          `json:"options"`
+	ActiveServer string `json:"active_server,omitempty"`
+	// Tests are the last Test results per saved chain ("c:<id>") and server ("s:<id>"), shown in the lists.
+	Tests   map[string]TestResult `json:"tests,omitempty"`
+	Inbound xrayconf.Inbound      `json:"inbound"`
+	Routing routing.Settings      `json:"routing"`
+	Options Options               `json:"options"`
 
 	// State v1 (three fixed modes); migrated to Chains on load.
 	LegacyMode      xrayconf.Mode `json:"mode,omitempty"`

@@ -1,0 +1,116 @@
+<title>sockmnezia server list</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Roboto+Mono:wght@400;500&family=Space+Grotesk:wght@600&display=swap">
+<style>
+/* Layout: phone frames in a wrapping row; the app's dark theme as a single deliberate look. */
+:root {
+  color-scheme: dark;
+  --page: #0b0c10; --ink: #e3e2e9; --muted: #c5c6d0; --dim: #8f909a; --line: #2e2f37;
+  --phone: #121318; --card: #1d1e24; --sel: #2b3550; --accent: #b6c4ff;
+  --fast: #8fd8a8; --mid: #f2cf7a; --slow: #f2a08e; --err: #ffb4ab;
+  --vless: #8db8ff; --vmess: #c9a6f2; --trojan: #f2a08e; --ss: #8fd8a8; --socks: #e0cf7a;
+  --reality: #7fe0d0; --tls: #aeb8ff; --none: #ffb4ab; --neutral: #a9abb6; --amz: #f5c26b;
+  --ui: "Roboto", system-ui, sans-serif; --mono: "Roboto Mono", ui-monospace, monospace; --display: "Space Grotesk", system-ui, sans-serif;
+}
+body { background: var(--page); color: var(--ink); font-family: var(--ui); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 48px; max-width: 1200px; margin: 0 auto; display: grid; gap: 28px; }
+h1 { font: 600 26px/1.2 var(--display); margin: 0; }
+.lede, .note { color: var(--muted); line-height: 1.5; max-width: 70ch; margin: 6px 0 0; font-size: 14px; }
+.note { color: var(--dim); font-size: 12.5px; max-width: 320px; }
+.row { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; }
+.shot { display: grid; gap: 8px; }
+.cap { font: 500 11px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.phone { width: 320px; max-width: 100%; background: var(--phone); border: 1px solid #2c2d33; border-radius: 26px; overflow: hidden; padding-bottom: 14px; }
+.top { padding: 18px 16px 8px; display: flex; align-items: center; gap: 10px; font-size: 20px; }
+.top .back { color: var(--muted); }
+.bar { display: flex; gap: 8px; align-items: center; padding: 2px 12px 6px; }
+.chipbtn { font: 500 12px/1 var(--ui); padding: 7px 10px; border-radius: 8px; border: 1px solid #44464f; color: var(--ink); }
+.chipbtn.on { background: var(--sel); border-color: transparent; }
+.sp { flex: 1; }
+.hdr { font: 500 11px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); padding: 12px 16px 4px; }
+.host { font: 500 11px/1 var(--mono); color: var(--dim); padding: 8px 16px 2px 16px; display: flex; gap: 6px; align-items: center; }
+.cc { font: 500 9.5px/1 var(--ui); padding: 2px 4px; border-radius: 3px; background: #2a2b33; color: var(--muted); }
+.srv { display: grid; grid-template-columns: 26px 1fr auto 22px; gap: 8px; align-items: center; padding: 5px 8px 5px 12px; }
+.srv.sel { background: #1a2238; }
+.radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--dim); justify-self: center; }
+.radio.on { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--phone), inset 0 0 0 8px var(--accent); }
+.name { font-size: 14px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tags { display: flex; gap: 3px; margin-top: 2px; flex-wrap: wrap; }
+.tag { font: 500 9.5px/13px var(--ui); padding: 0 4px; border-radius: 4px; }
+.t-vless { color: var(--vless); background: rgba(141,184,255,.16); } .t-vmess { color: var(--vmess); background: rgba(201,166,242,.16); }
+.t-trojan { color: var(--trojan); background: rgba(242,160,142,.16); } .t-ss { color: var(--ss); background: rgba(143,216,168,.16); }
+.t-reality { color: var(--reality); background: rgba(127,224,208,.16); } .t-tls { color: var(--tls); background: rgba(174,184,255,.16); }
+.t-none { color: var(--none); background: rgba(255,180,171,.16); } .t-n { color: var(--neutral); background: rgba(169,171,182,.14); }
+.t-amz { color: var(--amz); background: rgba(245,194,107,.16); }
+.pill { font: 500 11px/1 var(--mono); padding: 5px 7px; border-radius: 999px; border: 1px solid #3a3b44; white-space: nowrap; }
+.p-fast { color: var(--fast); border-color: rgba(143,216,168,.4); } .p-mid { color: var(--mid); border-color: rgba(242,207,122,.4); }
+.p-slow { color: var(--slow); border-color: rgba(242,160,142,.45); } .p-err { color: var(--err); border-color: rgba(255,180,171,.45); }
+.p-none { color: var(--dim); } .p-run { color: var(--accent); }
+.more { color: var(--dim); text-align: center; font-size: 16px; }
+.chain .sub { font: 11px/15px var(--ui); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.add { display: flex; gap: 4px; padding: 4px 12px; } .add span { color: var(--accent); font: 500 13px/1 var(--ui); padding: 8px 8px; }
+.swipe { position: relative; }
+.swipe .under { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 16px; font: 500 12px/1 var(--ui); }
+.swipe .under.test { background: #1f3b2c; color: var(--fast); }
+.swipe .under.del { background: #4a2020; color: var(--err); justify-content: flex-end; }
+.swipe .srv { background: var(--phone); position: relative; }
+.stepper { padding: 4px 14px; display: grid; gap: 6px; }
+.step { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; }
+.dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent); display: grid; place-items: center; font: 600 10px/1 var(--ui); }
+.dot.a { border-color: var(--amz); color: var(--amz); } .dot.e { width: 9px; height: 9px; border: 0; background: var(--dim); justify-self: center; }
+.card { margin: 6px 12px; background: var(--card); border-radius: 14px; padding: 10px 6px 12px; }
+.ex { font: 600 9.5px/1 var(--ui); letter-spacing: .06em; color: var(--fast); }
+.cmp { display: grid; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.before { font-size: 12px; color: var(--dim); }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Server list, compact</h1>
+    <p class="lede">One line of text and one line of tags per server; the ping pill shows the last result and runs a test when tapped. Swipe right to test, left to delete. Hosts group the servers, with the country of an IP host from the local geo database. All addresses are examples.</p>
+  </header>
+
+  <div class="row">
+    <div class="shot"><span class="cap">Connect through</span>
+      <div class="phone">
+        <div class="top"><span class="back">←</span>Connect through</div>
+        <div class="bar"><span class="chipbtn">⟳ Test all</span><span class="sp"></span><span class="chipbtn">Name</span><span class="chipbtn on">Ping ↑</span></div>
+        <div class="hdr">Chains</div>
+        <div class="srv chain"><span class="radio"></span><div><div class="name">Work</div><div class="sub">home-nas → Amnezia NL → my-vps</div></div><span class="pill p-mid">412 ms · US</span><span class="more">⋮</span></div>
+        <div class="srv chain"><span class="radio"></span><div><div class="name">Amnezia</div><div class="sub">Amnezia · Germany</div></div><span class="pill p-none">— ms</span><span class="more">⋮</span></div>
+        <div class="hdr">Single servers</div>
+        <div class="host">203.0.113.9 <span class="cc">US</span></div>
+        <div class="srv sel"><span class="radio on"></span><div><div class="name">my-vps</div><div class="tags"><span class="tag t-vless">vless</span><span class="tag t-reality">reality</span><span class="tag t-n">:443</span></div></div><span class="pill p-fast">212 ms</span><span class="more">⋮</span></div>
+        <div class="srv"><span class="radio"></span><div><div class="name">my-vps xhttp</div><div class="tags"><span class="tag t-vless">vless</span><span class="tag t-reality">reality</span><span class="tag t-n">xhttp</span><span class="tag t-n">:8443</span></div></div><span class="pill p-run">testing…</span><span class="more">⋮</span></div>
+        <div class="host">nas.example.com</div>
+        <div class="srv"><span class="radio"></span><div><div class="name">home-nas</div><div class="tags"><span class="tag t-trojan">trojan</span><span class="tag t-tls">tls</span><span class="tag t-n">ws</span><span class="tag t-n">:443</span></div></div><span class="pill p-mid">380 ms · DE</span><span class="more">⋮</span></div>
+        <div class="host">192.0.2.77 <span class="cc">FI</span></div>
+        <div class="srv"><span class="radio"></span><div><div class="name">backup-ss</div><div class="tags"><span class="tag t-ss">ss</span><span class="tag t-none">none</span><span class="tag t-n">:8388</span></div></div><span class="pill p-err">failed</span><span class="more">⋮</span></div>
+        <div class="add"><span>+ Add server</span><span>Import links</span></div>
+      </div>
+      <p class="note">Ping colours: green under 300 ms, amber under 800, red above; "failed" in the error colour. The exit country shows when it differs from the host's.</p>
+    </div>
+
+    <div class="shot"><span class="cap">Swipe right / left</span>
+      <div class="phone" style="padding-top:12px">
+        <div class="swipe"><div class="under test">⟳ Test</div><div class="srv" style="transform:translateX(86px)"><span class="radio"></span><div><div class="name">home-nas</div><div class="tags"><span class="tag t-trojan">trojan</span><span class="tag t-tls">tls</span><span class="tag t-n">ws</span><span class="tag t-n">:443</span></div></div><span class="pill p-mid">380 ms</span><span class="more">⋮</span></div></div>
+        <div style="height:10px"></div>
+        <div class="swipe"><div class="under del">Delete ✕</div><div class="srv" style="transform:translateX(-96px)"><span class="radio"></span><div><div class="name">backup-ss</div><div class="tags"><span class="tag t-ss">ss</span><span class="tag t-none">none</span><span class="tag t-n">:8388</span></div></div><span class="pill p-err">failed</span><span class="more">⋮</span></div></div>
+      </div>
+      <p class="note">The row springs back after a swipe: right runs the test, left asks to delete (same confirmation as the menu). The ⋮ menu keeps Edit, Share, Delete.</p>
+    </div>
+
+    <div class="shot"><span class="cap">Same tags elsewhere</span>
+      <div class="phone" style="padding-top:8px">
+        <div class="card"><div class="stepper">
+          <div class="step"><span class="dot e"></span><span style="font-size:13px">This phone</span><span></span></div>
+          <div class="step"><span class="dot">1</span><div><div class="name" style="font-size:13px">home-nas</div><div class="tags"><span class="tag t-trojan">trojan</span><span class="tag t-tls">tls</span><span class="tag t-n">ws</span></div></div><span></span></div>
+          <div class="step"><span class="dot a">A</span><div><div class="name" style="font-size:13px">Netherlands</div><div class="tags"><span class="tag t-amz">amnezia</span><span class="tag t-n">NL</span></div></div><span></span></div>
+          <div class="step"><span class="dot">3</span><div><div class="name" style="font-size:13px">my-vps</div><div class="tags"><span class="tag t-vless">vless</span><span class="tag t-reality">reality</span></div></div><span class="ex">EXIT</span></div>
+          <div class="step"><span class="dot e"></span><span style="font-size:13px">Internet</span><span></span></div>
+        </div></div>
+        <p class="note" style="padding:0 14px">Home stepper, chain editor rows and the Add hop list use the same tags (port only in lists, where it tells servers apart).</p>
+      </div>
+    </div>
+  </div>
+</div>
