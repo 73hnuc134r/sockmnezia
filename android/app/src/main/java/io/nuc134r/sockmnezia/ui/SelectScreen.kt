@@ -127,25 +127,33 @@ fun SelectScreen(nav: NavController) {
         if (servers.isEmpty()) {
             Hint(stringResource(R.string.selector_no_servers), modifier = Modifier.padding(horizontal = 16.dp))
         }
-        servers.forEach { s ->
-            val key = "s:${s.id}"
-            SelectRow(
-                selected = s.active,
-                title = s.name,
-                subtitle = s.detail,
-                warning = null,
-                test = tests[key],
-                onSelect = {
-                    scope.act(ctx, snackbar) { Core.setActiveServer(s.id) }
-                    onDone()
-                },
-                onTest = { runTest(key) { Core.testSaved(serverId = s.id) } },
-                menu = listOf(
-                    MenuAction(labelEdit) { nav.navigate(Routes.server(s.id)) },
-                    MenuAction(labelShare) { shareServer = s },
-                    MenuAction(labelDelete) { deleteServer = s },
-                ),
+        // Grouped by host (domain or IP), in the order the hosts first appear.
+        servers.groupBy { it.address }.forEach { (host, group) ->
+            Text(
+                host, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
             )
+            group.forEach { s ->
+                val key = "s:${s.id}"
+                SelectRow(
+                    selected = s.active,
+                    title = s.name,
+                    subtitle = "",
+                    tags = { ServerTags(s.protocol, s.security, s.network, s.port, Modifier.padding(top = 2.dp)) },
+                    warning = null,
+                    test = tests[key],
+                    onSelect = {
+                        scope.act(ctx, snackbar) { Core.setActiveServer(s.id) }
+                        onDone()
+                    },
+                    onTest = { runTest(key) { Core.testSaved(serverId = s.id) } },
+                    menu = listOf(
+                        MenuAction(labelEdit) { nav.navigate(Routes.server(s.id)) },
+                        MenuAction(labelShare) { shareServer = s },
+                        MenuAction(labelDelete) { deleteServer = s },
+                    ),
+                )
+            }
         }
         Row(Modifier.padding(horizontal = 8.dp)) {
             TextButton(onClick = { nav.navigate(Routes.server(Routes.NEW)) }) { Text(stringResource(R.string.add_server)) }
@@ -185,6 +193,7 @@ private fun SelectRow(
     subtitle: String,
     warning: String?,
     test: RowTest?,
+    tags: (@Composable () -> Unit)? = null,
     onSelect: () -> Unit,
     onTest: () -> Unit,
     menu: List<MenuAction>,
@@ -198,6 +207,7 @@ private fun SelectRow(
         RadioButton(selected = selected, onClick = onSelect)
         Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
             Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            tags?.invoke()
             if (subtitle.isNotBlank()) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

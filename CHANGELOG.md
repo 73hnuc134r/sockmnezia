@@ -3,6 +3,11 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.1.2
+
+- Server list: servers are grouped by host, and each shows small coloured tags for its protocol, security
+  (no encryption stands out in red), transport and port.
+
 ## 1.1.1
 
 - In-app updates: when a newer release is available, "Update" downloads the APK for this phone, checks it
