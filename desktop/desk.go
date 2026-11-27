@@ -149,3 +149,18 @@ func (d *desk) quit() {
 	d.mu.Unlock()
 	d.app.Quit()
 }
+
+// geoAutoUpdate refreshes the geo files weekly when the user turned that on (through the proxy while it runs).
+func (d *desk) geoAutoUpdate() {
+	if !d.e.GetSettings().Options.GeoAutoUpdate || d.e.GeoProgress() != nil {
+		return
+	}
+	if g := d.e.GeoStatus(); g.HasGeoIP && g.HasGeoSite && time.Since(g.Updated) < 7*24*time.Hour {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	if err := d.e.UpdateGeo(ctx); err == nil {
+		d.changed()
+	}
+}

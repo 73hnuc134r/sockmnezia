@@ -4,6 +4,7 @@ package main
 
 import (
 	"embed"
+	"html"
 	"log"
 	"os"
 	"path/filepath"
@@ -60,7 +61,8 @@ func main() {
 	}
 	e, err := engine.Open(dir, secretBox(dir), runtime.GOOS)
 	if err != nil {
-		log.Fatal(err)
+		fatalWindow(err)
+		return
 	}
 	runner.Redactor = e.Redact
 	d := &desk{e: e, prefs: loadPrefs(dir), sys: newSysProxy(e, dir), lang: "en"}
@@ -113,11 +115,30 @@ func main() {
 
 // loop pushes the status to the UI and keeps the system proxy and the tray in step with it.
 func (d *desk) loop() {
-	for range time.Tick(time.Second) {
+	for i := 0; ; i++ {
+		if i%3600 == 30 { // hourly, starting half a minute after launch
+			go d.geoAutoUpdate()
+		}
+		time.Sleep(time.Second)
 		st := d.e.Status()
 		d.sys.Sync(st)
 		d.app.Event.Emit(EventStatus, st)
 		d.app.Event.Emit(EventDesktop, d.state())
 		d.tray.Refresh(st)
 	}
+}
+
+// fatalWindow explains why the saved data could not be opened (e.g. the keyring holding its key is not
+// available). The file is left as it is: nothing is overwritten.
+func fatalWindow(err error) {
+	app := application.New(application.Options{Name: "sockmnezia", Icon: appIcon})
+	msg := html.EscapeString(err.Error())
+	dir := html.EscapeString(dataDir())
+	app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title: "sockmnezia", Width: 640, Height: 300,
+		HTML: `<body style="font:14px system-ui;padding:24px;line-height:1.5"><h3>sockmnezia cannot open its saved data</h3>` +
+			`<p>` + msg + `</p><p>The data in <code>` + dir + `</code> was not changed. If the system keyring is locked or ` +
+			`not running, unlock or start it and open sockmnezia again.</p></body>`,
+	})
+	app.Run()
 }

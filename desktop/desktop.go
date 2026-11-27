@@ -3,7 +3,10 @@ package main
 import (
 	"encoding/base64"
 	"errors"
+	"net"
+	"os"
 	"runtime"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"rsc.io/qr"
@@ -21,10 +24,12 @@ type Info struct {
 	OS      string `json:"os"`
 	Xray    string `json:"xray"`
 	DataDir string `json:"data_dir"`
+	// SecretStore is how the saved data is protected: "dpapi", "keyring" or "file" (plain, 0600).
+	SecretStore string `json:"secret_store"`
 }
 
 func (s *Desktop) Info() Info {
-	return Info{Version: Version, OS: runtime.GOOS, Xray: xrayVersion(), DataDir: dataDir()}
+	return Info{Version: Version, OS: runtime.GOOS, Xray: xrayVersion(), DataDir: dataDir(), SecretStore: secretStore}
 }
 
 // SetLanguage tells the Go side the UI language ("en", "ru") for the tray and native dialogs.
@@ -78,4 +83,44 @@ func (s *Desktop) QR(text string) (string, error) {
 	}
 	c.Scale = 6
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(c.PNG()), nil
+}
+
+// LANAddresses lists this computer's private IPv4 addresses (for sharing the proxy on the local network).
+func (s *Desktop) LANAddresses() []string {
+	out := []string{}
+	ifs, _ := net.Interfaces()
+	for _, i := range ifs {
+		if i.Flags&net.FlagUp == 0 || i.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, _ := i.Addrs()
+		for _, a := range addrs {
+			if n, ok := a.(*net.IPNet); ok && n.IP.To4() != nil && n.IP.IsPrivate() {
+				out = append(out, n.IP.String())
+			}
+		}
+	}
+	return out
+}
+
+// PickFile asks for a file to open (e.g. the official APK) and returns its path, "" when cancelled.
+func (s *Desktop) PickFile(title string) (string, error) {
+	return s.d.app.Dialog.OpenFile().SetTitle(title).CanChooseFiles(true).PromptForSingleSelection()
+}
+
+// SaveText asks where to save text (an export) and writes it there; false when cancelled.
+func (s *Desktop) SaveText(title, name, text string) (bool, error) {
+	p, err := s.d.app.Dialog.SaveFile().SetFilename(name).PromptForSingleSelection()
+	if err != nil || p == "" {
+		return false, err
+	}
+	return true, os.WriteFile(p, []byte(text), 0o600)
+}
+
+// OpenURL opens a web page in the default browser.
+func (s *Desktop) OpenURL(url string) error {
+	if !strings.HasPrefix(url, "https://") {
+		return errors.New("only https links are opened")
+	}
+	return s.d.app.Browser.OpenURL(url)
 }

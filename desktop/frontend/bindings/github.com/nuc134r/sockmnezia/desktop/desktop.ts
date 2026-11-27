@@ -26,6 +26,27 @@ export function Info(): $CancellablePromise<$models.Info> {
     return $Call.ByID(3396203160);
 }
 
+/**
+ * LANAddresses lists this computer's private IPv4 addresses (for sharing the proxy on the local network).
+ */
+export function LANAddresses(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(1209157393);
+}
+
+/**
+ * OpenURL opens a web page in the default browser.
+ */
+export function OpenURL(url: string): $CancellablePromise<void> {
+    return $Call.ByID(1038531549, url);
+}
+
+/**
+ * PickFile asks for a file to open (e.g. the official APK) and returns its path, "" when cancelled.
+ */
+export function PickFile(title: string): $CancellablePromise<string> {
+    return $Call.ByID(484452699, title);
+}
+
 export function Prefs(): $CancellablePromise<$models.Prefs> {
     return $Call.ByID(3105033110);
 }
@@ -42,6 +63,13 @@ export function QR(text: string): $CancellablePromise<string> {
  */
 export function Quit(): $CancellablePromise<void> {
     return $Call.ByID(1005396835);
+}
+
+/**
+ * SaveText asks where to save text (an export) and writes it there; false when cancelled.
+ */
+export function SaveText(title: string, name: string, text: string): $CancellablePromise<boolean> {
+    return $Call.ByID(2131521970, title, name, text);
 }
 
 /**

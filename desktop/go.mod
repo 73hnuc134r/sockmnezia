@@ -6,12 +6,15 @@ require (
 	github.com/nuc134r/sockmnezia/core v0.0.0
 	github.com/wailsapp/wails/v3 v3.1.0
 	github.com/xtls/xray-core v1.260327.1-0.20261109052709-676eaf66f8f0
+	github.com/zalando/go-keyring v0.2.8
+	golang.org/x/sys v0.50.0
 	rsc.io/qr v0.2.0
 )
 
 require (
 	github.com/apernet/quic-go v0.61.1-0.20260806010916-184d081eef3e // indirect
 	github.com/coder/websocket v1.8.14 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/ebitengine/purego v0.11.1 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -49,7 +52,6 @@ require (
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/net v0.63.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
-	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/term v0.48.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect

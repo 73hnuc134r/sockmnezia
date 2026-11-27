@@ -32,6 +32,11 @@ export interface Info {
     "os": string;
     "xray": string;
     "data_dir": string;
+
+    /**
+     * SecretStore is how the saved data is protected: "dpapi", "keyring" or "file" (plain, 0600).
+     */
+    "secret_store": string;
 }
 
 /**
