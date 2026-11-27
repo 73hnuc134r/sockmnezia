@@ -80,7 +80,7 @@ jobs:
             echo "tag=desktop-v$REQUESTED" >> "$GITHUB_OUTPUT"
           else
             echo "name=$(bash tool/version.sh desktop)" >> "$GITHUB_OUTPUT"
-            [[ "$GITHUB_REF_TYPE" == "tag" ]] && echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"; fi
           fi
 
       - name: Packages
