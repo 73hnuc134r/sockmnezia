@@ -136,7 +136,7 @@ func (c *Core) SaveChain(ch engine.Chain) (string, error) {
 // ValidateChain returns why the chain cannot run, or nil.
 func (c *Core) ValidateChain(ch engine.Chain) *engine.Error { return c.e.ValidateChain(ch) }
 
-func (c *Core) DeleteChain(id string) error     { return c.touch(c.e.DeleteChain(id)) }
+func (c *Core) DeleteChain(id string) error { return c.touch(c.e.DeleteChain(id)) }
 func (c *Core) SetActiveChain(id string) error {
 	err := c.e.SetActiveChain(id)
 	if err == nil && c.selected != nil {
