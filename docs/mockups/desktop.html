@@ -66,6 +66,16 @@ th .sort { color: var(--accent); }
 td { padding: 9px 10px; border-bottom: 1px solid #22232a; white-space: nowrap; }
 tr.sel td { background: var(--sel); }
 .pill { font: 500 10.5px/1 var(--ui); padding: 4px 7px; border-radius: 6px; background: var(--chip); color: var(--muted); }
+.tg { font: 500 10px/14px var(--ui); padding: 0 4px; border-radius: 4px; margin-right: 4px; display: inline-block; }
+.t-vless { color: #8DB8FF; background: rgba(141,184,255,.16); } .t-vmess { color: #C9A6F2; background: rgba(201,166,242,.16); }
+.t-trojan { color: #F2A08E; background: rgba(242,160,142,.16); } .t-ss { color: #8FD8A8; background: rgba(143,216,168,.16); }
+.t-socks { color: #E0CF7A; background: rgba(224,207,122,.16); } .t-reality { color: #7FE0D0; background: rgba(127,224,208,.16); }
+.t-tls { color: #AEB8FF; background: rgba(174,184,255,.16); } .t-none { color: var(--warn); background: rgba(242,184,181,.16); }
+.t-n { color: var(--muted); background: rgba(185,186,198,.16); }
+.ping { font: 500 11px/1 var(--ui); padding: 3px 7px; border-radius: 10px; }
+.ping.ok { color: var(--ok); background: rgba(139,211,155,.14); } .ping.mid { color: var(--amz); background: rgba(245,194,107,.14); }
+.ping.bad { color: var(--warn); background: rgba(242,184,181,.14); } .ping.run { color: var(--dim); background: rgba(134,136,149,.14); }
+tr.grp td { padding: 10px 10px 4px; font: 500 11px/1 var(--mono); color: var(--dim); border-bottom: 0; }
 .split { display: grid; grid-template-columns: 1fr 320px; gap: 14px; min-width: 0; }
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 9px; align-content: start; }
 .field { display: grid; gap: 4px; } .field label { font-size: 11px; color: var(--dim); }
@@ -115,7 +125,7 @@ tr.sel td { background: var(--sel); }
           </div>
           <div class="row">
             <span class="btn p big">■ Stop</span>
-            <div class="grid" style="display:grid;gap:6px"><span class="cap">System proxy</span><div class="seg"><span>Off</span><span class="on">System</span><span>PAC</span></div></div>
+            <div class="grid" style="display:grid;gap:6px"><span class="cap">Mode</span><div class="seg"><span>Off</span><span class="on">System</span><span>PAC</span><span>TUN</span></div></div>
             <span class="grow"></span>
             <div style="display:grid;gap:6px;justify-items:end"><span class="cap">Exit · click to test</span><span class="mono okc">203.0.113.9 [US] · 412 ms</span></div>
           </div>
@@ -133,9 +143,9 @@ tr.sel td { background: var(--sel); }
           </div>
         </div>
       </div>
-      <div class="statusbar"><span><span class="led"></span>Running</span><span>Work · 3 hops</span><span class="mono">SOCKS 127.0.0.1:41377</span><span>System proxy: on</span><span class="grow"></span><span class="mono">↓ 1.24 MB/s ↑ 84 KB/s</span></div>
+      <div class="statusbar"><span><span class="led"></span>Running</span><span>Work · 3 hops</span><span class="mono">SOCKS 127.0.0.1:41377</span><span>Mode: system proxy</span><span class="grow"></span><span class="mono">↓ 1.24 MB/s ↑ 84 KB/s</span></div>
     </div></div>
-    <p class="note">The chain reads left to right, as on Android, top to bottom. Start/Stop is the main action; the system proxy mode is next to it because it is the desktop-only switch people use most.</p>
+    <p class="note">The chain reads left to right, as on Android, top to bottom. Start/Stop is the main action; the connection mode (Off / System proxy / PAC / TUN, plan §3 and §3a) is next to it because it is the desktop-only switch people use most.</p>
   </section>
 
   <section>
@@ -151,13 +161,20 @@ tr.sel td { background: var(--sel); }
           <div class="row"><span class="btn p">+ Add ▾</span><span class="btn">Test all</span><span class="btn">Share</span><span class="btn">Delete</span><span class="grow"></span><span class="input" style="width:200px;color:var(--dim)">Filter…  Ctrl+V imports</span></div>
           <div class="split">
             <div class="scroll" style="min-width:0"><table>
-              <tr><th></th><th>Name</th><th>Protocol</th><th>Address</th><th>Transport</th><th>Ping <span class="sort">▲</span></th><th>Exit</th></tr>
-              <tr class="sel"><td class="okc">●</td><td>my-vps</td><td><span class="pill">vless</span></td><td class="mono">203.0.113.9:443</td><td>tcp / reality</td><td class="okc">212 ms</td><td class="mono">203.0.113.9 [US]</td></tr>
-              <tr><td></td><td>home-nas</td><td><span class="pill">vless</span></td><td class="mono">nas.example.com:8443</td><td>ws / tls</td><td>238 ms</td><td class="mono">192.0.2.40 [DE]</td></tr>
-              <tr><td></td><td>office</td><td><span class="pill">trojan</span></td><td class="mono">office.example.com:443</td><td>grpc / tls</td><td>301 ms</td><td class="mono">198.51.100.22 [NL]</td></tr>
-              <tr><td></td><td>backup-ss</td><td><span class="pill">ss</span></td><td class="mono">192.0.2.77:8388</td><td>—</td><td>455 ms</td><td class="mono">192.0.2.77 [FI]</td></tr>
-              <tr><td></td><td>lab-socks</td><td><span class="pill">socks</span></td><td class="mono">198.51.100.5:1080</td><td>—</td><td class="dim">testing…</td><td></td></tr>
-              <tr><td></td><td>old-vmess</td><td><span class="pill">vmess</span></td><td class="mono">old.example.com:443</td><td>ws / tls</td><td class="warnc">failed</td><td></td></tr>
+              <tr><th></th><th>Name</th><th>Type</th><th>Ping <span class="sort">▲</span></th><th>Exit</th></tr>
+              <tr class="grp"><td colspan="5">203.0.113.9</td></tr>
+              <tr class="sel"><td class="okc">●</td><td>my-vps</td><td><span class="tg t-vless">vless</span><span class="tg t-reality">reality</span><span class="tg t-n">:443</span></td><td><span class="ping ok">212 ms</span></td><td class="mono" title="203.0.113.9">US</td></tr>
+              <tr><td></td><td>my-vps-xhttp</td><td><span class="tg t-vless">vless</span><span class="tg t-reality">reality</span><span class="tg t-n">xhttp</span><span class="tg t-n">:8443</span></td><td><span class="ping ok">226 ms</span></td><td class="mono" title="203.0.113.9">US</td></tr>
+              <tr class="grp"><td colspan="5">nas.example.com</td></tr>
+              <tr><td></td><td>home-nas</td><td><span class="tg t-vless">vless</span><span class="tg t-tls">tls</span><span class="tg t-n">ws</span><span class="tg t-n">:8443</span></td><td><span class="ping ok">238 ms</span></td><td class="mono" title="192.0.2.40">DE</td></tr>
+              <tr class="grp"><td colspan="5">office.example.com</td></tr>
+              <tr><td></td><td>office</td><td><span class="tg t-trojan">trojan</span><span class="tg t-tls">tls</span><span class="tg t-n">grpc</span><span class="tg t-n">:443</span></td><td><span class="ping mid">301 ms</span></td><td class="mono" title="198.51.100.22">NL</td></tr>
+              <tr class="grp"><td colspan="5">192.0.2.77 · FI</td></tr>
+              <tr><td></td><td>backup-ss</td><td><span class="tg t-ss">ss</span><span class="tg t-none">none</span><span class="tg t-n">:8388</span></td><td><span class="ping mid">455 ms</span></td><td class="mono" title="192.0.2.77">FI</td></tr>
+              <tr class="grp"><td colspan="5">198.51.100.5</td></tr>
+              <tr><td></td><td>lab-socks</td><td><span class="tg t-socks">socks</span><span class="tg t-none">none</span><span class="tg t-n">:1080</span></td><td><span class="ping run">testing…</span></td><td></td></tr>
+              <tr class="grp"><td colspan="5">old.example.com</td></tr>
+              <tr><td></td><td>old-vmess</td><td><span class="tg t-vmess">vmess</span><span class="tg t-tls">tls</span><span class="tg t-n">ws</span><span class="tg t-n">:443</span></td><td><span class="ping bad">failed</span></td><td></td></tr>
             </table></div>
             <div class="panel">
               <div class="row"><b class="grow">my-vps</b><div class="seg"><span class="on">Fields</span><span>Link / JSON</span></div></div>
@@ -174,7 +191,7 @@ tr.sel td { background: var(--sel); }
       </div>
       <div class="statusbar"><span><span class="led"></span>Running</span><span>my-vps</span><span class="mono">SOCKS 127.0.0.1:41377</span><span class="grow"></span><span>Test all: 5 of 6 done</span></div>
     </div></div>
-    <p class="note">Fewer columns than v2rayN: what you need to pick a server. Ping sorts with failures last. The right panel is the same endpoint editor as on Android (fields or link/JSON); double-click a row to connect through it. The Chains tab has the same layout with a drag-and-drop hop list in the panel.</p>
+    <p class="note">Fewer columns than v2rayN: what you need to pick a server. Same look as the Android server list (1.1.x): rows grouped by host, the exit country (address on hover), (with its country for IP addresses), protocol and security as tiny colour-coded tags plus transport and port, ping as a pill that keeps the last result; Test all clears old results first. Ping sorts with failures last. The right panel is the same endpoint editor as on Android (fields or link/JSON); double-click a row to connect through it. The Chains tab has the same layout with a drag-and-drop hop list in the panel.</p>
   </section>
 
   <section>
@@ -187,7 +204,7 @@ tr.sel td { background: var(--sel); }
             <div class="sep"></div>
             <div class="mi">■ Stop</div>
             <div class="mi hl">⇄ Connect through<span class="k">▸</span></div>
-            <div class="mi">System proxy<span class="k">System ▸</span></div>
+            <div class="mi">Mode<span class="k">System ▸</span></div>
             <div class="mi">Copy SOCKS address</div>
             <div class="sep"></div>
             <div class="mi">Open sockmnezia</div>
@@ -206,13 +223,14 @@ tr.sel td { background: var(--sel); }
         <div class="taskbar"><span>EN</span><span>12:04</span><span class="trayicon">s</span></div>
       </div>
       <div class="card" style="width:430px">
-        <span class="cap">Settings · System proxy</span>
+        <span class="cap">Settings · Connection mode</span>
         <div class="opt"><span class="radio"></span><div><b>Off</b><div class="muted">Apps use the proxy only if you set them up (SOCKS or HTTP, with the password).</div></div></div>
         <div class="opt on"><span class="radio"></span><div><b>System proxy</b><div class="muted">Windows / GNOME / KDE use an HTTP port on 127.0.0.1. The system can't store a password, so this port has none while the mode is on.</div><div class="warnc" style="margin-top:6px">Any program on this computer, from any user account, can use it while it is on.</div></div></div>
         <div class="opt"><span class="radio"></span><div><b>PAC</b><div class="muted">Only addresses your routing sends through the proxy; the rest go direct.</div></div></div>
+        <div class="opt"><span class="radio"></span><div><b>TUN</b><div class="muted">All traffic of this computer, also from apps without proxy settings. Needs administrator rights once (Windows service / Linux helper). DNS and local network settings as on Android.</div><div class="warnc" style="margin-top:6px">If the chain breaks, traffic is blocked, not sent directly.</div></div></div>
         <div class="note" style="margin:0">Previous system settings are saved and restored on stop, quit, and after a crash.</div>
       </div>
     </div>
-    <p class="note">The tray switches chains and servers (recent ones first) and the system proxy without opening the window. The system-proxy option shown is plan option A; it needs the owner's decision (§3 of the plan).</p>
+    <p class="note">The tray switches chains and servers (recent ones first) and the system proxy without opening the window. The system-proxy behaviour shown is plan option A (decided, D30); TUN is §3a.</p>
   </section>
 </div>

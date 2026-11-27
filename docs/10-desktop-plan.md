@@ -1,6 +1,8 @@
 # Plan: desktop app (Windows, Linux; macOS later)
 
-Status: decided, not started (2026-11-26): owner answered §8; implementation later. Mockups: `docs/mockups/desktop.html`.
+Status: decided, not started (2026-11-26): owner answered §8; implementation later. Mockups: `docs/mockups/desktop.html`. Updated 2026-11-27 for TUN mode (§3a) and the Android 1.1.x server list (host groups, tags, ping pills);
+open it in a browser. A new session starting the desktop app: read this file, `docs/09` (chains, sharing), D30/D31
+in `docs/DECISIONS.md`, then the mockup.
 
 ## 0. Goal
 
