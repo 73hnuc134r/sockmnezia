@@ -106,7 +106,7 @@
     <string name="chain_none">Цепочка не выбрана. Соберите её из Amnezia и своих серверов.</string>
     <string name="chain_cannot_run">не запустится</string>
     <string name="chain_name">Название</string>
-    <string name="chain_name_hint">Оставьте пустым — назовём по звеньям.</string>
+    <string name="chain_name_hint">Оставьте пустым — назовём по звеньям; тогда имя будет меняться вместе с ними.</string>
     <string name="chain_editor_hint">Трафик идёт сверху вниз: к каждому звену подключаемся через звено выше. Последнее звено — выход: сайты видят его адрес.</string>
     <string name="chain_add_hop">Добавить звено</string>
     <string name="chain_move_up">Выше</string>

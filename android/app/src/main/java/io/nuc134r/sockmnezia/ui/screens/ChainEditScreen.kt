@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -88,7 +90,7 @@ fun ChainEditScreen(nav: NavController, id: String) {
     LaunchedEffect(id) {
         if (!loaded) {
             runCatching { Core.chains().firstOrNull { it.id == id } }.getOrNull()?.let { c ->
-                name = c.name
+                name = if (c.autoName) "" else c.name // empty: keeps following the hops
                 hops = c.toChain().hops
             }
             loaded = true
@@ -125,8 +127,11 @@ fun ChainEditScreen(nav: NavController, id: String) {
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
         Section {
+            // Empty name = the hop names, shown as the placeholder and kept current by the core.
+            val autoName = hops.map { hopName(info(it)) }.joinToString(" → ")
             OutlinedTextField(
                 name, { name = it }, label = { Text(stringResource(R.string.chain_name)) },
+                placeholder = { Text(autoName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
             )
             Hint(stringResource(R.string.chain_name_hint))
@@ -138,16 +143,18 @@ fun ChainEditScreen(nav: NavController, id: String) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     HopDot(hi.isAmnezia, if (hi.isAmnezia) "A" else "${i + 1}")
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                        Text(hopName(hi), style = MaterialTheme.typography.bodyLarge)
+                        Text(hopName(hi), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         HopTags(hi, Modifier.padding(top = 2.dp), withPort = true)
                     }
-                    IconButton(enabled = i > 0, onClick = { move(i, -1) }) {
+                    // Compact (40 dp, still above the 48 dp touch target with their spacing): leaves the
+                    // name and tags room.
+                    IconButton(enabled = i > 0, onClick = { move(i, -1) }, modifier = Modifier.size(40.dp)) {
                         Icon(Icons.Default.KeyboardArrowUp, stringResource(R.string.chain_move_up))
                     }
-                    IconButton(enabled = i < hops.lastIndex, onClick = { move(i, 1) }) {
+                    IconButton(enabled = i < hops.lastIndex, onClick = { move(i, 1) }, modifier = Modifier.size(40.dp)) {
                         Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.chain_move_down))
                     }
-                    IconButton(onClick = { hops = hops.filterIndexed { k, _ -> k != i } }) {
+                    IconButton(onClick = { hops = hops.filterIndexed { k, _ -> k != i } }, modifier = Modifier.size(40.dp)) {
                         Icon(Icons.Default.Close, stringResource(R.string.chain_remove_hop))
                     }
                 }
@@ -163,29 +170,37 @@ fun ChainEditScreen(nav: NavController, id: String) {
                 nav.navigate(Routes.pickHop(amz))
             }) { Text(stringResource(R.string.chain_add_hop)) }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (!isNew) {
-                TextButton(onClick = { deleting = true }) { Text(stringResource(R.string.delete)) }
+        // Two rows so nothing wraps mid-word on a phone: Share / Delete (apart from Save), then the main actions.
+        if (!isNew) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { sharing = true }) { Text(stringResource(R.string.share)) }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { deleting = true }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             }
-            Spacer(Modifier.weight(1f))
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             if (!isNew && status.chainId != id) {
-                OutlinedButton(enabled = error == null && hops.isNotEmpty(), onClick = {
+                OutlinedButton(modifier = Modifier.weight(1f), enabled = error == null && hops.isNotEmpty(), onClick = {
                     scope.act(ctx, snackbar) {
                         Core.saveChain(Chain(id, name, hops))
                         Core.setActiveChain(id)
                         nav.popBackStack()
                     }
-                }) { Text(stringResource(R.string.chain_use)) }
-                Spacer(Modifier.width(8.dp))
+                }) { Text(stringResource(R.string.chain_use), maxLines = 1) }
+            } else {
+                Spacer(Modifier.weight(1f))
             }
-            Button(enabled = loaded && error == null && hops.isNotEmpty(), onClick = {
+            Button(modifier = Modifier.weight(1f), enabled = loaded && error == null && hops.isNotEmpty(), onClick = {
                 scope.act(ctx, snackbar, ok = res.getString(R.string.chain_saved)) {
                     val saved = Core.saveChain(Chain(if (isNew) null else id, name, hops))
                     if (isNew) Core.setActiveChain(saved) // a chain just built is the one the user wants
                     nav.popBackStack()
                 }
-            }) { Text(stringResource(R.string.save)) }
+            }) { Text(stringResource(R.string.save), maxLines = 1) }
         }
     }
 

@@ -292,3 +292,36 @@ func TestLastTestKept(t *testing.T) {
 		t.Fatal("result kept for a deleted chain")
 	}
 }
+
+func TestAutoChainName(t *testing.T) {
+	e, _ := Open(t.TempDir(), nil, "linux")
+	a, _ := e.AddOwnServer("trojan://p@a.example.com:443#a", "")
+	b, _ := e.AddOwnServer("trojan://p@b.example.com:443#b", "")
+	id, _ := e.SaveChain(Chain{Hops: []ChainHop{{Kind: HopServer, Server: a}, {Kind: HopServer, Server: b}}})
+	name := func() (string, bool) {
+		for _, c := range e.Chains() {
+			if c.ID == id {
+				return c.Name, c.AutoName
+			}
+		}
+		return "", false
+	}
+	if n, auto := name(); n != "a → b" || !auto {
+		t.Fatal(n, auto)
+	}
+	// Follows a rename and a changed hop list.
+	e.RenameOwnServer(b, "b2")
+	if n, _ := name(); n != "a → b2" {
+		t.Fatal(n)
+	}
+	e.SaveChain(Chain{ID: id, Hops: []ChainHop{{Kind: HopServer, Server: b}, {Kind: HopServer, Server: a}}})
+	if n, _ := name(); n != "b2 → a" {
+		t.Fatal(n)
+	}
+	// A name the user typed stays as it is.
+	e.SaveChain(Chain{ID: id, Name: "work", Hops: []ChainHop{{Kind: HopServer, Server: b}, {Kind: HopServer, Server: a}}})
+	e.RenameOwnServer(a, "a2")
+	if n, auto := name(); n != "work" || auto {
+		t.Fatal(n, auto)
+	}
+}

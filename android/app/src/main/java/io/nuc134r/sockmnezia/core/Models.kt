@@ -296,6 +296,8 @@ data class ChainInfo(
     val error: CoreError? = null,
     /** The last Test of this chain. */
     val last: TestResult? = null,
+    /** The name is the hop names, kept current (the user left it empty). */
+    @SerialName("auto_name") val autoName: Boolean = false,
 ) {
     fun toChain() = Chain(id, name, hops.map { ChainHop(it.kind, it.server) })
 }

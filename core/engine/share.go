@@ -72,7 +72,7 @@ func (e *Engine) ShareChain(id, format string) (string, error) {
 		b, _ := json.MarshalIndent(map[string]any{"outbounds": outs}, "", "  ")
 		return string(b), nil
 	case ShareLinks, "":
-		lines := []string{ChainHeader + "?v=1&name=" + url.QueryEscape(c.Name)}
+		lines := []string{ChainHeader + "?v=1&name=" + url.QueryEscape(e.chainNameLocked(c))}
 		for _, h := range c.Hops {
 			if h.Kind == HopAmnezia {
 				lines = append(lines, AmneziaPlaceholder)
@@ -208,7 +208,7 @@ func (e *Engine) Import(text string, dryRun bool) (ImportResult, error) {
 	if isChain {
 		chain.ID, chain.Name = newID(), res.Chain
 		if chain.Name == "" {
-			chain.Name = e.defaultChainNameLocked(&chain)
+			chain.Name, chain.AutoName = e.defaultChainNameLocked(&chain), true
 		}
 		e.st.Chains = append(e.st.Chains, chain)
 		if e.activeChainLocked() == nil {

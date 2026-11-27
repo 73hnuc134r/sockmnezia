@@ -24,14 +24,25 @@ type HopInfo struct {
 	Missing  bool   `json:"missing,omitempty"` // the server was deleted (cannot happen through the API)
 }
 
+// chainNameLocked is the name to show: the hop names, current, for an auto-named chain.
+func (e *Engine) chainNameLocked(c *Chain) string {
+	if c.AutoName {
+		if n := e.defaultChainNameLocked(c); n != "" {
+			return n
+		}
+	}
+	return c.Name
+}
+
 // ChainInfo is a saved chain as the UI shows it.
 type ChainInfo struct {
-	ID     string      `json:"id"`
-	Name   string      `json:"name"`
-	Hops   []HopInfo   `json:"hops"`
-	Active bool        `json:"active"`
-	Error  *Error      `json:"error,omitempty"` // why the chain cannot run, nil when it can
-	Last   *TestResult `json:"last,omitempty"`  // the last Test of this chain
+	ID       string      `json:"id"`
+	Name     string      `json:"name"`
+	AutoName bool        `json:"auto_name,omitempty"` // Name follows the hops (the user left it empty)
+	Hops     []HopInfo   `json:"hops"`
+	Active   bool        `json:"active"`
+	Error    *Error      `json:"error,omitempty"` // why the chain cannot run, nil when it can
+	Last     *TestResult `json:"last,omitempty"`  // the last Test of this chain
 }
 
 // TestResult is the outcome of the last Test of a saved chain or server.
@@ -245,7 +256,7 @@ func (e *Engine) hopInfoLocked(h ChainHop) HopInfo {
 }
 
 func (e *Engine) chainInfoLocked(c *Chain) ChainInfo {
-	ci := ChainInfo{ID: c.ID, Name: c.Name, Active: e.st.ActiveServer == "" && c.ID == e.st.ActiveChain, Error: e.validateLocked(c)}
+	ci := ChainInfo{ID: c.ID, Name: e.chainNameLocked(c), AutoName: c.AutoName, Active: e.st.ActiveServer == "" && c.ID == e.st.ActiveChain, Error: e.validateLocked(c)}
 	if r, ok := e.st.Tests[testKey(c.ID, "")]; ok {
 		ci.Last = &r
 	}
@@ -294,7 +305,8 @@ func (e *Engine) SaveChain(c Chain) (string, error) {
 	if err := e.validateLocked(&c); err != nil {
 		return "", err
 	}
-	if c.Name == "" {
+	c.AutoName = c.Name == ""
+	if c.AutoName {
 		c.Name = e.defaultChainNameLocked(&c)
 	}
 	if c.ID == "" {
@@ -363,7 +375,7 @@ func (e *Engine) chainsUsingLocked(id string) []string {
 	for _, c := range e.st.Chains {
 		for _, h := range c.Hops {
 			if h.Kind == HopServer && h.Server == id {
-				names = append(names, c.Name)
+				names = append(names, e.chainNameLocked(&c))
 				break
 			}
 		}

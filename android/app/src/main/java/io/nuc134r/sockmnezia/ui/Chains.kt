@@ -137,7 +137,12 @@ fun securityColor(security: String): Color = when (security) {
 @Composable
 fun ServerTags(protocol: String, security: String, network: String, port: Int, modifier: Modifier = Modifier) {
     val neutral = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(modifier, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+    // Wraps to a second line rather than cutting the last tags off when the row is narrow.
+    androidx.compose.foundation.layout.FlowRow(
+        modifier,
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp),
+    ) {
         if (protocol.isNotBlank()) Tag(if (protocol == "shadowsocks") "ss" else protocol, protocolColor(protocol))
         if (security.isNotBlank()) Tag(security, securityColor(security))
         if (network.isNotBlank() && network != "tcp" && network != "raw") Tag(network, neutral)

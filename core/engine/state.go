@@ -57,6 +57,9 @@ type Chain struct {
 	ID   string     `json:"id"`
 	Name string     `json:"name"`
 	Hops []ChainHop `json:"hops"`
+	// AutoName: the user left the name empty, so it is the hop names ("a → b"), kept up to date with the hops
+	// and server renames instead of the names they had when the chain was saved.
+	AutoName bool `json:"auto_name,omitempty"`
 }
 
 // Options are the remaining settings.
@@ -240,7 +243,7 @@ func migrate(st *State) {
 		}
 		if own != nil {
 			srv := ChainHop{Kind: HopServer, Server: own.ID}
-			via := Chain{ID: newID(), Name: "Amnezia → " + own.Name, Hops: []ChainHop{{Kind: HopAmnezia}, srv}}
+			via := Chain{ID: newID(), Name: "Amnezia → " + own.Name, Hops: []ChainHop{{Kind: HopAmnezia}, srv}, AutoName: true}
 			st.Chains = append(st.Chains, via)
 			switch st.LegacyMode {
 			case xrayconf.ModeAmneziaOwn:

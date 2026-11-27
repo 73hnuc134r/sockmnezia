@@ -618,7 +618,7 @@ func (e *Engine) Status() Status {
 	}
 	c := e.activeChainLocked()
 	if c != nil {
-		s.ChainID, s.ServerID, s.ChainName, s.AmneziaHop = c.ID, e.st.ActiveServer, c.Name, amneziaIndex(c)+1
+		s.ChainID, s.ServerID, s.ChainName, s.AmneziaHop = c.ID, e.st.ActiveServer, e.chainNameLocked(c), amneziaIndex(c)+1
 		for _, h := range c.Hops {
 			s.Hops = append(s.Hops, e.hopInfoLocked(h))
 		}

@@ -3,6 +3,13 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.1.5
+
+- Chain editor: a chain left unnamed now keeps its name in step with its hops (renames and hop changes), and
+  the empty name field shows that name as a hint.
+- Chain editor: server tags wrap onto a second line instead of cutting off the port; slimmer hop buttons
+  leave more room for the name; Share and Delete sit on their own row so "Save" no longer wraps.
+
 ## 1.1.4
 
 - "Test all" first clears every remembered ping, so old results never sit next to new ones.

@@ -107,7 +107,7 @@
     <string name="chain_none">No chain selected. Build one from Amnezia and your own servers.</string>
     <string name="chain_cannot_run">cannot run</string>
     <string name="chain_name">Name</string>
-    <string name="chain_name_hint">Leave empty to name it after its hops.</string>
+    <string name="chain_name_hint">Leave empty to name it after its hops; the name then follows the hops and renames.</string>
     <string name="chain_editor_hint">Traffic goes from top to bottom: each hop is reached through the one above it. The last hop is the exit: sites see its address.</string>
     <string name="chain_add_hop">Add hop</string>
     <string name="chain_move_up">Move up</string>
