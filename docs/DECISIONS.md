@@ -336,3 +336,14 @@ where Xray applies the rules. So PAC never sends anything direct that Xray would
 Close to tray defaults to on for Windows and off for Linux, where not every desktop shows tray icons
 (StatusNotifierItem). Autostart registers the app with `--hidden`, which opens to the tray when closing to the
 tray is on.
+
+## D36 · Desktop releases and updates (2026-11-27)
+
+- Packages: Windows per-user NSIS installer (`%LOCALAPPDATA%\Programs`, no administrator rights, matching the
+  per-user system proxy and autostart) and a portable zip; Linux `.deb` and `.rpm` (nfpm, depending on GTK 4
+  and WebKitGTK 6) and a `.tar.gz`. No AppImage for now: it would have to bundle WebKitGTK, which is large and
+  fragile across distributions; the packages use the distribution's.
+- The update check only shows the newer `desktop-v…` release and opens its page; the app does not download or
+  run installers. The plan's "verify a signature before installing" needs a release-signing key, which does
+  not exist yet; until then the user installs from the release page (HTTPS, SHA256SUMS published).
+- Binaries are not code-signed (no certificate); SmartScreen warns on first run (docs/RELEASING.md).

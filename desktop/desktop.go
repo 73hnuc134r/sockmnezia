@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"net"
 	"os"
 	"runtime"
 	"strings"
+	"time"
+
+	"github.com/nuc134r/sockmnezia/core/engine"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"rsc.io/qr"
@@ -123,4 +127,16 @@ func (s *Desktop) OpenURL(url string) error {
 		return errors.New("only https links are opened")
 	}
 	return s.d.app.Browser.OpenURL(url)
+}
+
+// CheckUpdate looks for a newer desktop release (desktop-v… tags; Android releases are ignored). The app
+// only points to the release page: installers are not downloaded or run by the app (D36).
+func (s *Desktop) CheckUpdate(ctx context.Context, beta bool) (*engine.Update, error) {
+	cx, cancel := context.WithTimeout(ctx, 40*time.Second)
+	defer cancel()
+	u, err := s.d.e.CheckUpdate(cx, "", engine.TagDesktop, Version, beta)
+	if err != nil {
+		return nil, engine.Classify(err)
+	}
+	return u, nil
 }

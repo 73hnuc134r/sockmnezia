@@ -60,7 +60,7 @@ func TestDownloadUpdate(t *testing.T) {
 	if _, err := e.DownloadUpdate(context.Background(), []string{"arm64-v8a"}, dir); code(err) != CodeUpdateInvalid {
 		t.Fatal("download without a check", err)
 	}
-	if u, err := e.CheckUpdate(context.Background(), srv.URL+"/api", "0.8.0", false); err != nil || !u.Newer {
+	if u, err := e.CheckUpdate(context.Background(), srv.URL+"/api", TagAndroid, "0.8.0", false); err != nil || !u.Newer {
 		t.Fatal(u, err)
 	}
 	p, err := e.DownloadUpdate(context.Background(), []string{"arm64-v8a", "armeabi-v7a"}, dir)
@@ -86,13 +86,13 @@ func TestDownloadUpdate(t *testing.T) {
 	sums = srvSums
 	// Without SHA256SUMS nothing is downloaded.
 	withSums = false
-	e.CheckUpdate(context.Background(), srv.URL+"/api", "0.8.0", false)
+	e.CheckUpdate(context.Background(), srv.URL+"/api", TagAndroid, "0.8.0", false)
 	if _, err := e.DownloadUpdate(context.Background(), []string{"arm64-v8a"}, dir); code(err) != CodeUpdateInvalid {
 		t.Fatal("download without SHA256SUMS", err)
 	}
 	// Files from anywhere but this repository's releases are refused.
 	withSums = true
-	e.CheckUpdate(context.Background(), srv.URL+"/api", "0.8.0", false)
+	e.CheckUpdate(context.Background(), srv.URL+"/api", TagAndroid, "0.8.0", false)
 	releaseDownloads = "https://github.com/73hnuc134r/sockmnezia/releases/download/"
 	if _, err := e.DownloadUpdate(context.Background(), []string{"arm64-v8a"}, dir); code(err) != CodeUpdateInvalid {
 		t.Fatal("foreign download location accepted", err)

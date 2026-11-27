@@ -11,8 +11,14 @@ import (
 	"time"
 )
 
-// ReleasesAPI lists this app's releases.
-const ReleasesAPI = "https://api.github.com/repos/73hnuc134r/sockmnezia/releases?per_page=20"
+// ReleasesAPI lists this repository's releases (both apps' releases, newest first).
+const ReleasesAPI = "https://api.github.com/repos/73hnuc134r/sockmnezia/releases?per_page=100"
+
+// Release tag prefixes: the Android app and the desktop app are released separately (D33).
+const (
+	TagAndroid = "v"         // v1.2.3
+	TagDesktop = "desktop-v" // desktop-v0.1.0
+)
 
 // Update describes the newest release.
 type Update struct {
@@ -23,9 +29,10 @@ type Update struct {
 	Assets  []Asset `json:"-"`     // the release's files, for DownloadUpdate
 }
 
-// CheckUpdate compares current with the newest release (pre-releases only when beta). Runs through the proxy
-// when it is running; called only when the user enabled update checks.
-func (e *Engine) CheckUpdate(ctx context.Context, apiURL, current string, beta bool) (*Update, error) {
+// CheckUpdate compares current with the newest release whose tag has tagPrefix (TagAndroid, TagDesktop; the
+// other app's releases are ignored), pre-releases only when beta. Runs through the proxy when it is running;
+// called only when the user enabled update checks.
+func (e *Engine) CheckUpdate(ctx context.Context, apiURL, tagPrefix, current string, beta bool) (*Update, error) {
 	if apiURL == "" {
 		apiURL = ReleasesAPI
 	}
@@ -63,10 +70,10 @@ func (e *Engine) CheckUpdate(ctx context.Context, apiURL, current string, beta b
 	}
 	best := &Update{}
 	for _, r := range rels {
-		if r.Draft || (r.Prerelease && !beta) {
+		v, ok := strings.CutPrefix(r.Tag, tagPrefix)
+		if !ok || r.Draft || (r.Prerelease && !beta) || v == "" || v[0] < '0' || v[0] > '9' {
 			continue
 		}
-		v := strings.TrimPrefix(r.Tag, "v")
 		if best.Version == "" || CompareVersions(v, best.Version) > 0 {
 			best = &Update{Version: v, URL: r.URL, Notes: r.Body}
 			for _, a := range r.Assets {

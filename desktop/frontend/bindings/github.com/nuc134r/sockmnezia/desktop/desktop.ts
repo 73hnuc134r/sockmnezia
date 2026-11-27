@@ -13,6 +13,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as engine$0 from "../core/engine/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
@@ -20,6 +24,14 @@ import * as $models from "./models.js";
  */
 export function Autostart(): $CancellablePromise<boolean> {
     return $Call.ByID(3913618801);
+}
+
+/**
+ * CheckUpdate looks for a newer desktop release (desktop-v… tags; Android releases are ignored). The app
+ * only points to the release page: installers are not downloaded or run by the app (D36).
+ */
+export function CheckUpdate(beta: boolean): $CancellablePromise<engine$0.Update | null> {
+    return $Call.ByID(2773998733, beta);
 }
 
 export function Info(): $CancellablePromise<$models.Info> {

@@ -4,8 +4,14 @@
 |---|---|---|
 | `tests.yml` | push to `main`, pull requests | Go vet + tests (incl. loopback Xray tests), desktop CLI builds, AAR + Android lint/unit tests/debug APK |
 | `secrets.yml` | every push and pull request | gitleaks scan of the whole history |
-| `release.yml` | pushing a `v*` tag, or "Run workflow" with a version | signed APKs + SHA256SUMS on a GitHub release |
-| `release-notes.yml` | manual | re-syncs release notes from CHANGELOG.md |
+| `release.yml` | pushing a `v*` tag, or "Run workflow" with a version | Android: signed APKs + SHA256SUMS on a GitHub release |
+| `release-desktop.yml` | pushing a `desktop-v*` tag, or "Run workflow" with a version | desktop: Windows installer and zip, Linux .deb/.rpm/.tar.gz + SHA256SUMS |
+| `release-notes.yml` | manual | re-syncs release notes from CHANGELOG.md / desktop/CHANGELOG.md |
+
+The Android and desktop apps are released **separately** from this one repository (D33): Android tags `v1.2.3`
+with `CHANGELOG.md`, desktop tags `desktop-v0.1.0` with `desktop/CHANGELOG.md`. Each app's update check sees
+only its own tags. A desktop-only change needs no Android release and vice versa; a core change that matters
+to both is released in both. Desktop releases are not marked "latest".
 
 ## Versions
 
@@ -88,6 +94,28 @@ Gradle pass (`-PsplitAbi` with a universal APK).
 export ANDROID_HOME=~/Android/Sdk            # with an NDK installed (sdkmanager "ndk;29.0.14206865")
 bash tool/build-aar.sh                       # Go core -> android/app/libs/sockmnezia-core.aar
 cd android && ./gradlew assembleDebug        # or assembleRelease with android/key.properties
+```
+
+## Desktop releases
+
+Add a `## 0.1.0` section to `desktop/CHANGELOG.md`, then Actions → **Release desktop** → Run workflow → version
+`0.1.0` (or push the tag `desktop-v0.1.0`). It runs the core and desktop tests and the secret scan, builds:
+
+| File | For |
+|---|---|
+| `sockmnezia-desktop-<v>-windows-x64-setup.exe` | Windows 10/11: per-user install (no administrator rights), Start menu entry, uninstaller |
+| `sockmnezia-desktop-<v>-windows-x64.zip` | Windows, portable |
+| `sockmnezia-desktop-<v>-linux-x64.deb` / `.rpm` | Ubuntu 24.04+, Debian 13+, Fedora 39+ (GTK 4, WebKitGTK 6) |
+| `sockmnezia-desktop-<v>-linux-x64.tar.gz` | other distributions with GTK 4 and WebKitGTK 6 |
+
+and publishes them with `SHA256SUMS`. The binaries are not code-signed: Windows SmartScreen warns on the first
+run ("More info → Run anyway") until the app has a signing certificate.
+
+Local build (`tool/desktop-package.sh` needs Go, Node, `nsis`, `zip` and `libgtk-4-dev libwebkitgtk-6.0-dev`):
+
+```bash
+bash tool/desktop-build.sh                            # this machine -> desktop/build/bin/sockmnezia
+VERSION=0.1.0 bash tool/desktop-package.sh all        # release files -> desktop/dist
 ```
 
 **Don't push changes to `.github/workflows/` while a release runs.** The publish step creates the tag

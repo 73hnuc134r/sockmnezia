@@ -1,0 +1,122 @@
+name: Release desktop
+
+# The desktop app is released separately from Android (D33): tags desktop-v0.1.0 (desktop-v0.1.0-beta.1 →
+# pre-release). "Run workflow" with a version (e.g. 0.1.0) tags the commit and publishes the release; without
+# one it only builds the packages as a downloadable artifact. Desktop releases are never marked "latest", so
+# GitHub's latest release stays the Android one.
+on:
+  push:
+    tags: ['desktop-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Desktop version to tag and publish, e.g. 0.1.0 (empty = build only)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: |
+            core/go.sum
+            desktop/go.sum
+      - name: GTK 4 and WebKitGTK
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends libgtk-4-dev libwebkitgtk-6.0-dev
+      - name: Core tests
+        working-directory: core
+        run: go vet ./... && go test -race -count=1 ./...
+      - name: Desktop tests
+        working-directory: desktop
+        run: |
+          mkdir -p frontend/dist && touch frontend/dist/.gitkeep
+          go vet ./... && go test -race -count=1 ./...
+
+  secrets:
+    uses: ./.github/workflows/secrets.yml
+
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.version.outputs.name }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tags for tool/version.sh
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: |
+            core/go.sum
+            desktop/go.sum
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Build tools (GTK 4, WebKitGTK, NSIS)
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends libgtk-4-dev libwebkitgtk-6.0-dev nsis zip
+
+      - name: Version
+        id: version
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          if [[ -n "$REQUESTED" ]]; then
+            [[ "$REQUESTED" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::Not a version: $REQUESTED"; exit 1; }
+            git rev-parse -q --verify "refs/tags/desktop-v$REQUESTED" >/dev/null && { echo "::error::desktop-v$REQUESTED already exists"; exit 1; }
+            echo "name=$REQUESTED" >> "$GITHUB_OUTPUT"
+            echo "tag=desktop-v$REQUESTED" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=$(bash tool/version.sh desktop)" >> "$GITHUB_OUTPUT"
+            [[ "$GITHUB_REF_TYPE" == "tag" ]] && echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Packages
+        working-directory: desktop/frontend
+        run: |
+          npm ci --no-audit --no-fund
+          cd ../.. && VERSION="${{ steps.version.outputs.name }}" bash tool/desktop-package.sh all
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sockmnezia-desktop-${{ steps.version.outputs.name }}
+          path: desktop/dist/*
+
+  publish:
+    needs: [test, secrets, build]
+    if: needs.build.outputs.tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: sockmnezia-desktop-${{ needs.build.outputs.name }}
+          path: dist
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          bash tool/changelog.sh "${{ needs.build.outputs.name }}" desktop > notes.md
+          [[ -s notes.md ]] || echo "::warning::desktop/CHANGELOG.md has no section for ${{ needs.build.outputs.name }}"
+          (cd dist && sha256sum * > SHA256SUMS)
+          gh release create "$TAG" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "sockmnezia desktop ${{ needs.build.outputs.name }}" \
+            --notes-file notes.md \
+            --latest=false \
+            $([[ "$TAG" == *-*-* ]] && echo --prerelease)

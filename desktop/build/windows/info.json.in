@@ -1,0 +1,17 @@
+{
+	"fixed": {
+		"file_version": "@NUMERIC@",
+		"product_version": "@NUMERIC@"
+	},
+	"info": {
+		"0409": {
+			"FileVersion": "@VERSION@",
+			"ProductVersion": "@VERSION@",
+			"CompanyName": "sockmnezia",
+			"FileDescription": "sockmnezia",
+			"LegalCopyright": "MIT License",
+			"ProductName": "sockmnezia",
+			"Comments": "Local SOCKS5/HTTP proxy with chains of your own servers and Amnezia"
+		}
+	}
+}

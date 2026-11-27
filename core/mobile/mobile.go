@@ -432,7 +432,7 @@ func (c *Core) UpdateProgressJSON() string {
 func (c *Core) CheckUpdateJSON(current string, beta bool) (string, error) {
 	cx, cancel := ctx(40 * time.Second)
 	defer cancel()
-	u, err := c.e.CheckUpdate(cx, "", current, beta)
+	u, err := c.e.CheckUpdate(cx, "", engine.TagAndroid, current, beta)
 	if err != nil {
 		return "", wrap(err)
 	}

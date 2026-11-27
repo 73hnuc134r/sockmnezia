@@ -344,6 +344,24 @@ export interface TestResult {
 }
 
 /**
+ * Update describes the newest release.
+ */
+export interface Update {
+    "newer": boolean;
+    "version": string;
+
+    /**
+     * release page
+     */
+    "url": string;
+
+    /**
+     * release body (CHANGELOG section)
+     */
+    "notes": string;
+}
+
+/**
  * VPNOptions are the VPN-mode settings (owner's choices, docs/11 §3).
  */
 export interface VPNOptions {

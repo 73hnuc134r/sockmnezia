@@ -337,6 +337,7 @@ D = {
  "d_geo_auto_hint": ("While sockmnezia runs; through the proxy while it runs.", "Пока открыт sockmnezia; через прокси, если он запущен."),
  "d_your_rules": ("Your rules", "Ваши правила"),
  "d_routing_hint": ("Rules are checked from top to bottom; the first match decides. Proxy = through the chain, Direct = from this computer's own network, Block = drop. Drag rules to reorder.", "Правила проверяются сверху вниз, срабатывает первое подходящее. Прокси — через цепочку, Напрямую — из сети компьютера, Блок — отбросить. Перетаскивайте правила, чтобы изменить порядок."),
+ "d_check_updates_hint": ("Asks GitHub for new desktop releases when sockmnezia opens (through the proxy while it runs). Updates are installed from the release page.", "Проверять новые версии для компьютера на GitHub при запуске sockmnezia (через прокси, если он работает). Обновление устанавливается со страницы выпуска."),
  "d_follow": ("Follow", "Следить"),
  "d_close_hint": ("sockmnezia keeps running in the tray. Use Quit in the tray menu to exit.", "sockmnezia продолжает работать в трее. Чтобы выйти, выберите «Выход» в меню значка."),
 }

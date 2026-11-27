@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=sockmnezia
+Comment=Local SOCKS5/HTTP proxy with chains of your own servers and Amnezia
+Exec=sockmnezia
+Icon=sockmnezia
+Categories=Network;
+Terminal=false
+StartupWMClass=sockmnezia

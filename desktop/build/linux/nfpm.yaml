@@ -1,0 +1,28 @@
+# Linux packages (nfpm): tool/desktop-package.sh fills VERSION and ARCH and puts the binary in build/bin.
+name: sockmnezia
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+version_schema: semver
+section: net
+priority: optional
+maintainer: sockmnezia <noreply@example.com>
+description: Local SOCKS5/HTTP proxy with chains of your own servers and Amnezia
+homepage: https://github.com/73hnuc134r/sockmnezia
+license: MIT
+contents:
+  - src: build/bin/sockmnezia
+    dst: /usr/bin/sockmnezia
+  - src: build/appicon.png
+    dst: /usr/share/icons/hicolor/512x512/apps/sockmnezia.png
+  - src: build/linux/sockmnezia.desktop
+    dst: /usr/share/applications/sockmnezia.desktop
+# GTK 4 + WebKitGTK 6 (Ubuntu 24.04+, Debian 13+, Fedora 39+), D34.
+depends:
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
+overrides:
+  rpm:
+    depends:
+      - gtk4
+      - webkitgtk6.0

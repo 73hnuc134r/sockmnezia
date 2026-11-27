@@ -14,5 +14,6 @@ export type {
     Settings,
     Status,
     TestResult,
+    Update,
     VPNOptions
 } from "./models.js";

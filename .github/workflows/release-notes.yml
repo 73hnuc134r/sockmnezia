@@ -17,7 +17,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           for tag in $(gh release list --limit 100 --json tagName --jq '.[].tagName'); do
-            bash tool/changelog.sh "${tag#v}" > notes.md
+            if [[ "$tag" == desktop-v* ]]; then
+              bash tool/changelog.sh "${tag#desktop-v}" desktop > notes.md
+            else
+              bash tool/changelog.sh "${tag#v}" > notes.md
+            fi
             if [[ -s notes.md ]]; then
               gh release edit "$tag" --notes-file notes.md
               echo "Updated $tag"

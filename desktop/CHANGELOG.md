@@ -1,0 +1,25 @@
+# Desktop changelog
+
+Each `## <version>` section becomes the GitHub release notes for the `desktop-v<version>` tag
+(`tool/changelog.sh <version> desktop`). The Android app has its own changelog (`CHANGELOG.md`). Write for people
+using the app.
+
+## 0.1.0
+
+First desktop version (Windows 10/11, Linux with GTK 4), the same core as the Android app.
+
+- Connect: the active chain left to right (this PC → hops → internet), Start/Stop, exit address and ping on
+  click, live download/upload graphs, the local SOCKS5/HTTP address with copy.
+- System proxy: Off, System proxy or PAC. While the proxy runs, Windows / GNOME / KDE settings point at a
+  loopback port; the previous settings come back on stop, quit and after a crash. PAC sends what your rules
+  send directly around the proxy.
+- Servers & chains: grids with host groups, colour tags, ping and exit country; sort by name or ping, filter;
+  Test / Test all without switching; double-click to connect. Server editor with fields or link/JSON; chain
+  editor with drag-and-drop hops.
+- Import with a preview from Ctrl+V anywhere, the Add menu or pasted text; share servers and chains as links,
+  Xray JSON or a QR code.
+- Tray: start/stop, switch chain or server (recent first), system proxy mode, copy the SOCKS address.
+  Closing the window can keep sockmnezia in the tray; start with the system; start the proxy on launch.
+- Amnezia subscription setup (key, gateway key from the official APK, CAPTCHA, location with ping), routing
+  rules with presets and a route tester, geo files, log, update check.
+- Saved keys and passwords are encrypted for your account (Windows DPAPI, the Linux keyring).

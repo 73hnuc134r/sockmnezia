@@ -45,9 +45,12 @@ blocked · secrets encrypted with the Android Keystore and never logged. The rul
 [GitHub releases](https://github.com/73hnuc134r/sockmnezia/releases): `arm64-v8a` fits most phones, the
 universal APK fits all. The app checks for updates on GitHub. English and Russian.
 
+**Desktop (Windows, Linux):** the same core with a desktop UI: a servers-and-chains grid, the tray, and the
+system proxy (or PAC) set and restored for you. Releases are tagged `desktop-v…`
+([releases](https://github.com/73hnuc134r/sockmnezia/releases)); see [`desktop/README.md`](desktop/README.md).
+
 A command-line version with the same core (chains, servers, sharing, routing, geo files) is in
-`core/cmd/sockmnezia` for Linux, Windows, macOS and Termux. A desktop app (Windows and Linux first) is planned:
-[`docs/10-desktop-plan.md`](docs/10-desktop-plan.md).
+`core/cmd/sockmnezia` for Linux, Windows, macOS and Termux.
 
 ## Repository
 
@@ -55,6 +58,7 @@ A command-line version with the same core (chains, servers, sharing, routing, ge
 |---|---|
 | `core/` | Go core: gateway client, chain and config builder with the security policy, embedded Xray-core, share links, engine, CLI, gomobile API |
 | `android/` | Kotlin / Jetpack Compose app |
+| `desktop/` | Desktop app (Wails: Go + Svelte in the OS webview) |
 | `docs/01…08` | Research: key format, gateway protocol, Xray config shape, risks |
 | `docs/09…11` | Chains and sharing; desktop app plan; Android VPN mode |
 | `docs/PLAN.md`, `docs/DECISIONS.md` | Plan and decision log |

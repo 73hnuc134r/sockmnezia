@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Clipboard } from "@wailsio/runtime";
-  import { Core, type engine } from "../lib/api";
+  import { Core, Desktop, type engine } from "../lib/api";
   import { store } from "../lib/store.svelte";
   import { t, tp } from "../lib/i18n";
   import { bytes, duration, flag, rate } from "../lib/format";
@@ -78,6 +78,13 @@
 </script>
 
 <div class="page">
+  {#if store.update}
+    <div class="banner row nowrap">
+      <span class="grow">{t("update_available", store.update.version)}</span>
+      <button class="btn small" onclick={() => Desktop.OpenURL(store.update!.url)}>{t("open_release")}</button>
+      <button class="btn small flat" onclick={() => (store.update = null)}>{t("d_close")}</button>
+    </div>
+  {/if}
   <div class="card">
     <div class="row nowrap">
       <span class="cap grow ellipsis">{st?.hops?.length ? t("d_connected_through", title) : t("chain_none")}</span>
@@ -172,6 +179,7 @@
   .exitbox { display: grid; gap: 6px; justify-items: end; align-content: center; background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 6px 10px; cursor: pointer; text-align: right; }
   .exitbox:hover:not(:disabled) { border-color: var(--line); background: var(--hover); }
   .exitbox:disabled { cursor: default; }
+  .banner { background: var(--sel); border-radius: 10px; padding: 8px 12px; }
   .modebox { display: grid; gap: 6px; align-content: center; }
   .modeinfo { display: grid; gap: 4px; margin-top: -4px; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }

@@ -2,7 +2,7 @@
 // core says something changed), transient messages.
 import { Events } from "@wailsio/runtime";
 import { Core, Desktop, type engine, type desk } from "./api";
-import { lang } from "./i18n";
+import { lang, t } from "./i18n";
 import { errorText } from "./errors";
 
 const HISTORY = 60; // seconds of traffic kept for the sparklines
@@ -16,6 +16,8 @@ class Store {
   chains = $state<engine.ChainInfo[]>([]);
   info = $state<desk.Info | null>(null);
   desktop = $state<desk.DesktopState | null>(null);
+  /** A newer desktop release, when the check found one. */
+  update = $state<engine.Update | null>(null);
   /** Bytes per second, oldest first. */
   downRate = $state<number[]>([]);
   upRate = $state<number[]>([]);
@@ -36,6 +38,8 @@ class Store {
     void Desktop.SetLanguage(lang);
     this.info = await Desktop.Info();
     this.desktop = await Desktop.State();
+    const prefs = await Desktop.Prefs();
+    if (prefs.check_updates) void this.checkUpdate(prefs.beta_updates, false);
     this.#onStatus(await Core.Status());
     await this.reload();
   }
@@ -85,6 +89,17 @@ class Store {
       for (let it = queue.shift(); it; it = queue.shift()) await this.test(it.chain, it.server);
     };
     await Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker));
+  }
+
+  /** Asks GitHub for a newer desktop release; loud only when asked by the user. */
+  async checkUpdate(beta: boolean, loud: boolean) {
+    try {
+      const u = await Desktop.CheckUpdate(beta);
+      this.update = u?.newer ? u : null;
+      if (loud && !u?.newer) this.toast(t("up_to_date"));
+    } catch (e) {
+      if (loud) this.toast(errorText(e), true);
+    }
   }
 
   toast(text: string, error = false) {
