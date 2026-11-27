@@ -41,6 +41,50 @@ jobs:
             GOOS=${t%/*} GOARCH=${t#*/} go build -trimpath -ldflags "-s -w -checklinkname=0" -o /dev/null ./cmd/sockmnezia
           done
 
+  # Desktop app (docs/10): UI type check and build, bindings up to date, Linux and Windows binaries.
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Strings are generated from tool/strings.py
+        run: python3 tool/strings.py --check
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: |
+            core/go.sum
+            desktop/go.sum
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: GTK 4 and WebKitGTK (Linux build)
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends libgtk-4-dev libwebkitgtk-6.0-dev
+
+      - name: UI
+        working-directory: desktop/frontend
+        run: npm ci --no-audit --no-fund && npm run check && npm run build
+
+      - name: Bindings are up to date (tool/desktop-bindings.sh)
+        run: bash tool/desktop-bindings.sh && git diff --exit-code -- desktop/frontend/bindings && test -z "$(git status --porcelain desktop/frontend/bindings)"
+
+      - name: gofmt, vet, tests
+        working-directory: desktop
+        run: |
+          test -z "$(gofmt -l . | tee /dev/stderr)"
+          go vet ./...
+          go test -race -count=1 ./...
+
+      - name: Linux and Windows builds
+        run: |
+          bash tool/desktop-build.sh linux/amd64 /tmp/sockmnezia
+          bash tool/desktop-build.sh windows/amd64 /tmp/sockmnezia.exe
+
   # Builds the Go core as an AAR and the debug APK; runs lint and the JVM unit tests.
   android:
     runs-on: ubuntu-latest

@@ -5,8 +5,6 @@ package mobile
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"regexp"
 	"strings"
 	"time"
 
@@ -54,31 +52,8 @@ func Open(dir string, box Box) (*Core, error) {
 		return nil, wrap(err)
 	}
 	c := &Core{e: e}
-	runner.Redactor = c.redact
+	runner.Redactor = e.Redact
 	return c, nil
-}
-
-var (
-	uuidRe = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
-	ipv4Re = regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`)
-	ipv6Re = regexp.MustCompile(`\[?[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{0,4}){2,7}\]?`)
-)
-
-// redact masks secrets and addresses in log lines (logs can be shared by the user).
-func (c *Core) redact(s string) string {
-	for _, sec := range c.e.Secrets() {
-		if len(sec) >= 4 {
-			s = strings.ReplaceAll(s, sec, "***")
-		}
-	}
-	s = uuidRe.ReplaceAllString(s, "<uuid>")
-	s = ipv4Re.ReplaceAllStringFunc(s, func(ip string) string {
-		if strings.HasPrefix(ip, "127.") {
-			return ip
-		}
-		return "<ip>"
-	})
-	return ipv6Re.ReplaceAllString(s, "<ip6>")
 }
 
 func ctx(d time.Duration) (context.Context, context.CancelFunc) {
@@ -225,36 +200,8 @@ func (c *Core) PingCountryJSON(country string) (string, error) {
 
 // --- own servers ----------------------------------------------------------------------------------------
 
-type ownView struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Protocol string   `json:"protocol"`
-	Address  string   `json:"address"`
-	Port     int      `json:"port"`
-	Network  string   `json:"network"`
-	Security string   `json:"security"`
-	UsedIn   []string `json:"used_in"` // names of the chains that use this server
-	Active   bool     `json:"active"`  // selected on its own (not as part of a chain)
-	// HostCountry is the geoip country of Address when it is an IP address ("" for names: never resolved).
-	HostCountry string             `json:"host_country,omitempty"`
-	Last        *engine.TestResult `json:"last,omitempty"` // the last Test of this server
-}
-
-// OwnServersJSON lists saved servers (without credentials).
-func (c *Core) OwnServersJSON() string {
-	st := c.e.Snapshot()
-	out := []ownView{}
-	for _, o := range st.Own {
-		v := ownView{ID: o.ID, Name: o.Name, UsedIn: append([]string{}, c.e.ChainsUsing(o.ID)...), Active: o.ID == st.ActiveServer,
-			Last: c.e.LastTest("", o.ID)}
-		if o.Server != nil {
-			v.Protocol, v.Address, v.Port, v.Network, v.Security = o.Server.Protocol, o.Server.Address, o.Server.Port, o.Server.Network, o.Server.Security
-			v.HostCountry = geo.LookupCountry(c.e.GeoDir(), o.Server.Address) // IP literals only, no DNS
-		}
-		out = append(out, v)
-	}
-	return toJSON(out)
-}
+// OwnServersJSON lists saved servers (without credentials): engine.ServerView.
+func (c *Core) OwnServersJSON() string { return toJSON(c.e.ServerViews()) }
 
 // AddOwnServer imports a link or Xray outbound JSON; returns the new ID.
 func (c *Core) AddOwnServer(link, name string) (string, error) {
@@ -277,33 +224,16 @@ func EndpointToLink(endpointJSON string) (string, error) {
 	if err := json.Unmarshal([]byte(endpointJSON), &ep); err != nil {
 		return "", wrap(&engine.Error{Code: engine.CodeInvalidLink, Detail: err.Error()})
 	}
-	link, err := ep.Link()
-	if err == nil {
-		_, err = links.Parse(link)
-	}
-	if err != nil {
-		code := engine.CodeInvalidLink
-		if errors.Is(err, links.ErrUnsupported) {
-			code = engine.CodeUnsupportedLink
-		}
-		return "", wrap(&engine.Error{Code: code, Detail: err.Error()})
-	}
-	return link, nil
+	link, err := engine.EndpointToLink(ep)
+	return link, wrap(err)
 }
 
 // LinkToEndpointJSON parses a link or outbound JSON into editor fields (links.Endpoint JSON); error code
 // json_only when only the JSON can express it.
 func LinkToEndpointJSON(link string) (string, error) {
-	ep, err := links.EndpointFromLink(link)
+	ep, err := engine.LinkToEndpoint(link)
 	if err != nil {
-		code := engine.CodeInvalidLink
-		switch {
-		case errors.Is(err, links.ErrJSONOnly):
-			code = engine.CodeJSONOnly
-		case errors.Is(err, links.ErrUnsupported):
-			code = engine.CodeUnsupportedLink
-		}
-		return "", wrap(&engine.Error{Code: code, Detail: err.Error()})
+		return "", wrap(err)
 	}
 	return toJSON(ep), nil
 }

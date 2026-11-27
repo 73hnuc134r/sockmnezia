@@ -291,3 +291,28 @@ from the same release; the app installs it with a `PackageInstaller` session (no
 beyond HTTPS + checksums is Android's: an APK signed with another key does not install over the app. Installing
 kills the process; `MY_PACKAGE_REPLACED` starts the proxy/VPN again when it was running (independent of
 "start on boot"). Needs `REQUEST_INSTALL_PACKAGES`.
+
+## D33 · Android and desktop are released separately from one repository (2026-11-27)
+
+One repository (the apps share the Go core), but separate versions and tags: Android `v1.2.3` (as before),
+desktop `desktop-v0.1.0`, each with its own workflow and changelog (`CHANGELOG.md`, `desktop/CHANGELOG.md`).
+A desktop-only change does not make an Android release and vice versa; a core change that matters to both is
+released in both. Each app's update check only looks at its own tag prefix (Android builds up to 1.1.5 read
+`desktop-v…` as 0.0.0, so they never offer a desktop release). Desktop releases are published as not "latest",
+so GitHub's latest release stays the Android one.
+
+## D34 · Desktop app structure (2026-11-27)
+
+- `desktop/` is its own Go module (`replace` → `../core`), so Wails and its cgo (GTK/WebKit on Linux) never
+  reach the core module or the Android build.
+- Wails **v3** (3.1): it has the system tray, single instance, autostart and multiple windows built in (v2 has
+  no tray). Linux uses GTK 4 + WebKitGTK 6 (Wails 3's default; Ubuntu 24.04+, Debian 13+, Fedora 39+).
+  Windows uses WebView2 and needs no cgo, so both platforms build on a Linux runner.
+- The bound service (`desktop/core.go`) returns typed values (engine types) instead of the Android binding's
+  JSON strings; TypeScript types are generated (`tool/desktop-bindings.sh`, checked in CI). Errors are
+  `*engine.Error`, which reaches the UI as the call error's `cause`. Logic both front ends need moved into
+  `engine` (`ServerViews`, `Redact`, endpoint conversions) instead of being duplicated.
+- UI: Svelte 5 + TypeScript + Vite, no component library; strings from `tool/strings.py` (shared table plus
+  desktop-only `D` entries) as JSON.
+- State lives per user in `%LOCALAPPDATA%\sockmnezia\desktop` / `$XDG_DATA_HOME/sockmnezia`, separate from the
+  CLI's state directory, so both can be used without overwriting each other.

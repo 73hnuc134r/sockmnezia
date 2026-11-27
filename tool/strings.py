@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Source of the app's UI strings: writes android/app/src/main/res/values{,-ru}/strings.xml.
-Edit here, then run: python3 tool/strings.py   (CI checks the XML files are up to date: --check)."""
-import os, sys
+"""Source of the apps' UI strings: writes android/app/src/main/res/values{,-ru}/strings.xml and the desktop
+UI's desktop/frontend/src/lib/strings.json (S and P shared, D desktop only).
+Edit here, then run: python3 tool/strings.py   (CI checks the generated files are up to date: --check)."""
+import json, os, sys
 
 S = {  # key: (english, russian)
  "app_name": ("sockmnezia", "sockmnezia"),
@@ -278,6 +279,20 @@ P = {  # plurals: key -> ({quantity: en}, {quantity: ru})
                     "many": "%d раз за последние 7 дней. Исправьте пункты выше.", "other": "%d раза за последние 7 дней. Исправьте пункты выше."}),
 }
 
+# Desktop-only strings (desktop/frontend). Placeholders as above: %1$s, %d.
+D = {
+ "d_this_pc": ("This PC", "Этот компьютер"),
+ "d_nav_connect": ("Connect", "Подключение"), "d_nav_servers": ("Servers & chains", "Серверы и цепочки"),
+ "d_connected_through": ("Connected through · %1$s", "Подключение через · %1$s"),
+ "d_exit_click": ("Exit · click to test", "Выход · нажмите для проверки"),
+ "d_click_to_test": ("Click to test", "Нажмите для проверки"),
+ "d_download": ("Download", "Загрузка"), "d_upload": ("Upload", "Отдача"), "d_session": ("Session", "Сеанс"),
+ "d_running_for": ("running %1$s", "работает %1$s"), "d_running": ("Running", "Работает"),
+ "d_local_proxy": ("Local proxy · password required", "Локальный прокси · нужен пароль"),
+ "d_same_credentials": ("(same credentials)", "(те же логин и пароль)"),
+ "d_hops": ("%1$d hops", "звеньев: %1$d"),
+}
+
 def esc(s):
     s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     s = s.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", "\\n")
@@ -313,4 +328,25 @@ for lang, d in (("en", "values"), ("ru", "values-ru")):
     else:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         open(path, "w", encoding="utf-8").write(text)
+
+def render_json():
+    out = {}
+    for lang, i in (("en", 0), ("ru", 1)):
+        m = {k: v[i] for k, v in S.items()}
+        m.update({k: v[i] for k, v in D.items()})
+        m.update({k: v[i] for k, v in P.items()})  # plurals: {one, few, many, other}
+        out[lang] = m
+    return json.dumps(out, ensure_ascii=False, indent=0, sort_keys=True) + "\n"
+
+dups = set(D) & (set(S) | set(P))
+if dups:
+    print("desktop strings shadow shared ones:", sorted(dups)); sys.exit(1)
+path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "desktop", "frontend", "src", "lib", "strings.json")
+text = render_json()
+if check:
+    if not os.path.exists(path) or open(path, encoding="utf-8").read() != text:
+        print("out of date:", path); bad = True
+else:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w", encoding="utf-8").write(text)
 sys.exit(1 if bad else 0)
