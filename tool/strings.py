@@ -65,7 +65,7 @@ S = {  # key: (english, russian)
  "chain_none": ("No chain selected. Build one from Amnezia and your own servers.", "Цепочка не выбрана. Соберите её из Amnezia и своих серверов."),
  "chain_cannot_run": ("cannot run", "не запустится"),
  "chain_name": ("Name", "Название"), "chain_name_hint": ("Leave empty to name it after its hops; the name then follows the hops and renames.", "Оставьте пустым — назовём по звеньям; тогда имя будет меняться вместе с ними."),
- "chain_editor_hint": ("Traffic goes from top to bottom: each hop is reached through the one above it. The last hop is the exit: sites see its address.", "Трафик идёт сверху вниз: к каждому звену подключаемся через звено выше. Последнее звено — выход: сайты видят его адрес."),
+ "chain_editor_hint": ("Traffic goes from top to bottom: each hop is reached through the one above it. The last hop is the exit: sites see its address. Drag ≡ to reorder.", "Трафик идёт сверху вниз: к каждому звену подключаемся через звено выше. Последнее звено — выход: сайты видят его адрес. Перетащите ≡, чтобы изменить порядок."),
  "chain_add_hop": ("Add hop", "Добавить звено"), "chain_move_up": ("Move up", "Выше"), "chain_move_down": ("Move down", "Ниже"),
  "chain_remove_hop": ("Remove hop", "Убрать звено"), "chain_use": ("Use this chain", "Использовать"),
  "chain_saved": ("Chain saved", "Цепочка сохранена"), "chain_delete_q": ("Delete chain %1$s?", "Удалить цепочку %1$s?"),

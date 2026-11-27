@@ -1,6 +1,24 @@
 package io.nuc134r.sockmnezia.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,8 +32,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -117,6 +133,11 @@ fun ChainEditScreen(nav: NavController, id: String) {
             HopInfo(server = h.server, name = s?.name.orEmpty(), protocol = s?.protocol.orEmpty(), network = s?.network.orEmpty(), security = s?.security.orEmpty(), port = s?.port ?: 0, missing = s == null)
         }
 
+    var dragKey by remember { mutableStateOf<String?>(null) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val heights = remember { mutableStateMapOf<String, Int>() }
+    val haptic = LocalHapticFeedback.current
+
     fun move(i: Int, d: Int) {
         val l = hops.toMutableList()
         val j = i + d
@@ -138,27 +159,77 @@ fun ChainEditScreen(nav: NavController, id: String) {
         }
         Section {
             Hint(stringResource(R.string.chain_editor_hint))
+            // Drag the handle to reorder. Each hop is keyed, so the dragged row keeps its gesture while it moves
+            // through the list; it swaps with a neighbour once it has passed half of that neighbour's height.
+            val keys = hopKeys(hops)
+            val upLabel = stringResource(R.string.chain_move_up)
+            val downLabel = stringResource(R.string.chain_move_down)
             hops.forEachIndexed { i, h ->
-                val hi = info(h)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    HopDot(hi.isAmnezia, if (hi.isAmnezia) "A" else "${i + 1}")
-                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                        Text(hopName(hi), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        HopTags(hi, Modifier.padding(top = 2.dp), withPort = true)
-                    }
-                    // Compact (40 dp, still above the 48 dp touch target with their spacing): leaves the
-                    // name and tags room.
-                    IconButton(enabled = i > 0, onClick = { move(i, -1) }, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Default.KeyboardArrowUp, stringResource(R.string.chain_move_up))
-                    }
-                    IconButton(enabled = i < hops.lastIndex, onClick = { move(i, 1) }, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.chain_move_down))
-                    }
-                    IconButton(onClick = { hops = hops.filterIndexed { k, _ -> k != i } }, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Default.Close, stringResource(R.string.chain_remove_hop))
+                val k = keys[i]
+                key(k) {
+                    val hi = info(h)
+                    val index by rememberUpdatedState(i)
+                    val dragging = dragKey == k
+                    Column(
+                        Modifier
+                            .onSizeChanged { heights[k] = it.height }
+                            .zIndex(if (dragging) 1f else 0f)
+                            .graphicsLayer { if (dragging) translationY = dragOffset }
+                            .background(
+                                if (dragging) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent,
+                                RoundedCornerShape(8.dp),
+                            )
+                            // Screen readers can't drag: the moves are offered as actions instead.
+                            .semantics {
+                                customActions = listOfNotNull(
+                                    if (i > 0) CustomAccessibilityAction(upLabel) { move(index, -1); true } else null,
+                                    if (i < hops.lastIndex) CustomAccessibilityAction(downLabel) { move(index, 1); true } else null,
+                                )
+                            },
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Menu, null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .pointerInput(k) {
+                                        detectDragGestures(
+                                            onDragStart = {
+                                                dragKey = k
+                                                dragOffset = 0f
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            },
+                                            onDragEnd = { dragKey = null; dragOffset = 0f },
+                                            onDragCancel = { dragKey = null; dragOffset = 0f },
+                                        ) { change, amount ->
+                                            change.consume()
+                                            dragOffset += amount.y
+                                            val cur = index
+                                            val ks = hopKeys(hops)
+                                            if (dragOffset > 0 && cur < hops.lastIndex) {
+                                                val next = heights[ks[cur + 1]] ?: 0
+                                                if (dragOffset > next / 2f) { move(cur, 1); dragOffset -= next }
+                                            } else if (dragOffset < 0 && cur > 0) {
+                                                val prev = heights[ks[cur - 1]] ?: 0
+                                                if (-dragOffset > prev / 2f) { move(cur, -1); dragOffset += prev }
+                                            }
+                                        }
+                                    }
+                                    .padding(8.dp),
+                            )
+                            HopDot(hi.isAmnezia, if (hi.isAmnezia) "A" else "${i + 1}")
+                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                                Text(hopName(hi), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                HopTags(hi, Modifier.padding(top = 2.dp), withPort = true)
+                            }
+                            IconButton(onClick = { hops = hops.filterIndexed { j, _ -> j != i } }) {
+                                Icon(Icons.Default.Close, stringResource(R.string.chain_remove_hop))
+                            }
+                        }
+                        error?.takeIf { it.field == "hop${i + 1}" }?.let { Hint(errorText(ctx, it), warn = true, modifier = Modifier.padding(start = 76.dp)) }
                     }
                 }
-                error?.takeIf { it.field == "hop${i + 1}" }?.let { Hint(errorText(ctx, it), warn = true, modifier = Modifier.padding(start = 36.dp)) }
             }
             error?.takeIf { hops.isNotEmpty() && it.field?.startsWith("hop") != true }?.let { Hint(errorText(ctx, it), warn = true) }
             OutlinedButton(enabled = hops.size < MaxHops, onClick = {
@@ -223,6 +294,17 @@ fun ChainEditScreen(nav: NavController, id: String) {
             },
             dismissButton = { TextButton(onClick = { deleting = false }) { Text(stringResource(R.string.cancel)) } },
         )
+    }
+}
+
+/** Stable keys for the hop rows; a server used twice gets "#2". */
+private fun hopKeys(hops: List<ChainHop>): List<String> {
+    val seen = HashMap<String, Int>()
+    return hops.map { h ->
+        val e = encodeHop(h)
+        val n = (seen[e] ?: 0) + 1
+        seen[e] = n
+        if (n == 1) e else "$e#$n"
     }
 }
 

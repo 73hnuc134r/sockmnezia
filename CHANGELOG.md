@@ -7,8 +7,10 @@ shown in the app's update card. Write for people using the app, not for develope
 
 - Chain editor: a chain left unnamed now keeps its name in step with its hops (renames and hop changes), and
   the empty name field shows that name as a hint.
-- Chain editor: server tags wrap onto a second line instead of cutting off the port; slimmer hop buttons
-  leave more room for the name; Share and Delete sit on their own row so "Save" no longer wraps.
+- Chain editor: reorder hops by dragging the ≡ handle (up/down buttons are gone; screen readers get move
+  actions instead).
+- Chain editor: server tags wrap onto a second line instead of cutting off the port; Share and Delete sit on
+  their own row so "Save" no longer wraps.
 
 ## 1.1.4
 
