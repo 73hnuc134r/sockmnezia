@@ -82,7 +82,6 @@ func main() {
 	}
 	runner.Redactor = e.Redact
 	d := &desk{e: e, prefs: loadPrefs(dir), sys: newSysProxy(e, dir), lang: "en"}
-	d.sys.RecoverCrash()
 	d.core = &Core{e: e, changed: d.changed, selected: d.prefs.Used, start: d.startProxy, setMode: d.setMode}
 
 	d.app = application.New(application.Options{
@@ -99,7 +98,6 @@ func main() {
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) { d.show() },
 		},
 		OnShutdown: func() {
-			d.sys.Restore()
 			e.Stop()
 		},
 	})

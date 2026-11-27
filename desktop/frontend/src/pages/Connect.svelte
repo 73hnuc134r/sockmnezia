@@ -143,8 +143,9 @@
         {:else if sys?.error}
           <div class="hint warn">{t("d_mode_failed", sys.error)}</div>
         {:else if sys?.applied}
-          <div class="hint okc">✓ {t("d_mode_applied")} · <span class="mono">127.0.0.1:{st.system_proxy_port}</span> · {t("d_mode_restore")}</div>
+          <div class="hint okc">✓ {t("d_mode_applied")} · <span class="mono">127.0.0.1:{st.system_proxy_port}</span></div>
         {/if}
+        <div class="hint">{t("d_mode_restore")}</div>
       {/if}
     </div>
   {/if}

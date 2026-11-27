@@ -15,9 +15,11 @@ import (
 	"github.com/nuc134r/sockmnezia/core/routing"
 )
 
-// System proxy (docs/10 §3, D30): while the proxy runs with a system-proxy mode, the OS proxy settings point
-// at the loopback HTTP port (or at a PAC script served on loopback). The settings found before are saved to
-// a file first and put back on stop, on quit, and on the next start after a crash.
+// System proxy (docs/10 §3, D30, D38): while the System proxy or PAC mode is chosen, the OS proxy settings point
+// at the loopback HTTP port (or at a PAC script served on loopback) and STAY there, also while the proxy is
+// stopped, after quitting and after a crash: then connections fail instead of leaving around the proxy. The
+// settings found before the first change are saved to a file and put back only when the user chooses Off
+// (or TUN).
 
 // bypass lists what the OS should never send to the proxy: local names and private addresses, which the
 // proxy blocks (locked rules), so the local network keeps working.
@@ -40,7 +42,7 @@ type osProxy interface {
 type sysProxy struct {
 	e    *engine.Engine
 	os   osProxy
-	file string // saved settings while applied (survives a crash)
+	file string // the settings from before the first change, while applied (survives quitting and crashes)
 
 	mu      sync.Mutex
 	applied string // "", engine.SystemProxyOn, engine.SystemProxyPAC
@@ -51,26 +53,24 @@ type sysProxy struct {
 }
 
 func newSysProxy(e *engine.Engine, dir string) *sysProxy {
-	return &sysProxy{e: e, os: platformProxy(), file: filepath.Join(dir, "sysproxy-restore.json")}
+	s := &sysProxy{e: e, os: platformProxy(), file: filepath.Join(dir, "sysproxy-restore.json")}
+	s.adopt()
+	return s
 }
 
-// RecoverCrash puts back settings saved by a run that did not get to restore them.
-func (s *sysProxy) RecoverCrash() {
-	b, err := os.ReadFile(s.file)
-	if err != nil {
-		return
+// adopt takes over settings applied by an earlier run (quit or crash): the first Sync then re-applies them,
+// or restores the saved ones when the mode is Off now.
+func (s *sysProxy) adopt() {
+	if _, err := os.Stat(s.file); err == nil {
+		s.applied = "unknown"
 	}
-	var saved map[string]string
-	if json.Unmarshal(b, &saved) == nil && s.os != nil {
-		s.os.Restore(saved)
-	}
-	os.Remove(s.file)
 }
 
-// Sync applies or removes the OS settings to match the status; called on every status tick.
+// Sync makes the OS settings follow the chosen mode; called on start and on every status tick. Whether the
+// proxy runs does not matter (fail-closed, D38).
 func (s *sysProxy) Sync(st engine.Status) {
 	key := ""
-	if st.Running && !st.VPN && st.SystemProxy != "" {
+	if st.SystemProxy != "" && !st.VPN {
 		key = fmt.Sprintf("%s:%d", st.SystemProxy, st.SystemProxyPort)
 	}
 	s.mu.Lock()
@@ -103,7 +103,7 @@ func (s *sysProxy) applyLocked(want string, port int) error {
 	if want == "" {
 		return s.restoreLocked()
 	}
-	if s.applied == "" {
+	if _, err := os.Stat(s.file); s.applied == "" && os.IsNotExist(err) {
 		saved, err := s.os.Save()
 		if err != nil {
 			return err
@@ -123,8 +123,7 @@ func (s *sysProxy) applyLocked(want string, port int) error {
 		}
 	}
 	if err != nil {
-		s.restoreLocked()
-		return err
+		return err // keep whatever is set: never fall back to no proxy on our own
 	}
 	s.applied, s.port = want, port
 	return nil
@@ -145,15 +144,6 @@ func (s *sysProxy) restoreLocked() error {
 		return err
 	}
 	return os.Remove(s.file)
-}
-
-// Restore removes the OS settings (on quit).
-func (s *sysProxy) Restore() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.os != nil {
-		s.restoreLocked()
-	}
 }
 
 // servePACLocked starts the loopback PAC server once; the script is built from the current rules on every

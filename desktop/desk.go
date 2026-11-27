@@ -106,7 +106,6 @@ func (d *desk) setMode(mode string) error {
 	}
 	if d.e.Status().Running && wasTUN != (mode == "tun") {
 		d.e.Stop()
-		d.sys.Sync(d.e.Status())
 		err := d.startProxy(context.Background())
 		d.changed()
 		return err
@@ -117,7 +116,6 @@ func (d *desk) setMode(mode string) error {
 
 func (d *desk) stop() {
 	d.e.Stop()
-	d.sys.Sync(d.e.Status()) // restore the OS settings right away, not on the next tick
 	d.changed()
 }
 
