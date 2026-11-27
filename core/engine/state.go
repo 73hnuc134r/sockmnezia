@@ -77,7 +77,17 @@ type Options struct {
 	// Mode is ModeProxy or ModeVPN: what the app starts (the core runs whatever it is started with).
 	Mode string     `json:"mode,omitempty"`
 	VPN  VPNOptions `json:"vpn"`
+	// SystemProxy is the desktop's OS proxy mode: "" (off), SystemProxyOn or SystemProxyPAC. While on, the
+	// running proxy has an extra unauthenticated HTTP port on 127.0.0.1 (SystemProxyPort, D30).
+	SystemProxy     string `json:"system_proxy,omitempty"`
+	SystemProxyPort int    `json:"system_proxy_port,omitempty"`
 }
+
+// Desktop system-proxy modes (Options.SystemProxy).
+const (
+	SystemProxyOn  = "system"
+	SystemProxyPAC = "pac"
+)
 
 // Amnezia is the subscription side of the state.
 type Amnezia struct {

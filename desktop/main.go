@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"time"
 
 	"github.com/nuc134r/sockmnezia/core/engine"
 	"github.com/nuc134r/sockmnezia/core/runner"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
@@ -20,6 +22,21 @@ var assets embed.FS
 
 // Version is set at build time (-ldflags "-X main.Version=…").
 var Version = "0.0.0-dev"
+
+// Events sent to the UI.
+const (
+	EventStatus   = "status"   // engine.Status, every second
+	EventDesktop  = "desktop"  // DesktopState, every second
+	EventChanged  = "changed"  // saved state changed: reload lists
+	EventNavigate = "navigate" // page to show (from the tray)
+)
+
+func init() {
+	application.RegisterEvent[engine.Status](EventStatus)
+	application.RegisterEvent[DesktopState](EventDesktop)
+	application.RegisterEvent[application.Void](EventChanged)
+	application.RegisterEvent[string](EventNavigate)
+}
 
 // dataDir holds the state, geo files and logs: per user, private.
 func dataDir() string {
@@ -41,57 +58,66 @@ func main() {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		log.Fatal(err)
 	}
-	e, err := engine.Open(dir, engine.PlainBox{}, runtime.GOOS)
+	e, err := engine.Open(dir, secretBox(dir), runtime.GOOS)
 	if err != nil {
 		log.Fatal(err)
 	}
 	runner.Redactor = e.Redact
+	d := &desk{e: e, prefs: loadPrefs(dir), sys: newSysProxy(e, dir), lang: "en"}
+	d.sys.RecoverCrash()
+	d.core = &Core{e: e, changed: d.changed, selected: d.prefs.Used}
 
-	core := &Core{e: e}
-	app := application.New(application.Options{
+	d.app = application.New(application.Options{
 		Name:        "sockmnezia",
 		Description: "Local SOCKS5/HTTP proxy with chains of your own servers and Amnezia",
+		Icon:        appIcon,
 		Services: []application.Service{
-			application.NewService(core),
-			application.NewService(&Desktop{version: Version}),
+			application.NewService(d.core),
+			application.NewService(&Desktop{d: d}),
 		},
 		Assets: application.AssetOptions{Handler: application.AssetFileServerFS(assets)},
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID:               "io.nuc134r.sockmnezia.desktop",
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) { d.show() },
+		},
 		OnShutdown: func() {
+			d.sys.Restore()
 			e.Stop()
 		},
 	})
-	core.changed = func() { app.Event.Emit(EventChanged) }
 
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	hidden := slices.Contains(os.Args[1:], "--hidden")
+	d.win = d.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             "main",
 		Title:            "sockmnezia",
 		Width:            1100,
 		Height:           720,
 		MinWidth:         860,
 		MinHeight:        560,
+		Hidden:           hidden && d.prefs.Get().CloseToTray,
 		BackgroundColour: application.NewRGB(18, 19, 24),
 		URL:              "/",
 	})
+	d.win.RegisterHook(events.Common.WindowClosing, d.onClose)
+	d.tray = newTray(d)
 
-	// The UI follows the status through events instead of polling the core.
-	go func() {
-		for range time.Tick(time.Second) {
-			app.Event.Emit(EventStatus, e.Status())
-		}
-	}()
+	if d.prefs.Get().ConnectOnLaunch {
+		go d.start()
+	}
+	go d.loop()
 
-	if err := app.Run(); err != nil {
+	if err := d.app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-// Events sent to the UI.
-const (
-	EventStatus  = "status"  // engine.Status, every second
-	EventChanged = "changed" // saved state changed: reload lists
-)
-
-func init() {
-	application.RegisterEvent[engine.Status](EventStatus)
-	application.RegisterEvent[application.Void](EventChanged)
+// loop pushes the status to the UI and keeps the system proxy and the tray in step with it.
+func (d *desk) loop() {
+	for range time.Tick(time.Second) {
+		st := d.e.Status()
+		d.sys.Sync(st)
+		d.app.Event.Emit(EventStatus, st)
+		d.app.Event.Emit(EventDesktop, d.state())
+		d.tray.Refresh(st)
+	}
 }

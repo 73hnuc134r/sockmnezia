@@ -2,6 +2,7 @@
 // core says something changed), transient messages.
 import { Events } from "@wailsio/runtime";
 import { Core, Desktop, type engine, type desk } from "./api";
+import { lang } from "./i18n";
 import { errorText } from "./errors";
 
 const HISTORY = 60; // seconds of traffic kept for the sparklines
@@ -14,6 +15,7 @@ class Store {
   servers = $state<engine.ServerView[]>([]);
   chains = $state<engine.ChainInfo[]>([]);
   info = $state<desk.Info | null>(null);
+  desktop = $state<desk.DesktopState | null>(null);
   /** Bytes per second, oldest first. */
   downRate = $state<number[]>([]);
   upRate = $state<number[]>([]);
@@ -29,7 +31,11 @@ class Store {
   async init() {
     Events.On("status", (ev) => this.#onStatus(ev.data as engine.Status));
     Events.On("changed", () => void this.reload());
+    Events.On("desktop", (ev) => (this.desktop = ev.data as desk.DesktopState));
+    Events.On("navigate", (ev) => (this.page = ev.data as Page));
+    void Desktop.SetLanguage(lang);
     this.info = await Desktop.Info();
+    this.desktop = await Desktop.State();
     this.#onStatus(await Core.Status());
     await this.reload();
   }

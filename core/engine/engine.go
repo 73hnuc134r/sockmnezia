@@ -428,6 +428,15 @@ func (e *Engine) SetSettings(s Settings) error {
 	if err := validateVPN(&s.Options.VPN); err != nil {
 		return err
 	}
+	switch s.Options.SystemProxy {
+	case "":
+	case SystemProxyOn, SystemProxyPAC:
+		if p := s.Options.SystemProxyPort; p == 0 || p == s.Inbound.SocksPort || p == s.Inbound.HTTPPort {
+			s.Options.SystemProxyPort = RandomPort("127.0.0.1", s.Inbound.SocksPort, s.Inbound.HTTPPort)
+		}
+	default:
+		return &Error{Code: CodeInvalidSettings, Field: "system_proxy", Detail: "unknown mode"}
+	}
 	s.Options.LegacyFetchViaOwn = false
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -450,6 +459,9 @@ func (e *Engine) buildLocked() ([]byte, error) {
 		return nil, err
 	}
 	spec := xrayconf.Spec{Hops: hops, Inbound: e.st.Inbound, Routing: e.st.Routing, LogLevel: e.st.Options.LogLevel, VPN: e.vpnSpecLocked()}
+	if e.st.Options.SystemProxy != "" {
+		spec.SystemProxyPort = e.st.Options.SystemProxyPort
+	}
 	if site, ip := e.st.Routing.UsesGeo(); site || ip {
 		gs := geo.Stat(e.GeoDir())
 		if (site && !gs.HasGeoSite) || (ip && !gs.HasGeoIP) {
@@ -596,6 +608,9 @@ type Status struct {
 	Chain          []string  `json:"chain,omitempty"`           // server addresses, phone first, exit last
 	ChainCountries []string  `json:"chain_countries,omitempty"` // geoip.dat country code per Chain entry, "" if unknown
 	LastError      *Error    `json:"last_error,omitempty"`
+	// SystemProxy and SystemProxyPort: the desktop OS proxy mode (Options.SystemProxy) and its port.
+	SystemProxy     string `json:"system_proxy,omitempty"`
+	SystemProxyPort int    `json:"system_proxy_port,omitempty"`
 }
 
 // Status returns the current status.
@@ -608,6 +623,7 @@ func (e *Engine) Status() Status {
 		AuthFailures: runner.AuthFailures(), HasKey: e.st.Amnezia.Key != "",
 		HasGatewayKey: len(e.st.Amnezia.GatewayPEMs) > 0, HasConfig: e.st.Amnezia.Last != nil,
 		FetchedAt: e.st.Amnezia.FetchedAt, LastError: e.lastErr, DeviceID: e.st.Amnezia.Identity.InstallationUUID,
+		SystemProxy: e.st.Options.SystemProxy, SystemProxyPort: e.st.Options.SystemProxyPort,
 	}
 	if e.inst != nil {
 		s.StartedAt = e.startedAt

@@ -14,6 +14,16 @@ import "../github.com/wailsapp/wails/v3/internal/eventcreate.js";
 export const Changed = "changed";
 
 /**
+ * Name of the custom event "desktop".
+ */
+export const Desktop = "desktop";
+
+/**
+ * Name of the custom event "navigate".
+ */
+export const Navigate = "navigate";
+
+/**
  * Name of the custom event "status".
  */
 export const Status = "status";

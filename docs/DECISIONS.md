@@ -316,3 +316,23 @@ so GitHub's latest release stays the Android one.
   desktop-only `D` entries) as JSON.
 - State lives per user in `%LOCALAPPDATA%\sockmnezia\desktop` / `$XDG_DATA_HOME/sockmnezia`, separate from the
   CLI's state directory, so both can be used without overwriting each other.
+
+## D35 · Desktop system proxy and PAC (2026-11-27)
+
+Implements D30. `Options.SystemProxy` ("", "system", "pac") and a stable random `SystemProxyPort`;
+`xrayconf.Spec.SystemProxyPort` adds the `sysproxy-in` HTTP inbound on 127.0.0.1 without authentication, and
+`Audit` allows exactly that one exception (HTTP, IPv4 loopback, at most one, never the only inbound). The
+desktop app applies the OS settings only while the proxy runs: Windows WinINET (registry + refresh), Linux
+GSettings and/or KDE kioslaverc; other desktops get manual steps. The previous settings are saved to
+`sysproxy-restore.json` before the first change and put back on stop, quit and the next start after a crash.
+Local names and private ranges are in the bypass list, since the proxy blocks them (locked rules).
+
+PAC (`routing.PAC`): served on a separate loopback port, generated from the rules on every request. It follows
+the rules in order but stops at the first rule a PAC script cannot evaluate exactly (geosite/geoip/regexp,
+ports, networks, protocols, IP rules with a resolving domain strategy); everything undecided goes to the proxy,
+where Xray applies the rules. So PAC never sends anything direct that Xray would not, and never calls
+`dnsResolve` (no lookups through the local resolver).
+
+Close to tray defaults to on for Windows and off for Linux, where not every desktop shows tray icons
+(StatusNotifierItem). Autostart registers the app with `--hidden`, which opens to the tray when closing to the
+tray is on.

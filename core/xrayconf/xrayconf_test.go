@@ -430,3 +430,63 @@ func TestAuditVPN(t *testing.T) {
 		}
 	}
 }
+
+// The system-proxy inbound (D30) is the only one without authentication: HTTP, 127.0.0.1 only, even when
+// the proxy itself is shared on a LAN address, and only one of it.
+func TestSystemProxyInbound(t *testing.T) {
+	lan := goodIn
+	lan.Listen = "192.168.1.10"
+	b, err := Build(Spec{Hops: []Hop{OwnHop(own(t, vpsLink))}, Inbound: lan, SystemProxyPort: 18080})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	json.Unmarshal(b, &m)
+	var sys map[string]any
+	for _, x := range m["inbounds"].([]any) {
+		if in := x.(map[string]any); in["tag"] == TagSysProxyIn {
+			sys = in
+		}
+	}
+	if sys == nil || sys["listen"] != "127.0.0.1" || sys["protocol"] != "http" || sys["port"] != float64(18080) {
+		t.Fatalf("system-proxy inbound: %v", sys)
+	}
+	for _, p := range []int{80, 70000, goodIn.SocksPort} {
+		if _, err := Build(Spec{Hops: []Hop{OwnHop(own(t, vpsLink))}, Inbound: goodIn, SystemProxyPort: p}); err == nil {
+			t.Errorf("port %d accepted", p)
+		}
+	}
+	none, _ := Build(Spec{Hops: []Hop{OwnHop(own(t, vpsLink))}, Inbound: goodIn})
+	if strings.Contains(string(none), TagSysProxyIn) {
+		t.Error("system-proxy inbound without SystemProxyPort")
+	}
+
+	mutate := func(f func([]any) []any) []byte {
+		var m map[string]any
+		json.Unmarshal(b, &m)
+		m["inbounds"] = f(m["inbounds"].([]any))
+		out, _ := json.Marshal(m)
+		return out
+	}
+	sysIdx := func(ins []any) map[string]any {
+		for _, x := range ins {
+			if in := x.(map[string]any); in["tag"] == TagSysProxyIn {
+				return in
+			}
+		}
+		return nil
+	}
+	cases := map[string][]byte{
+		"on a LAN address":   mutate(func(ins []any) []any { sysIdx(ins)["listen"] = "192.0.2.10"; return ins }),
+		"on all addresses":   mutate(func(ins []any) []any { sysIdx(ins)["listen"] = "0.0.0.0"; return ins }),
+		"as SOCKS":           mutate(func(ins []any) []any { sysIdx(ins)["protocol"] = "socks"; return ins }),
+		"twice":              mutate(func(ins []any) []any { return append(ins, sysIdx(ins)) }),
+		"only it":            mutate(func(ins []any) []any { return []any{sysIdx(ins)} }),
+		"other tag, no auth": mutate(func(ins []any) []any { s := sysIdx(ins); s["tag"] = "x-in"; return ins }),
+	}
+	for name, cfg := range cases {
+		if Audit(cfg) == nil {
+			t.Errorf("audit passed: %s", name)
+		}
+	}
+}

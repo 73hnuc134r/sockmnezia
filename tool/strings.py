@@ -305,6 +305,18 @@ D = {
  "d_server_link_hint": ("The link contains your server's password; it is stored only on this computer.", "Ссылка содержит пароль вашего сервера; она хранится только на этом компьютере."),
  "d_chain_editor_hint": ("Traffic goes from top to bottom: each hop is reached through the one above it. The last hop is the exit: sites see its address. Drag hops to reorder.", "Трафик идёт сверху вниз: к каждому звену подключаемся через звено выше. Последнее звено — выход: сайты видят его адрес. Перетаскивайте звенья, чтобы изменить порядок."),
  "d_drag": ("Drag to reorder", "Перетащите, чтобы изменить порядок"),
+ "d_more": ("More…", "Ещё…"), "d_mode": ("System proxy", "Системный прокси"),
+ "d_mode_off": ("Off", "Выключен"), "d_mode_system": ("System proxy", "Системный прокси"), "d_mode_pac": ("PAC", "PAC"),
+ "d_mode_off_hint": ("Apps use the proxy only if you set them up (SOCKS or HTTP, with the password).", "Приложения используют прокси, только если вы их настроили (SOCKS или HTTP, с паролем)."),
+ "d_mode_system_hint": ("Windows / GNOME / KDE send web traffic to an HTTP port on 127.0.0.1. The system can't store a password, so this port has none while the mode is on.", "Windows / GNOME / KDE отправляют веб-трафик на HTTP-порт на 127.0.0.1. Система не умеет хранить пароль, поэтому у этого порта его нет, пока режим включён."),
+ "d_mode_pac_hint": ("Like the system proxy, but addresses your rules send directly skip the proxy entirely.", "Как системный прокси, но адреса, которые ваши правила отправляют напрямую, вообще минуют прокси."),
+ "d_mode_warning": ("Any program on this computer, from any user account, can use the system-proxy port while it is on.", "Пока режим включён, порт системного прокси может использовать любая программа на этом компьютере, от любой учётной записи."),
+ "d_mode_restore": ("Your previous system settings are saved and restored on stop, quit, and after a crash.", "Прежние системные настройки сохраняются и возвращаются при остановке, выходе и после сбоя."),
+ "d_mode_applied": ("Set in the system", "Задан в системе"),
+ "d_mode_unsupported": ("This desktop's proxy settings can't be changed by the app. Set an HTTP proxy 127.0.0.1:%1$d by hand, or for terminal programs: export http_proxy=http://127.0.0.1:%1$d https_proxy=http://127.0.0.1:%1$d", "Приложение не умеет менять настройки прокси этого рабочего стола. Укажите HTTP-прокси 127.0.0.1:%1$d вручную, а для терминальных программ: export http_proxy=http://127.0.0.1:%1$d https_proxy=http://127.0.0.1:%1$d"),
+ "d_mode_failed": ("Could not change the system proxy settings: %1$s", "Не удалось изменить системные настройки прокси: %1$s"),
+ "d_copy_socks": ("Copy SOCKS address", "Скопировать адрес SOCKS"), "d_open": ("Open sockmnezia", "Открыть sockmnezia"), "d_quit": ("Quit", "Выход"),
+ "d_close_hint": ("sockmnezia keeps running in the tray. Use Quit in the tray menu to exit.", "sockmnezia продолжает работать в трее. Чтобы выйти, выберите «Выход» в меню значка."),
 }
 
 def esc(s):

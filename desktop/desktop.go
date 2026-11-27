@@ -5,12 +5,14 @@ import (
 	"errors"
 	"runtime"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"rsc.io/qr"
 )
 
-// Desktop holds what only the desktop app has (version, platform features).
+// Desktop is the bound service for what only the desktop app has: build info, prefs, autostart, the OS
+// proxy state, QR codes.
 type Desktop struct {
-	version string
+	d *desk
 }
 
 // Info describes the app build.
@@ -18,15 +20,55 @@ type Info struct {
 	Version string `json:"version"`
 	OS      string `json:"os"`
 	Xray    string `json:"xray"`
+	DataDir string `json:"data_dir"`
 }
 
-func (d *Desktop) Info() Info { return Info{Version: d.version, OS: runtime.GOOS, Xray: xrayVersion()} }
+func (s *Desktop) Info() Info {
+	return Info{Version: Version, OS: runtime.GOOS, Xray: xrayVersion(), DataDir: dataDir()}
+}
+
+// SetLanguage tells the Go side the UI language ("en", "ru") for the tray and native dialogs.
+func (s *Desktop) SetLanguage(lang string) {
+	s.d.mu.Lock()
+	s.d.lang = lang
+	s.d.mu.Unlock()
+	go s.d.tray.Refresh(s.d.e.Status())
+}
+
+func (s *Desktop) Prefs() Prefs { return s.d.prefs.Get() }
+
+// SetPrefs saves the editable prefs (the recent list and hints are kept).
+func (s *Desktop) SetPrefs(p Prefs) error {
+	return s.d.prefs.Update(func(cur *Prefs) {
+		cur.CloseToTray, cur.ConnectOnLaunch, cur.CheckUpdates, cur.BetaUpdates = p.CloseToTray, p.ConnectOnLaunch, p.CheckUpdates, p.BetaUpdates
+	})
+}
+
+// Autostart reports whether the app starts on login.
+func (s *Desktop) Autostart() (bool, error) {
+	st, err := s.d.app.Autostart.Status()
+	return st.Enabled, err
+}
+
+// SetAutostart registers or removes the login item; on login the app opens to the tray when it closes to
+// the tray, otherwise with its window.
+func (s *Desktop) SetAutostart(on bool) error {
+	if !on {
+		return s.d.app.Autostart.Disable()
+	}
+	return s.d.app.Autostart.EnableWithOptions(application.AutostartOptions{Arguments: []string{"--hidden"}})
+}
+
+func (s *Desktop) State() DesktopState { return s.d.state() }
+
+// Quit stops the proxy, restores the OS proxy settings and exits.
+func (s *Desktop) Quit() { s.d.quit() }
 
 // errTooLong: the text does not fit in a QR code.
 var errTooLong = errors.New("too long for a QR code")
 
 // QR returns text as a QR code PNG (data: URL). Generated locally: shared links hold credentials.
-func (d *Desktop) QR(text string) (string, error) {
+func (s *Desktop) QR(text string) (string, error) {
 	if len(text) > 2000 {
 		return "", errTooLong
 	}

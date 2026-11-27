@@ -181,6 +181,13 @@ export function SetSettings(s: engine$0.Settings): $CancellablePromise<void> {
     return $Call.ByID(534892074, s);
 }
 
+/**
+ * SetSystemProxy sets the OS proxy mode: "" (off), "system" or "pac" (applied while the proxy runs).
+ */
+export function SetSystemProxy(mode: string): $CancellablePromise<void> {
+    return $Call.ByID(987712274, mode);
+}
+
 export function Settings(): $CancellablePromise<engine$0.Settings> {
     return $Call.ByID(1155394940);
 }

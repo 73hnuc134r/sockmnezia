@@ -58,8 +58,11 @@ const (
 	TagBlock         = "block"
 	TagSocksIn       = "socks-in"
 	TagHTTPIn        = "http-in"
-	TagTunIn         = "tun-in"  // VPN mode (D31)
-	TagDNSOut        = "dns-out" // VPN mode with DNS-over-HTTPS: answers DNS queries arriving on the tun
+	TagTunIn         = "tun-in" // VPN mode (D31)
+	// TagSysProxyIn is the desktop system-proxy port (D30): HTTP on 127.0.0.1 without authentication, because
+	// OS proxy settings cannot carry credentials. Only while the system-proxy mode is on; never on a LAN address.
+	TagSysProxyIn = "sysproxy-in"
+	TagDNSOut     = "dns-out" // VPN mode with DNS-over-HTTPS: answers DNS queries arriving on the tun
 )
 
 // Inbound is the local proxy.
@@ -89,6 +92,9 @@ type Spec struct {
 	Inbound  Inbound
 	Routing  routing.Settings
 	LogLevel string // debug, info, warning (default), error, none
+	// SystemProxyPort, when set, adds the unauthenticated loopback HTTP inbound for the OS proxy settings
+	// (desktop, D30). It always listens on 127.0.0.1, whatever Inbound.Listen is.
+	SystemProxyPort int
 }
 
 // Error is a config problem the UI can show next to the field.
@@ -479,6 +485,19 @@ func Build(s Spec) ([]byte, error) {
 			"sniffing": sniffing,
 		})
 	}
+	if p := s.SystemProxyPort; p != 0 {
+		if p < 1024 || p > 65535 {
+			return nil, ferr("system_proxy_port", "port %d out of range (1024-65535)", p)
+		}
+		if p == in.SocksPort || p == in.HTTPPort {
+			return nil, ferr("system_proxy_port", "port %d is already used by the proxy", p)
+		}
+		inbounds = append(inbounds, map[string]any{
+			"tag": TagSysProxyIn, "listen": "127.0.0.1", "port": p, "protocol": "http",
+			"settings": map[string]any{"allowTransparent": false},
+			"sniffing": sniffing,
+		})
+	}
 	cfg := map[string]any{
 		"log":      map[string]any{"loglevel": lvl, "access": "none", "dnsLog": false},
 		"inbounds": inbounds,
@@ -593,13 +612,28 @@ func Audit(cfg []byte) error {
 			return fmt.Errorf("top-level %q is not allowed", k)
 		}
 	}
-	if n := len(ins) - tuns; n < 1 || n > 2 {
+	sysProxies := 0
+	for _, x := range ins {
+		in, _ := x.(map[string]any)
+		if in["tag"] != TagSysProxyIn {
+			continue
+		}
+		// The one inbound allowed without authentication: HTTP, IPv4 loopback only (D30).
+		sysProxies++
+		if in["protocol"] != "http" || in["listen"] != "127.0.0.1" {
+			return errors.New("system-proxy inbound must be HTTP on 127.0.0.1")
+		}
+	}
+	if sysProxies > 1 {
+		return errors.New("more than one system-proxy inbound")
+	}
+	if n := len(ins) - tuns - sysProxies; n < 1 || n > 2 {
 		return errors.New("expected 1-2 proxy inbounds")
 	}
 	for _, x := range ins {
 		in, _ := x.(map[string]any)
 		p, _ := in["protocol"].(string)
-		if p == "tun" {
+		if p == "tun" || in["tag"] == TagSysProxyIn {
 			continue
 		}
 		if p != "socks" && p != "http" {

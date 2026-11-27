@@ -193,6 +193,13 @@ export interface Options {
      */
     "mode"?: string;
     "vpn": VPNOptions;
+
+    /**
+     * SystemProxy is the desktop's OS proxy mode: "" (off), SystemProxyOn or SystemProxyPAC. While on, the
+     * running proxy has an extra unauthenticated HTTP port on 127.0.0.1 (SystemProxyPort, D30).
+     */
+    "system_proxy"?: string;
+    "system_proxy_port"?: number;
 }
 
 /**
@@ -313,6 +320,12 @@ export interface Status {
      */
     "chain_countries"?: string[] | null;
     "last_error"?: Error | null;
+
+    /**
+     * SystemProxy and SystemProxyPort: the desktop OS proxy mode (Options.SystemProxy) and its port.
+     */
+    "system_proxy"?: string;
+    "system_proxy_port"?: number;
 }
 
 /**

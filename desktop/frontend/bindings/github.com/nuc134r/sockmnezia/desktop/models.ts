@@ -9,6 +9,13 @@ import * as links$0 from "../core/links/models.js";
 import * as routing$0 from "../core/routing/models.js";
 
 /**
+ * DesktopState is pushed to the UI with the status.
+ */
+export interface DesktopState {
+    "sys_proxy": SysProxyState;
+}
+
+/**
  * GeoStatus says which geo files exist and when they were updated (unix seconds, 0 = never).
  */
 export interface GeoStatus {
@@ -24,6 +31,7 @@ export interface Info {
     "version": string;
     "os": string;
     "xray": string;
+    "data_dir": string;
 }
 
 /**
@@ -44,6 +52,34 @@ export interface OfficialImport {
 }
 
 /**
+ * Prefs are the desktop app's own settings (the proxy's settings live in the engine state).
+ */
+export interface Prefs {
+    /**
+     * CloseToTray: closing the window keeps the app (and the proxy) running in the tray. Default on Windows;
+     * off on Linux, where not every desktop shows tray icons.
+     */
+    "close_to_tray": boolean;
+
+    /**
+     * ConnectOnLaunch starts the proxy when the app opens (with autostart: on login).
+     */
+    "connect_on_launch": boolean;
+    "check_updates": boolean;
+    "beta_updates": boolean;
+
+    /**
+     * Recent chains and servers, most recent first ("c:<id>" / "s:<id>"), for the tray menu.
+     */
+    "recent": string[] | null;
+
+    /**
+     * CloseHintShown: the "still running in the tray" notice was shown once.
+     */
+    "close_hint_shown": boolean;
+}
+
+/**
  * Preset is a built-in rule set.
  */
 export interface Preset {
@@ -57,6 +93,26 @@ export interface Preset {
 export interface ServerEdit {
     "link": string;
     "endpoint": links$0.Endpoint | null;
+}
+
+/**
+ * SysProxyState is what the UI shows about the OS settings.
+ */
+export interface SysProxyState {
+    /**
+     * the mode currently set in the OS, "" = none
+     */
+    "applied": string;
+
+    /**
+     * why it could not be set
+     */
+    "error": string;
+
+    /**
+     * Supported is false when the app cannot change this desktop's settings (the UI shows manual steps).
+     */
+    "supported": boolean;
 }
 
 /**

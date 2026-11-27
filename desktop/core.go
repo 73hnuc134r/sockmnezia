@@ -19,6 +19,8 @@ type Core struct {
 	e *engine.Engine
 	// changed is called after anything that changes saved state, so the tray and other windows refresh.
 	changed func()
+	// selected records the chain ("c:<id>") or server ("s:<id>") just selected (recent list in the tray).
+	selected func(key string)
 }
 
 func wrap(err error) error {
@@ -135,8 +137,28 @@ func (c *Core) SaveChain(ch engine.Chain) (string, error) {
 func (c *Core) ValidateChain(ch engine.Chain) *engine.Error { return c.e.ValidateChain(ch) }
 
 func (c *Core) DeleteChain(id string) error     { return c.touch(c.e.DeleteChain(id)) }
-func (c *Core) SetActiveChain(id string) error  { return c.touch(c.e.SetActiveChain(id)) }
-func (c *Core) SetActiveServer(id string) error { return c.touch(c.e.SetActiveServer(id)) }
+func (c *Core) SetActiveChain(id string) error {
+	err := c.e.SetActiveChain(id)
+	if err == nil && c.selected != nil {
+		c.selected("c:" + id)
+	}
+	return c.touch(err)
+}
+
+func (c *Core) SetActiveServer(id string) error {
+	err := c.e.SetActiveServer(id)
+	if err == nil && c.selected != nil {
+		c.selected("s:" + id)
+	}
+	return c.touch(err)
+}
+
+// SetSystemProxy sets the OS proxy mode: "" (off), "system" or "pac" (applied while the proxy runs).
+func (c *Core) SetSystemProxy(mode string) error {
+	s := c.e.GetSettings()
+	s.Options.SystemProxy = mode
+	return c.touch(c.e.SetSettings(s))
+}
 
 func (c *Core) ShareServer(id string) (string, error) {
 	s, err := c.e.ShareServer(id)

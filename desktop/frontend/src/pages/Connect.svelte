@@ -66,6 +66,11 @@
   const lastDown = $derived(store.downRate.at(-1) ?? 0);
   const lastUp = $derived(store.upRate.at(-1) ?? 0);
 
+  const sys = $derived(store.desktop?.sys_proxy);
+  async function setMode(v: string) {
+    await store.act(() => Core.SetSystemProxy(v));
+  }
+
   async function copy(text: string) {
     await Clipboard.SetText(text);
     store.toast(t("share_copied"));
@@ -90,6 +95,14 @@
     <button class="btn p big" disabled={busy || (!st?.running && !!st?.chain_error)} onclick={toggle}>
       <Icon name={st?.running ? "stop" : "play"} size={14} />{st?.running ? t("action_stop") : t("action_start")}
     </button>
+    <div class="modebox">
+      <span class="cap">{t("d_mode")}</span>
+      <div class="seg">
+        {#each [["", "d_mode_off"], ["system", "d_mode_system"], ["pac", "d_mode_pac"]] as [v, label]}
+          <button class:on={(st?.system_proxy ?? "") === v} onclick={() => setMode(v)}>{t(label)}</button>
+        {/each}
+      </div>
+    </div>
     <span class="grow"></span>
     <button class="exitbox" disabled={!st?.running || probe.state === "testing"} onclick={test} title={t("d_click_to_test")}>
       <span class="cap">{t("d_exit_click")}</span>
@@ -106,6 +119,22 @@
       {/if}
     </button>
   </div>
+
+  {#if st}
+    <div class="modeinfo">
+      <div class="hint">{t(st.system_proxy === "pac" ? "d_mode_pac_hint" : st.system_proxy === "system" ? "d_mode_system_hint" : "d_mode_off_hint")}</div>
+      {#if st.system_proxy}
+        <div class="hint warn">{t("d_mode_warning")}</div>
+        {#if sys && !sys.supported}
+          <div class="hint warn selectable">{t("d_mode_unsupported", st.system_proxy_port)}</div>
+        {:else if sys?.error}
+          <div class="hint warn">{t("d_mode_failed", sys.error)}</div>
+        {:else if sys?.applied}
+          <div class="hint okc">✓ {t("d_mode_applied")} · <span class="mono">127.0.0.1:{st.system_proxy_port}</span> · {t("d_mode_restore")}</div>
+        {/if}
+      {/if}
+    </div>
+  {/if}
 
   <div class="stats">
     <div class="card stat"><span class="cap">{t("d_download")}</span><b>{st?.running ? rate(lastDown) : "—"}</b><Spark values={store.downRate} color="var(--accent)" /></div>
@@ -143,6 +172,8 @@
   .exitbox { display: grid; gap: 6px; justify-items: end; align-content: center; background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 6px 10px; cursor: pointer; text-align: right; }
   .exitbox:hover:not(:disabled) { border-color: var(--line); background: var(--hover); }
   .exitbox:disabled { cursor: default; }
+  .modebox { display: grid; gap: 6px; align-content: center; }
+  .modeinfo { display: grid; gap: 4px; margin-top: -4px; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .stat { gap: 6px; padding: 12px 14px; }
   .stat b { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }

@@ -9,11 +9,14 @@ export {
 };
 
 export type {
+    DesktopState,
     GeoStatus,
     Info,
     LogLine,
     OfficialImport,
+    Prefs,
     Preset,
     ServerEdit,
+    SysProxyState,
     TestResult
 } from "./models.js";
