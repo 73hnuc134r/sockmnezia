@@ -6,6 +6,7 @@ require (
 	github.com/nuc134r/sockmnezia/core v0.0.0
 	github.com/wailsapp/wails/v3 v3.1.0
 	github.com/xtls/xray-core v1.260327.1-0.20261109052709-676eaf66f8f0
+	rsc.io/qr v0.2.0
 )
 
 require (

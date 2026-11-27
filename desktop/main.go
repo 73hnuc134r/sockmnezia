@@ -95,17 +95,3 @@ func init() {
 	application.RegisterEvent[engine.Status](EventStatus)
 	application.RegisterEvent[application.Void](EventChanged)
 }
-
-// Desktop holds what only the desktop app has (version, platform features).
-type Desktop struct {
-	version string
-}
-
-// Info describes the app build.
-type Info struct {
-	Version string `json:"version"`
-	OS      string `json:"os"`
-	Xray    string `json:"xray"`
-}
-
-func (d *Desktop) Info() Info { return Info{Version: d.version, OS: runtime.GOOS, Xray: xrayVersion()} }

@@ -291,6 +291,20 @@ D = {
  "d_local_proxy": ("Local proxy · password required", "Локальный прокси · нужен пароль"),
  "d_same_credentials": ("(same credentials)", "(те же логин и пароль)"),
  "d_hops": ("%1$d hops", "звеньев: %1$d"),
+ "d_tab_servers": ("Servers (%1$d)", "Серверы (%1$d)"), "d_tab_chains": ("Chains (%1$d)", "Цепочки (%1$d)"),
+ "d_new_server": ("New server", "Новый сервер"), "d_clipboard_empty": ("The clipboard is empty.", "Буфер обмена пуст."),
+ "d_sort": ("Sort", "Сортировка"), "d_filter": ("Filter…  Ctrl+V imports", "Фильтр…  Ctrl+V — импорт"),
+ "d_paste_hint": ("Press Ctrl+V to import a copied link or shared chain.", "Нажмите Ctrl+V, чтобы импортировать скопированную ссылку или цепочку."),
+ "d_col_type": ("Type", "Тип"), "d_col_exit": ("Exit", "Выход"), "d_col_hops": ("Hops", "Звенья"),
+ "d_selected": ("Selected", "Выбрано"),
+ "d_servers_panel_hint": ("Select a server to edit it; double-click to connect through it.", "Выберите сервер, чтобы изменить его; двойной щелчок — подключиться через него."),
+ "d_chains_panel_hint": ("Select a chain to edit it; double-click to connect through it.", "Выберите цепочку, чтобы изменить её; двойной щелчок — подключиться через неё."),
+ "d_used_in": ("Used in: %1$s", "Используется в: %1$s"),
+ "d_connect_through_this": ("Connect through this server", "Подключаться через этот сервер"),
+ "d_delete_text": ("This cannot be undone.", "Это нельзя отменить."), "d_next": ("Next", "Далее"), "d_close": ("Close", "Закрыть"),
+ "d_server_link_hint": ("The link contains your server's password; it is stored only on this computer.", "Ссылка содержит пароль вашего сервера; она хранится только на этом компьютере."),
+ "d_chain_editor_hint": ("Traffic goes from top to bottom: each hop is reached through the one above it. The last hop is the exit: sites see its address. Drag hops to reorder.", "Трафик идёт сверху вниз: к каждому звену подключаемся через звено выше. Последнее звено — выход: сайты видят его адрес. Перетаскивайте звенья, чтобы изменить порядок."),
+ "d_drag": ("Drag to reorder", "Перетащите, чтобы изменить порядок"),
 }
 
 def esc(s):

@@ -18,6 +18,10 @@ class Store {
   downRate = $state<number[]>([]);
   upRate = $state<number[]>([]);
   toasts = $state<{ id: number; text: string; error: boolean }[]>([]);
+  /** Shared text waiting for the import preview (Ctrl+V anywhere, "Import" actions). */
+  importText = $state<string | null>(null);
+  /** Saved chains/servers being tested ("c:<id>" / "s:<id>"). */
+  testing = $state<Record<string, boolean>>({});
 
   #last: { up: number; down: number; t: number } | null = null;
   #toastId = 0;
@@ -49,6 +53,32 @@ class Store {
       this.upRate = [];
     }
     this.#last = s.running ? { up: s.up, down: s.down, t: now } : null;
+  }
+
+  /** Tests a saved chain or server without selecting it; the result is kept by the core (item.last). */
+  async test(chainID: string, serverID: string) {
+    const k = chainID ? `c:${chainID}` : `s:${serverID}`;
+    this.testing = { ...this.testing, [k]: true };
+    try {
+      await Core.TestSaved(chainID, serverID);
+    } catch {
+      // kept as a failed result by the core
+    } finally {
+      const { [k]: _, ...rest } = this.testing;
+      this.testing = rest;
+      await this.reload();
+    }
+  }
+
+  /** Clears every remembered result, then tests all items, a few at a time. */
+  async testAll(items: { chain: string; server: string }[]) {
+    await Core.ClearTests();
+    await this.reload();
+    const queue = [...items];
+    const worker = async () => {
+      for (let it = queue.shift(); it; it = queue.shift()) await this.test(it.chain, it.server);
+    };
+    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker));
   }
 
   toast(text: string, error = false) {

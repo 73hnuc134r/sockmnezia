@@ -5,6 +5,8 @@
   import { rate } from "./lib/format";
   import Icon from "./components/Icon.svelte";
   import Toasts from "./components/Toasts.svelte";
+  import ImportDialog from "./components/ImportDialog.svelte";
+  import { Clipboard } from "@wailsio/runtime";
   import Connect from "./pages/Connect.svelte";
   import Servers from "./pages/Servers.svelte";
   import Routing from "./pages/Routing.svelte";
@@ -20,10 +22,21 @@
     { id: "logs", icon: "log", label: "title_logs" },
     { id: "settings", icon: "gear", label: "title_settings" },
   ];
+  // Ctrl+V anywhere outside a text field imports links, a shared chain or an outbound JSON (with a preview).
+  async function onkey(e: KeyboardEvent) {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "v" || store.importText !== null) return;
+    const el = e.target as HTMLElement | null;
+    if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
+    e.preventDefault();
+    const text = (await Clipboard.Text()) ?? "";
+    if (text.trim()) store.importText = text;
+  }
+
   const st = $derived(store.status);
   const current = $derived(st?.server_id ? (store.servers.find((s) => s.id === st.server_id)?.name ?? "") : (st?.chain_name ?? ""));
 </script>
 
+<svelte:window onkeydown={onkey} />
 <div class="shell">
   <nav class="side">
     <div class="brand">sockmnezia</div>
@@ -49,6 +62,9 @@
   </footer>
 </div>
 <Toasts />
+{#if store.importText !== null}
+  <ImportDialog text={store.importText} onclose={() => (store.importText = null)} ondone={() => (store.page = "servers")} />
+{/if}
 
 <style>
   .shell { display: grid; grid-template-columns: 196px 1fr; grid-template-rows: 1fr auto; height: 100vh; }

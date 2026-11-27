@@ -17,3 +17,10 @@ import * as $models from "./models.js";
 export function Info(): $CancellablePromise<$models.Info> {
     return $Call.ByID(3396203160);
 }
+
+/**
+ * QR returns text as a QR code PNG (data: URL). Generated locally: shared links hold credentials.
+ */
+export function QR(text: string): $CancellablePromise<string> {
+    return $Call.ByID(2897822727, text);
+}
