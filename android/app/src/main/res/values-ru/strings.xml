@@ -27,6 +27,12 @@
     <string name="mode_vpn_hint">Весь телефон (или приложения, выбранные в Настройки → VPN) идёт через цепочку. Порты прокси продолжают работать.</string>
     <string name="notif_vpn">VPN · %1$s</string>
     <string name="vpn_settings">Режим VPN</string>
+    <string name="vpn_protection">Защита, когда VPN не работает</string>
+    <string name="vpn_protection_unknown">Запустите режим VPN, чтобы увидеть его настройки в Android. Без «Блокировать соединения без VPN» приложения выходят в интернет напрямую, когда этот VPN не работает (остановлен, приложение закрыто системой, после перезагрузки).</string>
+    <string name="vpn_protection_ok">Постоянная VPN и «Блокировать соединения без VPN» включены: ничего не идёт мимо VPN, даже когда он не работает.</string>
+    <string name="vpn_protection_no_block">Постоянная VPN включена, но «Блокировать соединения без VPN» выключено: пока VPN не работает (например, перезапускается), приложения выходят в интернет напрямую.</string>
+    <string name="vpn_protection_off">Постоянная VPN выключена: когда этот VPN не работает, приложения выходят в интернет напрямую. Включите для sockmnezia «Постоянная VPN» и «Блокировать соединения без VPN» в настройках VPN Android.</string>
+    <string name="vpn_protection_open">Открыть настройки VPN Android</string>
     <string name="vpn_dns">DNS</string>
     <string name="vpn_dns_public">Публичные DNS через цепочку</string>
     <string name="vpn_dns_doh">DNS-over-HTTPS в приложении</string>

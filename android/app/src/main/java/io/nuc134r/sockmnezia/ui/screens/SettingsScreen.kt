@@ -225,6 +225,7 @@ private fun VpnSettings(nav: NavController, s: Settings) {
         if (status.vpn) ProxyService.restart(ctx)
     }
     Section(stringResource(R.string.vpn_settings)) {
+        VpnProtectionCheck()
         Text(stringResource(R.string.vpn_dns))
         Choice(
             listOf("public" to stringResource(R.string.vpn_dns_public), "doh" to stringResource(R.string.vpn_dns_doh), "custom" to stringResource(R.string.vpn_dns_custom)),
@@ -257,4 +258,23 @@ private fun VpnSettings(nav: NavController, s: Settings) {
             }
         }
     }
+}
+
+/** Android's own VPN protection (Always-on, "Block connections without VPN"): without the second, apps reach
+ * the internet directly whenever this VPN isn't up (stopped, killed, after a reboot). Shown, never changed:
+ * only the user can set it, in Android's VPN settings. */
+@Composable
+private fun VpnProtectionCheck() {
+    val ctx = LocalContext.current
+    val p by ProxyService.vpnProtection.collectAsState()
+    Text(stringResource(R.string.vpn_protection))
+    when {
+        p == null -> Hint(stringResource(R.string.vpn_protection_unknown))
+        p!!.lockdown -> Hint(stringResource(R.string.vpn_protection_ok))
+        p!!.alwaysOn -> Hint(stringResource(R.string.vpn_protection_no_block), warn = true)
+        else -> Hint(stringResource(R.string.vpn_protection_off), warn = true)
+    }
+    OutlinedButton(onClick = {
+        runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_VPN_SETTINGS)) }
+    }) { Text(stringResource(R.string.vpn_protection_open)) }
 }

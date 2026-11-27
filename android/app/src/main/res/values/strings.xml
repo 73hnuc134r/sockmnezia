@@ -28,6 +28,12 @@
     <string name="mode_vpn_hint">The whole phone (or the apps chosen in Settings → VPN) goes through the chain. The proxy ports keep working.</string>
     <string name="notif_vpn">VPN · %1$s</string>
     <string name="vpn_settings">VPN mode</string>
+    <string name="vpn_protection">Protection when the VPN is down</string>
+    <string name="vpn_protection_unknown">Start VPN mode to see Android\'s settings for it. Without \"Block connections without VPN\", apps go to the internet directly whenever this VPN isn\'t up (stopped, the app killed, after a reboot).</string>
+    <string name="vpn_protection_ok">Always-on VPN and \"Block connections without VPN\" are on: nothing goes around the VPN, also while it is down.</string>
+    <string name="vpn_protection_no_block">Always-on VPN is on, but \"Block connections without VPN\" is off: apps go to the internet directly while the VPN is down (e.g. while it restarts).</string>
+    <string name="vpn_protection_off">Always-on VPN is off: apps go to the internet directly whenever this VPN isn\'t up. Turn on Always-on VPN and \"Block connections without VPN\" for sockmnezia in Android\'s VPN settings.</string>
+    <string name="vpn_protection_open">Open Android VPN settings</string>
     <string name="vpn_dns">DNS</string>
     <string name="vpn_dns_public">Public resolvers through the chain</string>
     <string name="vpn_dns_doh">DNS-over-HTTPS in the app</string>

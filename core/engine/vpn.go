@@ -213,7 +213,7 @@ func (e *Engine) vpnSpecLocked() *xrayconf.VPN {
 	return v
 }
 
-// Instance is a running proxy: Xray in this process (runner.Instance), or the desktop TUN helper's.
+// Instance is a running proxy: Xray in this process (runner.Instance), or the desktop TUN service's.
 type Instance interface {
 	Close() error
 	Traffic() (up, down int64)

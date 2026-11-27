@@ -110,6 +110,10 @@ class ProxyService : VpnService() {
         }
         val pfd = b.establish() ?: throw CoreException(CoreError(code = "vpn_permission"))
         tun = pfd
+        // What Android does when this VPN isn't up (shown in Settings → VPN mode; readable from Android 10).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            vpnProtection.value = VpnProtection(alwaysOn = isAlwaysOn, lockdown = isLockdownEnabled)
+        }
         Core.startVpn(pfd.fd)
     }
 
@@ -218,6 +222,10 @@ class ProxyService : VpnService() {
         @Volatile var isRunning = false
             private set
 
+        /** Always-on VPN and "Block connections without VPN" as Android reported them when the VPN last
+         * started; null until then (or before Android 10, which can't tell). */
+        val vpnProtection = kotlinx.coroutines.flow.MutableStateFlow<VpnProtection?>(null)
+
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, ProxyService::class.java))
         }
@@ -234,3 +242,7 @@ class ProxyService : VpnService() {
         }
     }
 }
+
+/** Android's protection for this VPN: started by the system (Always-on), and traffic blocked while it is down
+ * ("Block connections without VPN"). The app can only show it; the user sets it in Android's VPN settings. */
+data class VpnProtection(val alwaysOn: Boolean, val lockdown: Boolean)

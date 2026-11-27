@@ -476,6 +476,12 @@
 "vpn_lan_bypass_hint": "Printers, TVs and other devices on your network work as usual.",
 "vpn_lan_tunnel": "Through the VPN (blocked)",
 "vpn_lan_tunnel_hint": "Local addresses enter the VPN and are blocked there: no local network while the VPN runs.",
+"vpn_protection": "Protection when the VPN is down",
+"vpn_protection_no_block": "Always-on VPN is on, but \"Block connections without VPN\" is off: apps go to the internet directly while the VPN is down (e.g. while it restarts).",
+"vpn_protection_off": "Always-on VPN is off: apps go to the internet directly whenever this VPN isn't up. Turn on Always-on VPN and \"Block connections without VPN\" for sockmnezia in Android's VPN settings.",
+"vpn_protection_ok": "Always-on VPN and \"Block connections without VPN\" are on: nothing goes around the VPN, also while it is down.",
+"vpn_protection_open": "Open Android VPN settings",
+"vpn_protection_unknown": "Start VPN mode to see Android's settings for it. Without \"Block connections without VPN\", apps go to the internet directly whenever this VPN isn't up (stopped, the app killed, after a reboot).",
 "vpn_settings": "VPN mode"
 },
 "ru": {
@@ -965,6 +971,12 @@
 "vpn_lan_bypass_hint": "Принтеры, телевизоры и другие устройства в вашей сети работают как обычно.",
 "vpn_lan_tunnel": "Через VPN (заблокирована)",
 "vpn_lan_tunnel_hint": "Локальные адреса попадают в VPN и там блокируются: пока работает VPN, локальной сети нет.",
+"vpn_protection": "Защита, когда VPN не работает",
+"vpn_protection_no_block": "Постоянная VPN включена, но «Блокировать соединения без VPN» выключено: пока VPN не работает (например, перезапускается), приложения выходят в интернет напрямую.",
+"vpn_protection_off": "Постоянная VPN выключена: когда этот VPN не работает, приложения выходят в интернет напрямую. Включите для sockmnezia «Постоянная VPN» и «Блокировать соединения без VPN» в настройках VPN Android.",
+"vpn_protection_ok": "Постоянная VPN и «Блокировать соединения без VPN» включены: ничего не идёт мимо VPN, даже когда он не работает.",
+"vpn_protection_open": "Открыть настройки VPN Android",
+"vpn_protection_unknown": "Запустите режим VPN, чтобы увидеть его настройки в Android. Без «Блокировать соединения без VPN» приложения выходят в интернет напрямую, когда этот VPN не работает (остановлен, приложение закрыто системой, после перезагрузки).",
 "vpn_settings": "Режим VPN"
 }
 }

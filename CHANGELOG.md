@@ -3,6 +3,11 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.1.6
+
+- Settings → VPN mode shows whether Android protects you while the VPN is down (Always-on VPN and "Block
+  connections without VPN") and opens Android's VPN settings to turn it on. Nothing is changed for you.
+
 ## 1.1.5
 
 - Chain editor: a chain left unnamed now keeps its name in step with its hops (renames and hop changes), and
