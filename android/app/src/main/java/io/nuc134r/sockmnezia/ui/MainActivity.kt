@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +45,7 @@ import io.nuc134r.sockmnezia.ui.screens.HealthScreen
 import io.nuc134r.sockmnezia.ui.screens.HomeScreen
 import io.nuc134r.sockmnezia.ui.screens.LogsScreen
 import io.nuc134r.sockmnezia.ui.screens.RoutingScreen
+import io.nuc134r.sockmnezia.ui.screens.StatsScreen
 import io.nuc134r.sockmnezia.ui.screens.RuleEditorScreen
 import io.nuc134r.sockmnezia.ui.screens.ServerEditScreen
 import io.nuc134r.sockmnezia.ui.screens.SettingsScreen
@@ -71,7 +73,8 @@ object Routes {
     const val NEW = "new"
     fun chain(id: String) = "chain/$id"
     fun rule(index: Int) = "rule/$index"
-    val tabs = setOf(HOME, ROUTING, SETTINGS)
+    const val STATS = "stats"
+    val tabs = setOf(HOME, STATS, ROUTING, SETTINGS)
 }
 
 class MainActivity : ComponentActivity() {
@@ -97,6 +100,7 @@ fun AppRoot() {
     val route = entry?.destination?.route ?: Routes.HOME
     val title = when (route) {
         Routes.ROUTING -> R.string.title_routing
+        Routes.STATS -> R.string.title_stats
         Routes.SETTINGS -> R.string.title_settings
         Routes.AMNEZIA -> R.string.title_amnezia
         Routes.HEALTH -> R.string.title_health
@@ -131,6 +135,7 @@ fun AppRoot() {
                     NavigationBar {
                         listOf(
                             Triple(Routes.HOME, Icons.Default.Home, R.string.tab_home),
+                            Triple(Routes.STATS, Icons.Default.DateRange, R.string.tab_stats),
                             Triple(Routes.ROUTING, Icons.AutoMirrored.Filled.List, R.string.tab_routing),
                             Triple(Routes.SETTINGS, Icons.Default.Settings, R.string.tab_settings),
                         ).forEach { (r, icon, label) ->
@@ -161,6 +166,7 @@ fun AppRoot() {
                 popExitTransition = { ExitTransition.None },
             ) {
                 composable(Routes.HOME) { HomeScreen(nav) }
+                composable(Routes.STATS) { StatsScreen() }
                 composable(Routes.ROUTING) { RoutingScreen(nav) }
                 composable(Routes.SETTINGS) { SettingsScreen(nav) }
                 composable(Routes.AMNEZIA) { AmneziaScreen() }

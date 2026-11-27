@@ -40,6 +40,8 @@ type Engine struct {
 	inst      Instance
 	vpnFD     int      // the VpnService tun while VPN mode runs, -1 otherwise
 	tun       *tunMode // the desktop TUN while it runs (D40), nil otherwise
+	stats     *statsStore
+	statRun   statsRun
 	startedAt time.Time
 	lastErr   *Error
 
@@ -542,6 +544,7 @@ func (e *Engine) startLocked() error {
 	}
 	e.inst = inst
 	e.startedAt = time.Now()
+	e.statsStartLocked()
 	hops := 0
 	if c := e.activeChainLocked(); c != nil {
 		hops = len(c.Hops)
@@ -556,6 +559,7 @@ func (e *Engine) startLocked() error {
 
 func (e *Engine) restartLocked() error {
 	if e.inst != nil {
+		e.sampleStatsLocked(true)
 		e.inst.Close()
 		e.inst = nil
 	}
@@ -580,6 +584,7 @@ func (e *Engine) Stop() {
 
 func (e *Engine) stopLocked() {
 	if e.inst != nil {
+		e.sampleStatsLocked(true)
 		e.inst.Close()
 		e.inst = nil
 		runner.Record("info", "proxy stopped")
@@ -638,6 +643,7 @@ func (e *Engine) Status() Status {
 	if e.inst != nil {
 		s.StartedAt = e.startedAt
 		s.Up, s.Down = e.inst.Traffic()
+		e.sampleStatsLocked(false)
 	}
 	if l := e.st.Amnezia.Last; l != nil {
 		s.Country, s.CountryName, s.SubscriptionTo = l.Country, l.CountryName, l.SubscriptionEnd
@@ -930,6 +936,8 @@ func (e *Engine) Forget() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	os.RemoveAll(e.GeoDir())
+	os.Remove(filepath.Join(e.dir, statsFile))
+	e.stats = nil
 	e.st = defaultState()
 	return e.persist()
 }

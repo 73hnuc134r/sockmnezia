@@ -245,6 +245,37 @@ export interface Settings {
 }
 
 /**
+ * StatsDay is one day (local time, YYYY-MM-DD) of statistics.
+ */
+export interface StatsDay {
+    "date": string;
+    "entries": StatsEntry[] | null;
+}
+
+/**
+ * StatsEntry is the traffic of one chain, server or "direct" on one day.
+ */
+export interface StatsEntry {
+    /**
+     * "chain:<id>", "server:<id>" or "direct"
+     */
+    "key": string;
+
+    /**
+     * chain, server, direct
+     */
+    "kind": string;
+
+    /**
+     * the current name; the one it had then when it was deleted
+     */
+    "name": string;
+    "deleted"?: boolean;
+    "up": number;
+    "down": number;
+}
+
+/**
  * Status is shown on the main screen and in the notification.
  */
 export interface Status {

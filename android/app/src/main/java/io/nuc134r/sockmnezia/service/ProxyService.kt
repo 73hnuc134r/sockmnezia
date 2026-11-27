@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.PowerManager
 import android.os.SystemClock
 import android.service.quicksettings.TileService
 import android.content.ComponentName
@@ -139,6 +140,8 @@ class ProxyService : VpnService() {
             var lastUp = -1L
             var lastDown = 0L
             var lastAt = 0L
+            var lastText = ""
+            var lastSubject = ""
             while (isActive) {
                 val s = Core.refreshStatus()
                 if (!s.running) {
@@ -150,9 +153,19 @@ class ProxyService : VpnService() {
                 val upSpeed = if (lastUp < 0) 0L else ((s.up - lastUp).coerceAtLeast(0) / secs).toLong()
                 val downSpeed = if (lastUp < 0) 0L else ((s.down - lastDown).coerceAtLeast(0) / secs).toLong()
                 lastUp = s.up; lastDown = s.down; lastAt = now
-                val text = getString(R.string.notif_title, formatBytes(downSpeed), formatBytes(upSpeed), formatBytes(s.up + s.down))
-                ServiceCompat.startForeground(this@ProxyService, NOTIF_ID, notification(notifSubject(s), text, true), fgsType())
-                delay(2000)
+                // The notification is only redrawn while someone can see it, and only when it changed: posting it
+                // every 2 s with the screen off made the app and the system UI work for nothing.
+                val power = getSystemService(PowerManager::class.java)
+                if (power?.isInteractive != false) {
+                    val text = getString(R.string.notif_title, formatBytes(downSpeed), formatBytes(upSpeed), formatBytes(s.up + s.down))
+                    val subject = notifSubject(s)
+                    if (text != lastText || subject != lastSubject) {
+                        ServiceCompat.startForeground(this@ProxyService, NOTIF_ID, notification(subject, text, true), fgsType())
+                        lastText = text
+                        lastSubject = subject
+                    }
+                }
+                delay(if (power?.isInteractive != false) 2000 else 10_000)
             }
         }
     }

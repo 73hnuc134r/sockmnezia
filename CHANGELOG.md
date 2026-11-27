@@ -5,6 +5,9 @@ shown in the app's update card. Write for people using the app, not for develope
 
 ## 1.1.6
 
+- New Stats tab: traffic per day (today, 7 or 30 days), sent and received, through each chain or server and
+  directly (routing rules). Counted on the phone while the proxy runs, kept for a year; can be reset.
+- Uses less battery: the notification's speed line is only updated while the screen is on.
 - Settings → VPN mode shows whether Android protects you while the VPN is down (Always-on VPN and "Block
   connections without VPN") and opens Android's VPN settings to turn it on. Nothing is changed for you.
 

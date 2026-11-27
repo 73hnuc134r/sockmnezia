@@ -12,6 +12,8 @@ export type {
     Options,
     ServerView,
     Settings,
+    StatsDay,
+    StatsEntry,
     Status,
     TestResult,
     Update,

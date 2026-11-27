@@ -357,3 +357,18 @@ data class OfficialImport(val count: Int, val release: String = "")
 
 @Serializable
 data class UpdateInfo(val newer: Boolean = false, val version: String = "", val url: String = "", val notes: String = "")
+
+/** Traffic of one chain, single server or "direct" on one day (core engine.StatsEntry). */
+@Serializable
+data class StatsEntry(
+    val key: String,
+    val kind: String = "",
+    val name: String = "",
+    val deleted: Boolean = false,
+    val up: Long = 0,
+    val down: Long = 0,
+)
+
+/** One day (YYYY-MM-DD) of traffic statistics. */
+@Serializable
+data class StatsDay(val date: String, val entries: List<StatsEntry> = emptyList())

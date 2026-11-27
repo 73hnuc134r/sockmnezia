@@ -7,7 +7,7 @@ import { errorText } from "./errors";
 
 const HISTORY = 60; // seconds of traffic kept for the sparklines
 
-export type Page = "connect" | "servers" | "routing" | "logs" | "settings";
+export type Page = "connect" | "servers" | "stats" | "routing" | "logs" | "settings";
 
 class Store {
   page = $state<Page>("connect");

@@ -27,9 +27,10 @@ type Remote struct {
 	c     *conn
 	socks func() Socks // read when used: the engine launches with its lock held
 
-	mu      sync.Mutex
-	up, dn  int64
-	updated time.Time
+	mu       sync.Mutex
+	up, dn   int64
+	dup, ddn int64
+	updated  time.Time
 }
 
 var _ engine.Instance = (*Remote)(nil)
@@ -50,11 +51,19 @@ func (r *Remote) Traffic() (int64, int64) {
 	defer r.mu.Unlock()
 	if time.Since(r.updated) > 900*time.Millisecond {
 		if resp, err := r.c.call(request{Op: "traffic"}, 3*time.Second); err == nil {
-			r.up, r.dn = resp.Up, resp.Down
+			r.up, r.dn, r.dup, r.ddn = resp.Up, resp.Down, resp.DUp, resp.DDown
 		}
 		r.updated = time.Now()
 	}
 	return r.up, r.dn
+}
+
+// DirectTraffic is the part sent and received directly (from the same answer as Traffic).
+func (r *Remote) DirectTraffic() (int64, int64) {
+	r.Traffic()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.dup, r.ddn
 }
 
 // Alive reports whether the service still answers.

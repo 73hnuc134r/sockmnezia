@@ -419,3 +419,12 @@ proxy (D38). Portable builds stay.
 - Pipe/socket and identity as in D37, now one per machine for the installing user: Windows
   `\\.\pipe\sockmnezia-tun` (DACL: that user and SYSTEM; the app checks the server is LocalSystem), Linux
   `/run/sockmnezia/tun.sock` (owner = installing user, 0600; SO_PEERCRED both ways).
+
+## D41 · Traffic statistics (2026-11-27)
+
+Per day (local date), per selected chain or single server, plus "direct": what the rules sent around the
+proxy. The engine samples Xray's counters (inbound totals and the `direct` outbound, `statsOutbound*` now on)
+with the status and when the proxy stops or restarts; through-the-proxy = inbound − direct. Counting per hop
+would count every byte once per hop. Stored in `stats.json` next to the state (not secret: IDs, names and
+byte counts), a year long, deleted by Reset and by "Delete all data". A deleted chain/server keeps the name it
+had. Traffic Xray makes itself (DNS-over-HTTPS in VPN/TUN mode, tests) isn't counted.

@@ -44,6 +44,8 @@ type response struct {
 	Active  bool   `json:"active,omitempty"` // hello: running a config (not blocking)
 	Up      int64  `json:"up,omitempty"`
 	Down    int64  `json:"down,omitempty"`
+	DUp     int64  `json:"dup,omitempty"`   // sent directly (statistics)
+	DDown   int64  `json:"ddown,omitempty"` // received directly
 }
 
 const maxMessage = 4 << 20

@@ -558,7 +558,8 @@ func Build(s Spec) ([]byte, error) {
 		"policy": map[string]any{
 			"levels": map[string]any{"0": map[string]any{"handshake": 4, "connIdle": 300, "uplinkOnly": 1, "downlinkOnly": 1,
 				"statsUserUplink": false, "statsUserDownlink": false}},
-			"system": map[string]any{"statsInboundUplink": true, "statsInboundDownlink": true},
+			// Outbound counters too: traffic sent directly (the direct outbound) for the statistics.
+			"system": map[string]any{"statsInboundUplink": true, "statsInboundDownlink": true, "statsOutboundUplink": true, "statsOutboundDownlink": true},
 		},
 		// In-process counters only; there is no API inbound to read them from outside.
 		"stats": map[string]any{},

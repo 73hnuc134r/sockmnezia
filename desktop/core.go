@@ -318,3 +318,8 @@ func (c *Core) Logs() []LogLine {
 func (c *Core) ClearLogs() { runner.ClearLogs() }
 
 func (c *Core) Forget() error { return c.touch(c.e.Forget()) }
+
+// Stats returns the last days of traffic statistics, oldest first.
+func (c *Core) Stats(days int) []engine.StatsDay { return c.e.Stats(days) }
+
+func (c *Core) ResetStats() error { return wrap(c.e.ResetStats()) }

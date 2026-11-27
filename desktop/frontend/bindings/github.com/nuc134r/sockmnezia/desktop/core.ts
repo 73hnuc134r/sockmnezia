@@ -149,6 +149,10 @@ export function RenameServer(id: string, name: string): $CancellablePromise<void
     return $Call.ByID(1369995556, id, name);
 }
 
+export function ResetStats(): $CancellablePromise<void> {
+    return $Call.ByID(3848329239);
+}
+
 export function SaveChain(ch: engine$0.Chain): $CancellablePromise<string> {
     return $Call.ByID(1745195405, ch);
 }
@@ -206,6 +210,13 @@ export function ShareServer(id: string): $CancellablePromise<string> {
  */
 export function Start(): $CancellablePromise<void> {
     return $Call.ByID(3395193027);
+}
+
+/**
+ * Stats returns the last days of traffic statistics, oldest first.
+ */
+export function Stats(days: number): $CancellablePromise<engine$0.StatsDay[] | null> {
+    return $Call.ByID(3343874432, days);
 }
 
 export function Status(): $CancellablePromise<engine$0.Status> {

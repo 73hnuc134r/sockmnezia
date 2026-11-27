@@ -257,4 +257,7 @@ object Core {
     fun log(level: String, msg: String) = Mobile.log(level, msg)
     fun xrayVersion(): String = Mobile.xrayVersion()
     suspend fun forget() = call { it.forget() }.also { changed() }
+    suspend fun stats(days: Int): List<StatsDay> =
+        call { CoreJson.decodeFromString(ListSerializer(StatsDay.serializer()), it.statsJSON(days.toLong())) }
+    suspend fun resetStats() = call { it.resetStats() }
 }

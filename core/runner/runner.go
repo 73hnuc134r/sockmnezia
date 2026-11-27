@@ -118,6 +118,22 @@ func (i *Instance) Traffic() (up, down int64) {
 	return
 }
 
+// DirectTraffic returns bytes sent and received directly (the direct outbound: rules sending traffic around
+// the proxy) since start.
+func (i *Instance) DirectTraffic() (up, down int64) {
+	m, _ := i.inst.GetFeature(stats.ManagerType()).(stats.Manager)
+	if m == nil {
+		return 0, 0
+	}
+	if c := m.GetCounter("outbound>>>direct>>>traffic>>>uplink"); c != nil { // xrayconf.TagDirect
+		up = c.Value()
+	}
+	if c := m.GetCounter("outbound>>>direct>>>traffic>>>downlink"); c != nil {
+		down = c.Value()
+	}
+	return
+}
+
 // ExitIP asks url (a "what is my IP" endpoint returning the address as text) through the instance.
 func (i *Instance) ExitIP(ctx context.Context, url string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

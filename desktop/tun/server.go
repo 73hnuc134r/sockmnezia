@@ -151,6 +151,9 @@ func (s *Service) handle(c *conn) {
 			s.mu.Lock()
 			if s.inst != nil && s.state.Active {
 				resp.Up, resp.Down = s.inst.Traffic()
+				if d, ok := s.inst.(interface{ DirectTraffic() (int64, int64) }); ok {
+					resp.DUp, resp.DDown = d.DirectTraffic()
+				}
 			}
 			s.mu.Unlock()
 		default:

@@ -12,12 +12,14 @@
   import Routing from "./pages/Routing.svelte";
   import Logs from "./pages/Logs.svelte";
   import Settings from "./pages/Settings.svelte";
+  import Stats from "./pages/Stats.svelte";
 
   onMount(() => void store.init());
 
   const nav: { id: Page; icon: string; label: string }[] = [
     { id: "connect", icon: "home", label: "d_nav_connect" },
     { id: "servers", icon: "servers", label: "d_nav_servers" },
+    { id: "stats", icon: "chart", label: "title_stats" },
     { id: "routing", icon: "routes", label: "title_routing" },
     { id: "logs", icon: "log", label: "title_logs" },
     { id: "settings", icon: "gear", label: "title_settings" },
@@ -49,6 +51,7 @@
   <main class="main">
     {#if store.page === "connect"}<Connect />
     {:else if store.page === "servers"}<Servers />
+    {:else if store.page === "stats"}<Stats />
     {:else if store.page === "routing"}<Routing />
     {:else if store.page === "logs"}<Logs />
     {:else}<Settings />{/if}

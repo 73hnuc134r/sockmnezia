@@ -405,6 +405,12 @@ func ClearLogs() { runner.ClearLogs() }
 // Log adds an app-side line.
 func Log(level, msg string) { runner.Record(level, msg) }
 
+// StatsJSON returns the last days of traffic statistics: [engine.StatsDay], oldest first.
+func (c *Core) StatsJSON(days int) string { return toJSON(c.e.Stats(days)) }
+
+// ResetStats deletes the traffic statistics.
+func (c *Core) ResetStats() error { return wrap(c.e.ResetStats()) }
+
 // Forget deletes all data.
 func (c *Core) Forget() error { return wrap(c.e.Forget()) }
 

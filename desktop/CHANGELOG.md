@@ -4,6 +4,11 @@ Each `## <version>` section becomes the GitHub release notes for the `desktop-v<
 (`tool/changelog.sh <version> desktop`). The Android app has its own changelog (`CHANGELOG.md`). Write for people
 using the app.
 
+## 0.1.1
+
+- New Statistics page: traffic per day (today, 7 or 30 days), sent and received, through each chain or server
+  and directly (routing rules), also in TUN mode. Kept on this computer for a year; can be reset.
+
 ## 0.1.0
 
 First desktop version (Windows 10/11, Linux with GTK 4), the same core as the Android app.
