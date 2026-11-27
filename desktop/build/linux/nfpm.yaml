@@ -17,12 +17,19 @@ contents:
     dst: /usr/share/icons/hicolor/512x512/apps/sockmnezia.png
   - src: build/linux/sockmnezia.desktop
     dst: /usr/share/applications/sockmnezia.desktop
+scripts:
+  # The "TUN without a password" polkit rules belong to this binary.
+  postremove: build/linux/postremove.sh
 # GTK 4 + WebKitGTK 6 (Ubuntu 24.04+, Debian 13+, Fedora 39+), D34.
 depends:
   - libgtk-4-1
   - libwebkitgtk-6.0-4
+recommends:
+  - pkexec
 overrides:
   rpm:
     depends:
       - gtk4
       - webkitgtk6.0
+    recommends:
+      - polkit

@@ -29,6 +29,8 @@ type desk struct {
 	win   *application.WebviewWindow
 	tray  *tray
 
+	tunw tunWatch
+
 	mu       sync.Mutex
 	lang     string
 	quitting bool
@@ -72,12 +74,45 @@ func (d *desk) show() {
 }
 
 func (d *desk) start() {
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-	if err := d.e.Start(ctx); err != nil {
+	if err := d.startProxy(context.Background()); err != nil {
 		d.notify(engine.Classify(err))
 	}
 	d.changed()
+}
+
+// startProxy starts the proxy in the configured mode: TUN (through the helper) or proxy only. The time limit
+// leaves room for the administrator prompt.
+func (d *desk) startProxy(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
+	defer cancel()
+	if d.e.GetSettings().Options.Mode == engine.ModeVPN {
+		return d.startTUN(ctx)
+	}
+	return d.e.Start(ctx)
+}
+
+// setMode switches between Off / System proxy / PAC ("", "system", "pac") and TUN ("tun"); a running proxy
+// restarts in the new mode.
+func (d *desk) setMode(mode string) error {
+	s := d.e.GetSettings()
+	wasTUN := s.Options.Mode == engine.ModeVPN
+	if mode == "tun" {
+		s.Options.Mode, s.Options.SystemProxy = engine.ModeVPN, ""
+	} else {
+		s.Options.Mode, s.Options.SystemProxy = engine.ModeProxy, mode
+	}
+	if err := d.e.SetSettings(s); err != nil {
+		return err
+	}
+	if d.e.Status().Running && wasTUN != (mode == "tun") {
+		d.e.Stop()
+		d.sys.Sync(d.e.Status())
+		err := d.startProxy(context.Background())
+		d.changed()
+		return err
+	}
+	d.changed()
+	return nil
 }
 
 func (d *desk) stop() {
@@ -100,7 +135,7 @@ func (d *desk) selectKey(key string) {
 }
 
 func (d *desk) setSystemProxy(mode string) {
-	if err := d.core.SetSystemProxy(mode); err != nil {
+	if err := d.setMode(mode); err != nil {
 		d.notify(engine.Classify(err))
 	}
 }

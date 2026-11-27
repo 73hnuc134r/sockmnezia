@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/netip"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"go4.org/netipx"
 
@@ -196,6 +198,11 @@ func (e *Engine) StartVPN(ctx context.Context, fd int) error {
 
 // vpnSpecLocked is the xrayconf VPN part while VPN mode runs, nil otherwise.
 func (e *Engine) vpnSpecLocked() *xrayconf.VPN {
+	if e.tun != nil {
+		// Desktop TUN: the system resolver points at the tun, so DNS is always answered over DoH there.
+		sys := e.tun.sys
+		return &xrayconf.VPN{MTU: vpnMTU, DoH: append([]string(nil), dohURLs...), System: &sys}
+	}
 	if e.vpnFD < 0 {
 		return nil
 	}
@@ -204,4 +211,49 @@ func (e *Engine) vpnSpecLocked() *xrayconf.VPN {
 		v.DoH = append([]string(nil), dohURLs...)
 	}
 	return v
+}
+
+// Instance is a running proxy: Xray in this process (runner.Instance), or the desktop TUN helper's.
+type Instance interface {
+	Close() error
+	Traffic() (up, down int64)
+	HTTPClient(timeout time.Duration) *http.Client
+	ExitIP(ctx context.Context, url string) (string, error)
+}
+
+// Launcher runs a config somewhere else: the desktop's elevated TUN helper (D37). geoDir holds the geo files
+// the rules may use.
+type Launcher func(cfg []byte, geoDir string) (Instance, error)
+
+type tunMode struct {
+	sys    xrayconf.SystemTUN
+	launch Launcher
+}
+
+// StartTUN runs the proxy with a desktop TUN (D37): the config, with Xray's tun inbound creating the
+// interface and the routes (sys), is run by launch with the rights that needs. The SOCKS/HTTP ports keep
+// working. A running proxy is restarted in TUN mode; Stop leaves it.
+func (e *Engine) StartTUN(ctx context.Context, sys xrayconf.SystemTUN, launch Launcher) error {
+	if launch == nil {
+		return newErr(CodeInvalidSettings, errors.New("no TUN launcher"))
+	}
+	if e.NeedsRefresh() {
+		if err := e.Fetch(ctx, FetchRequest{}); err != nil {
+			e.mu.Lock()
+			have := e.st.Amnezia.Last != nil
+			e.mu.Unlock()
+			if !have {
+				e.setLastErr(Classify(err))
+				return err
+			}
+		}
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.tun = &tunMode{sys: sys, launch: launch}
+	err := e.restartLocked()
+	if err != nil {
+		e.tun = nil
+	}
+	return err
 }

@@ -106,6 +106,20 @@ export function SetPrefs(p: $models.Prefs): $CancellablePromise<void> {
     return $Call.ByID(1559277294, p);
 }
 
+/**
+ * SetTUNNoPrompt sets that up or removes it; asks for administrator rights once.
+ */
+export function SetTUNNoPrompt(on: boolean): $CancellablePromise<void> {
+    return $Call.ByID(4217934214, on);
+}
+
 export function State(): $CancellablePromise<$models.DesktopState> {
     return $Call.ByID(3152233241);
+}
+
+/**
+ * TUNNoPrompt reports whether TUN mode starts without an administrator prompt (logon task / polkit rule).
+ */
+export function TUNNoPrompt(): $CancellablePromise<boolean> {
+    return $Call.ByID(2512156286);
 }

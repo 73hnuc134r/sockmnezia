@@ -14,6 +14,7 @@ import (
 
 	"github.com/nuc134r/sockmnezia/core/engine"
 	"github.com/nuc134r/sockmnezia/core/runner"
+	"github.com/nuc134r/sockmnezia/desktop/tun"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
@@ -55,6 +56,21 @@ func dataDir() string {
 }
 
 func main() {
+	// The TUN helper and its setup run with administrator rights and never open a window (D37).
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--tun-helper":
+			if err := tun.RunHelper(Version, os.Args[2:]); err != nil {
+				log.Fatal(err)
+			}
+			return
+		case "--tun-noprompt-on", "--tun-noprompt-off":
+			if err := tun.RunNoPrompt(os.Args[1] == "--tun-noprompt-on", os.Args[2:]); err != nil {
+				log.Fatal(err)
+			}
+			return
+		}
+	}
 	dir := dataDir()
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		log.Fatal(err)
@@ -67,7 +83,7 @@ func main() {
 	runner.Redactor = e.Redact
 	d := &desk{e: e, prefs: loadPrefs(dir), sys: newSysProxy(e, dir), lang: "en"}
 	d.sys.RecoverCrash()
-	d.core = &Core{e: e, changed: d.changed, selected: d.prefs.Used}
+	d.core = &Core{e: e, changed: d.changed, selected: d.prefs.Used, start: d.startProxy, setMode: d.setMode}
 
 	d.app = application.New(application.Options{
 		Name:        "sockmnezia",
@@ -121,6 +137,9 @@ func (d *desk) loop() {
 		}
 		time.Sleep(time.Second)
 		st := d.e.Status()
+		if i%5 == 0 {
+			d.checkTUN(st)
+		}
 		d.sys.Sync(st)
 		d.app.Event.Emit(EventStatus, st)
 		d.app.Event.Emit(EventDesktop, d.state())

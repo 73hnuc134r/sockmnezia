@@ -1,6 +1,7 @@
 # Plan: desktop app (Windows, Linux; macOS later)
 
-Status: D1–D5 implemented (2026-11-27) in `desktop/` (see `desktop/README.md`, D33–D36); D6 (TUN) next.
+Status: D1–D6 implemented (2026-11-27) in `desktop/` (see `desktop/README.md`, D33–D37). TUN (§3a) uses an
+elevated helper instead of a Windows service (D37).
 Mockups: `docs/mockups/desktop.html`.
 
 ## 0. Goal

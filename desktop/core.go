@@ -21,6 +21,9 @@ type Core struct {
 	changed func()
 	// selected records the chain ("c:<id>") or server ("s:<id>") just selected (recent list in the tray).
 	selected func(key string)
+	// start and setMode are the desktop's (TUN goes through the elevated helper).
+	start   func(ctx context.Context) error
+	setMode func(mode string) error
 }
 
 func wrap(err error) error {
@@ -45,10 +48,9 @@ func timeout(ctx context.Context, d time.Duration) (context.Context, context.Can
 
 func (c *Core) Status() engine.Status { return c.e.Status() }
 
+// Start starts the proxy in the configured mode (TUN asks for administrator rights).
 func (c *Core) Start(ctx context.Context) error {
-	cx, cancel := timeout(ctx, 90*time.Second)
-	defer cancel()
-	return c.touch(c.e.Start(cx))
+	return c.touch(c.start(ctx))
 }
 
 func (c *Core) Stop() {
@@ -153,11 +155,15 @@ func (c *Core) SetActiveServer(id string) error {
 	return c.touch(err)
 }
 
-// SetSystemProxy sets the OS proxy mode: "" (off), "system" or "pac" (applied while the proxy runs).
-func (c *Core) SetSystemProxy(mode string) error {
-	s := c.e.GetSettings()
-	s.Options.SystemProxy = mode
-	return c.touch(c.e.SetSettings(s))
+// SetConnectionMode sets how traffic reaches the proxy: "" (only apps set up for it), "system" (the OS proxy
+// settings), "pac", or "tun" (all traffic, with administrator rights). A running proxy switches over.
+func (c *Core) SetConnectionMode(mode string) error {
+	switch mode {
+	case "", "system", "pac", "tun":
+	default:
+		return &engine.Error{Code: engine.CodeInvalidSettings, Field: "mode", Detail: "unknown mode"}
+	}
+	return wrap(c.setMode(mode))
 }
 
 func (c *Core) ShareServer(id string) (string, error) {

@@ -37,8 +37,9 @@ type Engine struct {
 	mu        sync.Mutex
 	st        *State
 	secrets   atomic.Pointer[[]string] // for log redaction; readable without mu
-	inst      *runner.Instance
-	vpnFD     int // the VpnService tun while VPN mode runs, -1 otherwise
+	inst      Instance
+	vpnFD     int      // the VpnService tun while VPN mode runs, -1 otherwise
+	tun       *tunMode // the desktop TUN while it runs (D37), nil otherwise
 	startedAt time.Time
 	lastErr   *Error
 
@@ -527,7 +528,12 @@ func (e *Engine) startLocked() error {
 	if err != nil {
 		return err
 	}
-	inst, err := runner.Start(cfg)
+	var inst Instance
+	if e.tun != nil {
+		inst, err = e.tun.launch(cfg, e.GeoDir())
+	} else {
+		inst, err = runner.Start(cfg)
+	}
 	if err != nil {
 		return err
 	}
@@ -538,7 +544,7 @@ func (e *Engine) startLocked() error {
 		hops = len(c.Hops)
 	}
 	mode := ModeProxy
-	if e.vpnFD >= 0 {
+	if e.vpnFD >= 0 || e.tun != nil {
 		mode = ModeVPN
 	}
 	runner.Record("info", fmt.Sprintf("proxy started on %s:%d (%d hops, %s mode)", e.st.Inbound.Listen, e.st.Inbound.SocksPort, hops, mode))
@@ -576,6 +582,7 @@ func (e *Engine) stopLocked() {
 		runner.Record("info", "proxy stopped")
 	}
 	e.vpnFD = -1 // the app closes its descriptor after Stop
+	e.tun = nil
 }
 
 // Status is shown on the main screen and in the notification.
@@ -618,7 +625,7 @@ func (e *Engine) Status() Status {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	s := Status{
-		Running: e.inst != nil, VPN: e.inst != nil && e.vpnFD >= 0, Mode: modeOr(e.st.Options.Mode), Listen: e.st.Inbound.Listen,
+		Running: e.inst != nil, VPN: e.inst != nil && (e.vpnFD >= 0 || e.tun != nil), Mode: modeOr(e.st.Options.Mode), Listen: e.st.Inbound.Listen,
 		SocksPort: e.st.Inbound.SocksPort, HTTPPort: e.st.Inbound.HTTPPort,
 		AuthFailures: runner.AuthFailures(), HasKey: e.st.Amnezia.Key != "",
 		HasGatewayKey: len(e.st.Amnezia.GatewayPEMs) > 0, HasConfig: e.st.Amnezia.Last != nil,

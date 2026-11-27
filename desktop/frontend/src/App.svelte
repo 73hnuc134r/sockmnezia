@@ -56,6 +56,7 @@
   <footer class="statusbar">
     <span class="row nowrap"><span class="led" class:on={st?.running} class:bad={!!st?.last_error && !st?.running}></span>{st?.running ? t("d_running") : t("conn_stopped")}</span>
     {#if current}<span class="ellipsis">{current}{st?.hops && st.hops.length > 1 ? ` · ${t("d_hops", st.hops.length)}` : ""}</span>{/if}
+    {#if st?.running && st.vpn}<span>TUN</span>{/if}
     {#if st?.running}<span class="mono">SOCKS {st.listen}:{st.socks_port}</span>{/if}
     <span class="grow"></span>
     {#if st?.running}<span class="mono">↓ {rate(store.downRate.at(-1) ?? 0)} ↑ {rate(store.upRate.at(-1) ?? 0)}</span>{/if}

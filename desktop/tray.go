@@ -46,7 +46,7 @@ func (tr *tray) Refresh(st engine.Status) {
 	recent := tr.d.prefs.Get().Recent
 	name := currentName(st, servers)
 	failed := !st.Running && st.LastError != nil
-	sig := fmt.Sprint(st.Running, failed, st.ChainID, st.ServerID, st.SystemProxy, name, len(servers), len(chains), recent, tr.d.lang)
+	sig := fmt.Sprint(st.Running, failed, st.ChainID, st.ServerID, st.SystemProxy, st.Mode, name, len(servers), len(chains), recent, tr.d.lang)
 	for _, c := range chains {
 		sig += c.ID + c.Name
 	}
@@ -83,7 +83,7 @@ func (tr *tray) Refresh(st engine.Status) {
 	if st.Running {
 		m.Add(T("action_stop")).OnClick(func(*application.Context) { tr.d.stop() })
 	} else {
-		m.Add(T("action_start")).OnClick(func(*application.Context) { tr.d.start() })
+		m.Add(T("action_start")).OnClick(func(*application.Context) { go tr.d.start() })
 	}
 
 	sub := m.AddSubmenu(T("selector_title"))
@@ -138,9 +138,13 @@ func (tr *tray) Refresh(st engine.Status) {
 	}
 
 	mode := m.AddSubmenu(T("d_mode"))
-	for _, o := range []struct{ v, label string }{{"", "d_mode_off"}, {engine.SystemProxyOn, "d_mode_system"}, {engine.SystemProxyPAC, "d_mode_pac"}} {
+	cur := st.SystemProxy
+	if st.Mode == engine.ModeVPN {
+		cur = "tun"
+	}
+	for _, o := range []struct{ v, label string }{{"", "d_mode_off"}, {engine.SystemProxyOn, "d_mode_system"}, {engine.SystemProxyPAC, "d_mode_pac"}, {"tun", "d_mode_tun"}} {
 		v := o.v
-		mode.AddRadio(T(o.label), st.SystemProxy == v).OnClick(func(*application.Context) { tr.d.setSystemProxy(v) })
+		mode.AddRadio(T(o.label), cur == v).OnClick(func(*application.Context) { go tr.d.setSystemProxy(v) })
 	}
 	m.Add(T("d_copy_socks")).OnClick(func(*application.Context) { tr.d.copySocks() })
 	m.AddSeparator()

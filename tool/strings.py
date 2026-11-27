@@ -338,6 +338,13 @@ D = {
  "d_your_rules": ("Your rules", "Ваши правила"),
  "d_routing_hint": ("Rules are checked from top to bottom; the first match decides. Proxy = through the chain, Direct = from this computer's own network, Block = drop. Drag rules to reorder.", "Правила проверяются сверху вниз, срабатывает первое подходящее. Прокси — через цепочку, Напрямую — из сети компьютера, Блок — отбросить. Перетаскивайте правила, чтобы изменить порядок."),
  "d_check_updates_hint": ("Asks GitHub for new desktop releases when sockmnezia opens (through the proxy while it runs). Updates are installed from the release page.", "Проверять новые версии для компьютера на GitHub при запуске sockmnezia (через прокси, если он работает). Обновление устанавливается со страницы выпуска."),
+ "d_mode_tun": ("TUN", "TUN"),
+ "d_mode_tun_hint": ("All traffic of this computer goes through the chain, also from apps without proxy settings. DNS is resolved over HTTPS through the chain. The local network keeps working. If the chain breaks, traffic stops instead of going direct; TUN ends when sockmnezia quits.", "Весь трафик компьютера идёт через цепочку, в том числе от приложений без настроек прокси. DNS разрешается по HTTPS через цепочку. Локальная сеть работает. Если цепочка рвётся, трафик останавливается, а не идёт напрямую; TUN выключается при выходе из sockmnezia."),
+ "d_mode_tun_admin": ("Starting asks for administrator rights (only a small helper gets them, not this window), unless TUN without prompts is on in Settings → App.", "При запуске нужны права администратора (их получает только небольшой помощник, не это окно), если в Настройки → Приложение не включён TUN без запросов."),
+ "d_tun_noprompt": ("TUN without administrator prompts", "TUN без запросов прав администратора"),
+ "d_tun_noprompt_hint": ("Asks once: Windows starts the TUN helper with administrator rights at logon (a scheduled task); Linux lets you start it without a password (a polkit rule). Any program you run could then use the helper too.", "Спросит один раз: Windows запускает помощника TUN с правами администратора при входе (задача планировщика); Linux разрешает запускать его без пароля (правило polkit). Тогда помощником смогут воспользоваться и другие запущенные вами программы."),
+ "err_tun_declined": ("TUN mode needs administrator rights; the request was declined.", "Для режима TUN нужны права администратора; запрос отклонён."),
+ "err_tun_failed": ("TUN mode could not start.", "Не удалось запустить режим TUN."),
  "d_follow": ("Follow", "Следить"),
  "d_close_hint": ("sockmnezia keeps running in the tray. Use Quit in the tray menu to exit.", "sockmnezia продолжает работать в трее. Чтобы выйти, выберите «Выход» в меню значка."),
 }

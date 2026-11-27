@@ -8,6 +8,14 @@
   let { settings }: { settings: engine.Settings } = $props();
   let prefs = $state<desk.Prefs | null>(null);
   let autostart = $state<boolean | null>(null);
+  let noPrompt = $state<boolean | null>(null);
+  Desktop.TUNNoPrompt().then((v) => (noPrompt = v));
+  async function setNoPrompt(on: boolean) {
+    await store.act(() => Desktop.SetTUNNoPrompt(on));
+    // Windows finishes in the elevated process after the prompt: look again shortly.
+    setTimeout(async () => (noPrompt = await Desktop.TUNNoPrompt()), 3000);
+    noPrompt = await Desktop.TUNNoPrompt();
+  }
   Desktop.Prefs().then((p) => (prefs = p));
   Desktop.Autostart().then((a) => (autostart = a)).catch(() => (autostart = null));
 
@@ -32,6 +40,7 @@
   {#if prefs}
     <Switch label={t("d_autostart")} checked={!!autostart} disabled={autostart === null} hint={t("d_autostart_hint")} onchange={setAutostart} />
     <Switch label={t("d_connect_on_launch")} checked={prefs.connect_on_launch} hint={t("d_connect_on_launch_hint")} onchange={(v) => setPref((p) => (p.connect_on_launch = v))} />
+    <Switch label={t("d_tun_noprompt")} checked={!!noPrompt} disabled={noPrompt === null} hint={t("d_tun_noprompt_hint")} onchange={setNoPrompt} />
     <Switch label={t("d_close_to_tray")} checked={prefs.close_to_tray} hint={t("d_close_to_tray_hint")} onchange={(v) => setPref((p) => (p.close_to_tray = v))} />
   {/if}
   {#if store.servers.length}

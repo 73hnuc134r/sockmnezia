@@ -169,6 +169,14 @@ export function SetActiveServer(id: string): $CancellablePromise<void> {
     return $Call.ByID(2662699054, id);
 }
 
+/**
+ * SetConnectionMode sets how traffic reaches the proxy: "" (only apps set up for it), "system" (the OS proxy
+ * settings), "pac", or "tun" (all traffic, with administrator rights). A running proxy switches over.
+ */
+export function SetConnectionMode(mode: string): $CancellablePromise<void> {
+    return $Call.ByID(2218268360, mode);
+}
+
 export function SetGatewayKeysPEM(text: string): $CancellablePromise<number> {
     return $Call.ByID(3902970079, text);
 }
@@ -179,13 +187,6 @@ export function SetKey(key: string): $CancellablePromise<void> {
 
 export function SetSettings(s: engine$0.Settings): $CancellablePromise<void> {
     return $Call.ByID(534892074, s);
-}
-
-/**
- * SetSystemProxy sets the OS proxy mode: "" (off), "system" or "pac" (applied while the proxy runs).
- */
-export function SetSystemProxy(mode: string): $CancellablePromise<void> {
-    return $Call.ByID(987712274, mode);
 }
 
 export function Settings(): $CancellablePromise<engine$0.Settings> {
@@ -200,6 +201,9 @@ export function ShareServer(id: string): $CancellablePromise<string> {
     return $Call.ByID(2339006167, id);
 }
 
+/**
+ * Start starts the proxy in the configured mode (TUN asks for administrator rights).
+ */
 export function Start(): $CancellablePromise<void> {
     return $Call.ByID(3395193027);
 }

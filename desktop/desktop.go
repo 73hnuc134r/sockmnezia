@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/nuc134r/sockmnezia/core/engine"
+	"github.com/nuc134r/sockmnezia/desktop/tun"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"rsc.io/qr"
@@ -139,4 +140,19 @@ func (s *Desktop) CheckUpdate(ctx context.Context, beta bool) (*engine.Update, e
 		return nil, engine.Classify(err)
 	}
 	return u, nil
+}
+
+// TUNNoPrompt reports whether TUN mode starts without an administrator prompt (logon task / polkit rule).
+func (s *Desktop) TUNNoPrompt() bool { return tun.NoPromptInstalled() }
+
+// SetTUNNoPrompt sets that up or removes it; asks for administrator rights once.
+func (s *Desktop) SetTUNNoPrompt(on bool) error {
+	if err := tun.SetNoPrompt(on); err != nil {
+		code := "tun_failed"
+		if errors.Is(err, tun.ErrDeclined) {
+			code = "tun_declined"
+		}
+		return &engine.Error{Code: code, Detail: err.Error()}
+	}
+	return nil
 }

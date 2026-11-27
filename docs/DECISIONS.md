@@ -347,3 +347,32 @@ tray is on.
   run installers. The plan's "verify a signature before installing" needs a release-signing key, which does
   not exist yet; until then the user installs from the release page (HTTPS, SHA256SUMS published).
 - Binaries are not code-signed (no certificate); SmartScreen warns on first run (docs/RELEASING.md).
+
+## D37 · Desktop TUN mode: an elevated helper, prompt or no-prompt (2026-11-27)
+
+Owner's choice after comparing v2rayN (which elevates the whole app on Windows, with an elevated Task Scheduler
+logon task for autostart, and on Linux pipes the user's sudo password, kept in memory, into `sudo -S`).
+
+- Only a helper runs with administrator/root rights: the same binary with `--tun-helper`; the window and the
+  web view never do. The app builds the config as for every start (engine, `xrayconf`) and sends it over a
+  local pipe; the helper runs it in embedded Xray, whose tun inbound creates the interface, the routes
+  (`autoSystemRoutingTable`), binds Xray's own sockets to the physical interface (`autoOutboundsInterface`),
+  and on Windows adds the WFP leak filters (`dns`, `misconfigtun`); on Linux systemd-resolved is pointed at the
+  tun when it runs. DNS is answered over DoH through the chain. The SOCKS/HTTP ports keep working (they live in
+  the helper's instance; the app's own requests go through them).
+- The helper runs only configs that pass `xrayconf.Audit` (now also: no log files, the tun name and its options
+  fixed) and contain the tun inbound; it stops the TUN when the app disconnects (stop, quit or crash), and
+  exits unless it was started at logon.
+- Transport and identity: Windows: named pipe `sockmnezia-tun-<user SID>`, DACL for that user and SYSTEM only;
+  the app checks the pipe's server process is elevated. Linux: `/run/user/<uid>/sockmnezia-tun.sock`, the
+  helper takes the uid from `PKEXEC_UID` (its command line has no arguments), both sides check `SO_PEERCRED`
+  (client = that user, server = root).
+- Default: a prompt each time TUN starts (UAC via ShellExecute "runas"; polkit via `pkexec`). Opt-in
+  "TUN without prompts" (one prompt to set up): Windows registers the Task Scheduler task "sockmnezia TUN"
+  (logon trigger, highest privileges, `--persistent`), which the app also runs on demand; Linux installs a
+  polkit rule allowing exactly `<binary> --tun-helper` for that local, active user without a password. The
+  trade-off, shown in the UI: any program the user runs could then use the helper too (within the audit).
+- No password is stored. Windows ships `wintun.dll` (0.14.1, pinned SHA-256) next to the exe; Linux packages
+  recommend pkexec and remove the polkit rules on uninstall.
+- While TUN runs, the app's temporary test instances (Test, Test all, location ping) go through the TUN, i.e.
+  through the active chain; the running chain's own test uses its SOCKS port.

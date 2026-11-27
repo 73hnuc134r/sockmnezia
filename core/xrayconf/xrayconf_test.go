@@ -490,3 +490,63 @@ func TestSystemProxyInbound(t *testing.T) {
 		}
 	}
 }
+
+// Desktop TUN (D37): Xray brings the interface and routes up itself and binds its own sockets to the
+// physical interface; the config may not write files, since the elevated helper runs it.
+func TestSystemTUN(t *testing.T) {
+	sys := &SystemTUN{Gateway: []string{"172.19.0.1/30"}, Routes: []string{"0.0.0.0/0", "::/0"}, DNS: []string{"172.19.0.2"},
+		WFP: []string{"dns", "misconfigtun"}}
+	b, err := Build(Spec{Hops: []Hop{OwnHop(own(t, vpsLink))}, Inbound: goodIn, VPN: &VPN{DoH: []string{"https://1.1.1.1/dns-query"}, System: sys}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	json.Unmarshal(b, &m)
+	var tun map[string]any
+	for _, x := range m["inbounds"].([]any) {
+		if in := x.(map[string]any); in["protocol"] == "tun" {
+			tun = in["settings"].(map[string]any)
+		}
+	}
+	if tun["name"] != TunName || tun["autoOutboundsInterface"] != "auto" || len(tun["autoSystemRoutingTable"].([]any)) != 2 || tun["dns"] == nil {
+		t.Fatalf("tun settings: %v", tun)
+	}
+	// Pointing the system resolver at the tun needs the DoH module to answer it.
+	if _, err := Build(Spec{Hops: []Hop{OwnHop(own(t, vpsLink))}, Inbound: goodIn, VPN: &VPN{System: sys}}); err == nil {
+		t.Error("system DNS without DoH accepted")
+	}
+	if _, err := Build(Spec{Hops: []Hop{OwnHop(own(t, vpsLink))}, Inbound: goodIn, VPN: &VPN{DoH: []string{"https://1.1.1.1/dns-query"}, System: &SystemTUN{}}}); err == nil {
+		t.Error("system TUN without routes accepted")
+	}
+
+	mutate := func(f func(m map[string]any)) []byte {
+		var m map[string]any
+		json.Unmarshal(b, &m)
+		f(m)
+		out, _ := json.Marshal(m)
+		return out
+	}
+	tunOf := func(m map[string]any) map[string]any {
+		for _, x := range m["inbounds"].([]any) {
+			if in := x.(map[string]any); in["protocol"] == "tun" {
+				return in["settings"].(map[string]any)
+			}
+		}
+		return nil
+	}
+	cases := map[string][]byte{
+		"access log file":      mutate(func(m map[string]any) { m["log"].(map[string]any)["access"] = "/etc/cron.d/x" }),
+		"error log file":       mutate(func(m map[string]any) { m["log"].(map[string]any)["error"] = `C:\Windows\x.dll` }),
+		"unknown log setting":  mutate(func(m map[string]any) { m["log"].(map[string]any)["maskAddress"] = "full" }),
+		"other interface name": mutate(func(m map[string]any) { tunOf(m)["name"] = "eth0" }),
+		"outbounds bound to a named interface": mutate(func(m map[string]any) {
+			tunOf(m)["autoOutboundsInterface"] = "tun0"
+		}),
+		"unknown tun setting": mutate(func(m map[string]any) { tunOf(m)["userLevel"] = 1 }),
+	}
+	for name, cfg := range cases {
+		if Audit(cfg) == nil {
+			t.Errorf("audit passed: %s", name)
+		}
+	}
+}

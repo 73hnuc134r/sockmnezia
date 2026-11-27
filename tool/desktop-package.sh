@@ -4,7 +4,7 @@
 #   sockmnezia-desktop-<v>-windows-x64.zip         portable
 #   sockmnezia-desktop-<v>-linux-x64.deb / .rpm     GTK 4 + WebKitGTK 6 distributions
 #   sockmnezia-desktop-<v>-linux-x64.tar.gz         binary, icon, .desktop file
-# Needs: Go, Node, makensis (nsis), zip, and GTK 4 / WebKitGTK 6 dev packages for the Linux build.
+# Needs: Go, Node, makensis (nsis), zip, curl, and GTK 4 / WebKitGTK 6 dev packages for the Linux build.
 #   VERSION=0.1.0 bash tool/desktop-package.sh [windows|linux|all]
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,6 +19,8 @@ cd "$root/desktop"
 WAILS="go run github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0"
 NFPM="go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.49.0"
 name="sockmnezia-desktop-$v"
+WINTUN_VERSION=0.14.1
+WINTUN_SHA256=07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51
 
 if [[ "$what" == windows || "$what" == all ]]; then
   # Icon, version info and manifest (DPI awareness, never elevated) go into the exe as a resource object.
@@ -27,8 +29,15 @@ if [[ "$what" == windows || "$what" == all ]]; then
     -info "$tmp/info.json" -out rsrc_windows_amd64.syso
   VERSION="$v" bash "$root/tool/desktop-build.sh" windows/amd64 "$tmp/sockmnezia.exe"
   rm -f rsrc_windows_amd64.syso
-  (cd "$tmp" && zip -q -9 "$dist/$name-windows-x64.zip" sockmnezia.exe)
-  makensis -V2 -DVERSION="$v" -DNUMERIC="$numeric" -DEXE="$tmp/sockmnezia.exe" -DICON="$root/desktop/build/appicon.ico" \
+  # Wintun (WireGuard LLC, signed driver DLL, redistributable) for TUN mode, checked against a pinned hash.
+  curl -sSfL -o "$tmp/wintun.zip" "https://www.wintun.net/builds/wintun-$WINTUN_VERSION.zip"
+  echo "$WINTUN_SHA256  $tmp/wintun.zip" | sha256sum -c --quiet
+  unzip -q -j -o "$tmp/wintun.zip" wintun/bin/amd64/wintun.dll wintun/LICENSE.txt -d "$tmp/wintun"
+  cp "$tmp/wintun/wintun.dll" "$tmp/wintun.dll"
+  cp "$tmp/wintun/LICENSE.txt" "$tmp/wintun-LICENSE.txt"
+  (cd "$tmp" && zip -q -9 "$dist/$name-windows-x64.zip" sockmnezia.exe wintun.dll wintun-LICENSE.txt)
+  makensis -V2 -DVERSION="$v" -DNUMERIC="$numeric" -DEXE="$tmp/sockmnezia.exe" -DWINTUN="$tmp/wintun.dll" \
+    -DWINTUNLICENSE="$tmp/wintun-LICENSE.txt" -DICON="$root/desktop/build/appicon.ico" \
     -DOUTFILE="$dist/$name-windows-x64-setup.exe" build/windows/installer.nsi
 fi
 

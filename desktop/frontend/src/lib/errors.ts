@@ -16,11 +16,12 @@ const codes = new Set([
   "update_required", "gateway_error", "no_config", "no_own_server", "port_in_use", "invalid_settings", "geo_missing",
   "unsupported_link", "invalid_link", "not_running", "network", "geo_busy", "json_only", "update_invalid", "no_chain",
   "server_in_use", "chain_empty", "chain_too_long", "chain_amnezia_twice", "hop_not_chainable", "sysproxy",
+  "tun_declined", "tun_failed",
 ]);
 // Codes whose text says everything; others add the technical detail.
 const plain = new Set([
   "device_limit", "captcha_required", "not_running", "no_chain", "geo_busy", "json_only", "chain_empty",
-  "chain_too_long", "chain_amnezia_twice", "hop_not_chainable",
+  "chain_too_long", "chain_amnezia_twice", "hop_not_chainable", "tun_declined",
 ]);
 
 export function errorText(e: CoreError | unknown): string {

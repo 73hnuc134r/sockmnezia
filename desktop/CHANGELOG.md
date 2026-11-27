@@ -10,6 +10,9 @@ First desktop version (Windows 10/11, Linux with GTK 4), the same core as the An
 
 - Connect: the active chain left to right (this PC → hops → internet), Start/Stop, exit address and ping on
   click, live download/upload graphs, the local SOCKS5/HTTP address with copy.
+- TUN mode: all traffic of the computer through the chain, also from apps without proxy settings; DNS over
+  HTTPS through the chain, the local network keeps working. Only a small helper gets administrator rights
+  (a prompt on each start, or once with "TUN without prompts", which also brings TUN up at login).
 - System proxy: Off, System proxy or PAC. While the proxy runs, Windows / GNOME / KDE settings point at a
   loopback port; the previous settings come back on stop, quit and after a crash. PAC sends what your rules
   send directly around the proxy.

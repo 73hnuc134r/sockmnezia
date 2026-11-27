@@ -59,6 +59,8 @@ const (
 	TagSocksIn       = "socks-in"
 	TagHTTPIn        = "http-in"
 	TagTunIn         = "tun-in" // VPN mode (D31)
+	// TunName is the tun interface (Linux) / Wintun adapter (Windows) name.
+	TunName = "sockmnezia"
 	// TagSysProxyIn is the desktop system-proxy port (D30): HTTP on 127.0.0.1 without authentication, because
 	// OS proxy settings cannot carry credentials. Only while the system-proxy mode is on; never on a LAN address.
 	TagSysProxyIn = "sysproxy-in"
@@ -83,6 +85,21 @@ type VPN struct {
 	// module over these DNS-over-HTTPS URLs (IP literals, so no bootstrap lookup), sent through the chain.
 	// Empty: DNS packets are ordinary traffic and go through the chain like everything else.
 	DoH []string
+	// System, on the desktop (TUN mode, D37), has Xray create the interface, its address and the system
+	// routes itself; nil on Android, where the VpnService does that and hands over a file descriptor.
+	System *SystemTUN
+}
+
+// SystemTUN is the desktop TUN: Xray's tun inbound brings the interface up and routes into it, and binds
+// its own outbound sockets to the physical interface so they don't loop back (autoOutboundsInterface).
+type SystemTUN struct {
+	Gateway []string // interface address(es), e.g. 172.19.0.1/30
+	Routes  []string // autoSystemRoutingTable, e.g. 0.0.0.0/0 and ::/0
+	// DNS is the resolver the system is pointed at, inside Gateway, answered by the DoH module (Windows: the
+	// adapter's DNS; Linux: through systemd-resolved when DNSToGateway).
+	DNS          []string
+	DNSToGateway bool     // Linux: point systemd-resolved at the tun (autoSystemDnsToGateway)
+	WFP          []string // Windows: leak filters (autoSystemWfpBlockLeak), e.g. dns, misconfigtun
 }
 
 // Spec is everything Build needs.
@@ -452,9 +469,30 @@ func Build(s Spec) ([]byte, error) {
 		if mtu < 1280 || mtu > 9000 {
 			return nil, ferr("vpn", "MTU %d out of range (1280-9000)", mtu)
 		}
+		tun := map[string]any{"name": TunName, "mtu": mtu}
+		if sys := v.System; sys != nil {
+			if len(sys.Gateway) == 0 || len(sys.Routes) == 0 {
+				return nil, ferr("vpn", "system TUN needs an address and routes")
+			}
+			if len(v.DoH) == 0 && (sys.DNSToGateway || len(sys.DNS) > 0) {
+				return nil, ferr("vpn", "the system resolver can only point at the TUN with DNS-over-HTTPS")
+			}
+			tun["gateway"] = sys.Gateway
+			tun["autoSystemRoutingTable"] = sys.Routes
+			tun["autoOutboundsInterface"] = "auto"
+			if len(sys.DNS) > 0 {
+				tun["dns"] = sys.DNS
+			}
+			if sys.DNSToGateway {
+				tun["autoSystemDnsToGateway"] = true
+			}
+			if len(sys.WFP) > 0 {
+				tun["autoSystemWfpBlockLeak"] = sys.WFP
+			}
+		}
 		inbounds = append(inbounds, map[string]any{
 			"tag": TagTunIn, "protocol": "tun",
-			"settings": map[string]any{"name": "sockmnezia", "mtu": mtu},
+			"settings": tun,
 			"sniffing": sniffing,
 		})
 		if len(v.DoH) > 0 {
@@ -580,6 +618,21 @@ func Audit(cfg []byte) error {
 			if in["tag"] != TagTunIn || in["listen"] != nil || in["port"] != nil {
 				return errors.New("unexpected tun inbound")
 			}
+			st, _ := in["settings"].(map[string]any)
+			if st["name"] != TunName {
+				return errors.New("unexpected tun interface name")
+			}
+			for k := range st {
+				switch k {
+				case "name", "mtu", "gateway", "dns", "autoSystemRoutingTable", "autoOutboundsInterface",
+					"autoSystemDnsToGateway", "autoSystemWfpBlockLeak":
+				default:
+					return fmt.Errorf("tun setting %q is not allowed", k)
+				}
+			}
+			if o, ok := st["autoOutboundsInterface"]; ok && o != "auto" {
+				return errors.New("tun outbounds must be bound to the default interface")
+			}
 		}
 	}
 	vpn := tuns == 1
@@ -588,7 +641,21 @@ func Audit(cfg []byte) error {
 	}
 	for k, v := range c {
 		switch k {
-		case "log", "inbounds", "outbounds", "routing", "policy", "stats":
+		case "log":
+			// Never a file: the desktop TUN helper runs configs with administrator rights (D37).
+			l, _ := v.(map[string]any)
+			for lk, lv := range l {
+				switch lk {
+				case "loglevel", "dnsLog":
+				case "access", "error":
+					if lv != "none" && lv != "" {
+						return fmt.Errorf("log %s file is not allowed", lk)
+					}
+				default:
+					return fmt.Errorf("log setting %q is not allowed", lk)
+				}
+			}
+		case "inbounds", "outbounds", "routing", "policy", "stats":
 		case "dns": // only in VPN mode, and only DNS-over-HTTPS to IP addresses (never the local resolver)
 			if !vpn {
 				return errors.New(`top-level "dns" outside VPN mode`)
@@ -685,4 +752,22 @@ func Audit(cfg []byte) error {
 		}
 	}
 	return nil
+}
+
+// HasTun reports whether cfg has the tun inbound (the desktop TUN helper runs nothing else, D37).
+func HasTun(cfg []byte) bool {
+	var c struct {
+		Inbounds []struct {
+			Protocol string `json:"protocol"`
+		} `json:"inbounds"`
+	}
+	if json.Unmarshal(cfg, &c) != nil {
+		return false
+	}
+	for _, in := range c.Inbounds {
+		if in.Protocol == "tun" {
+			return true
+		}
+	}
+	return false
 }
