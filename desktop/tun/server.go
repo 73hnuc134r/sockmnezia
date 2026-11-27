@@ -1,9 +1,12 @@
 package tun
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -12,25 +15,32 @@ import (
 	"github.com/nuc134r/sockmnezia/core/xrayconf"
 )
 
-// running is what the helper runs; runner.Instance in the real helper, a fake in tests.
+// running is what the service runs; runner.Instance in the real service, a fake in tests.
 type running interface {
 	Close() error
 	Traffic() (up, down int64)
 }
 
-// Server is the helper side. One client at a time; when it disconnects the TUN stops and, unless the helper
-// is persistent (started at login), the helper exits.
-type Server struct {
-	Version    string
-	Persistent bool
+// saved is the service's state file: the last config and whether it runs or blocks.
+type saved struct {
+	Config string `json:"config"`
+	GeoDir string `json:"geo"`
+	Active bool   `json:"active"`
+}
+
+// Service is the system service side.
+type Service struct {
+	Version  string
+	StateDir string // administrators/root only
 	// start runs a config; runner.Start by default.
 	start func(cfg []byte) (running, error)
 
-	mu   sync.Mutex
-	inst running
+	mu    sync.Mutex
+	inst  running
+	state saved
 }
 
-func (s *Server) run(cfg []byte, geoDir string) (running, error) {
+func (s *Service) run(cfg []byte, geoDir string) (running, error) {
 	if s.start != nil {
 		return s.start(cfg)
 	}
@@ -40,26 +50,83 @@ func (s *Server) run(cfg []byte, geoDir string) (running, error) {
 	return runner.Start(cfg)
 }
 
-// Serve answers clients until the listener closes, or after the first client unless Persistent.
-func (s *Server) Serve(l net.Listener) error {
+func (s *Service) statePath() string { return filepath.Join(s.StateDir, "tun.json") }
+
+// Load resumes the last state (at boot, after a restart): the config, or the same config blocking everything.
+func (s *Service) Load() error {
+	b, err := os.ReadFile(s.statePath())
+	if err != nil {
+		return nil // nothing sent yet
+	}
+	var st saved
+	if err := json.Unmarshal(b, &st); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.state = st
+	return s.applyLocked()
+}
+
+// applyLocked runs the saved state: its config when active, otherwise the config with everything blocked.
+func (s *Service) applyLocked() error {
+	if s.inst != nil {
+		s.inst.Close()
+		s.inst = nil
+	}
+	cfg := []byte(s.state.Config)
+	if !s.state.Active {
+		var err error
+		if cfg, err = xrayconf.BlockAll(cfg); err != nil {
+			return err
+		}
+	}
+	if err := checkConfig(cfg); err != nil {
+		return err
+	}
+	inst, err := s.run(cfg, s.state.GeoDir)
+	if err != nil {
+		return err
+	}
+	s.inst = inst
+	return nil
+}
+
+func (s *Service) saveLocked() error {
+	b, _ := json.Marshal(s.state)
+	tmp := s.statePath() + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, s.statePath())
+}
+
+// checkConfig: only audited configs with the tun inbound.
+func checkConfig(cfg []byte) error {
+	if err := xrayconf.Audit(cfg); err != nil {
+		return fmt.Errorf("config refused: %w", err)
+	}
+	if !xrayconf.HasTun(cfg) {
+		return errors.New("config refused: no tun inbound")
+	}
+	return nil
+}
+
+// Serve answers the app until the listener closes; connections come and go, the TUN stays.
+func (s *Service) Serve(l net.Listener) error {
 	for {
 		c, err := l.Accept()
 		if err != nil {
 			return err
 		}
-		s.handle(newConn(c))
-		c.Close()
-		s.stop()
-		if !s.Persistent {
-			return nil
-		}
+		go func() {
+			defer c.Close()
+			s.handle(newConn(c))
+		}()
 	}
 }
 
-// ErrExit asks Serve's caller to exit (an app of another version wants its own helper).
-var ErrExit = errors.New("exit requested")
-
-func (s *Server) handle(c *conn) {
+func (s *Service) handle(c *conn) {
 	for {
 		var req request
 		if err := c.read(&req); err != nil {
@@ -69,23 +136,23 @@ func (s *Server) handle(c *conn) {
 		switch req.Op {
 		case "hello":
 			resp.Version = s.Version
+			s.mu.Lock()
+			resp.Active = s.state.Active && s.inst != nil
+			s.mu.Unlock()
 		case "start":
 			if err := s.startConfig([]byte(req.Config), req.GeoDir); err != nil {
 				resp.Error = err.Error()
 			}
+		case "stop":
+			if err := s.block(); err != nil {
+				resp.Error = err.Error()
+			}
 		case "traffic":
 			s.mu.Lock()
-			if s.inst != nil {
+			if s.inst != nil && s.state.Active {
 				resp.Up, resp.Down = s.inst.Traffic()
 			}
 			s.mu.Unlock()
-		case "stop":
-			s.stop()
-		case "exit":
-			s.stop()
-			c.write(resp)
-			s.Persistent = false
-			return
 		default:
 			resp.Error = "unknown request"
 		}
@@ -95,32 +162,45 @@ func (s *Server) handle(c *conn) {
 	}
 }
 
-// startConfig runs cfg if it passes the security audit and has the tun inbound.
-func (s *Server) startConfig(cfg []byte, geoDir string) error {
-	if err := xrayconf.Audit(cfg); err != nil {
-		return fmt.Errorf("config refused: %w", err)
-	}
-	if !xrayconf.HasTun(cfg) {
-		return errors.New("config refused: no tun inbound")
+// startConfig runs cfg (unchanged when it already runs: the app attaching after a restart).
+func (s *Service) startConfig(cfg []byte, geoDir string) error {
+	if err := checkConfig(cfg); err != nil {
+		return err
 	}
 	if geoDir != "" && !filepath.IsAbs(geoDir) {
 		return errors.New("geo directory must be absolute")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.inst != nil {
-		s.inst.Close()
-		s.inst = nil
+	if s.state.Active && s.inst != nil && bytes.Equal([]byte(s.state.Config), cfg) && s.state.GeoDir == geoDir {
+		return nil
 	}
-	inst, err := s.run(cfg, geoDir)
-	if err != nil {
+	prev := s.state
+	s.state = saved{Config: string(cfg), GeoDir: geoDir, Active: true}
+	if err := s.applyLocked(); err != nil {
+		s.state = prev
+		s.applyLocked() // back to what ran (or blocked) before
 		return err
 	}
-	s.inst = inst
-	return nil
+	return s.saveLocked()
 }
 
-func (s *Server) stop() {
+// block keeps the tun with everything blocked (the user stopped the proxy in TUN mode).
+func (s *Service) block() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.state.Config == "" {
+		return nil
+	}
+	s.state.Active = false
+	if err := s.saveLocked(); err != nil {
+		return err
+	}
+	return s.applyLocked()
+}
+
+// Close stops Xray (the service is stopping: uninstall or shutdown); the routes go with it.
+func (s *Service) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.inst != nil {

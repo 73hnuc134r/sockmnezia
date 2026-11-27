@@ -16,8 +16,8 @@ import (
 	"github.com/nuc134r/sockmnezia/desktop/tun"
 )
 
-// TUN mode (docs/10 §3a, D37): the engine's config runs in the elevated helper (package tun); this file picks
-// the system TUN settings and watches the helper.
+// TUN mode (docs/10 §3a, D40): the engine's config runs in the system service (package tun); this file picks
+// the system TUN settings and keeps the app attached to the service.
 
 // systemTUN is the interface, routes and DNS for this OS. The local network stays reachable: its routes are
 // more specific than the default routes, and private addresses are blocked inside the proxy anyway.
@@ -32,12 +32,14 @@ func systemTUN() xrayconf.SystemTUN {
 	}
 	switch runtime.GOOS {
 	case "windows":
-		// The adapter's DNS server, answered by Xray over DoH; WFP keeps DNS and IPv6 from leaving elsewhere.
+		// The adapter's DNS server, answered by Xray over DoH. WFP lets nothing but Xray leave outside the
+		// tun, except the local network (also while the service blocks everything: proxy stopped).
 		s.DNS = []string{"172.19.0.2"}
-		s.WFP = []string{"dns", "misconfigtun"}
+		s.WFP = []string{"allexceptlan", "misconfigtun"}
 	case "linux":
 		// systemd-resolved is pointed at the tun when it manages DNS; otherwise DNS stays with the system.
 		s.DNSToGateway = resolvedActive()
+		s.Mark = tun.Mark // the kill switch lets only Xray's marked sockets out
 		// Without IPv6 the address can't be set (and there is no IPv6 traffic to route).
 		if !ipv6Enabled() {
 			s.Gateway = s.Gateway[:1]
@@ -59,7 +61,7 @@ func resolvedActive() bool {
 	return exec.Command("resolvectl", "status").Run() == nil
 }
 
-// tunWatch remembers the helper's instance to notice when it goes away.
+// tunWatch remembers the service's instance to notice when it goes away.
 type tunWatch struct {
 	mu     sync.Mutex
 	remote *tun.Remote
@@ -73,11 +75,7 @@ func (d *desk) tunLauncher() engine.Launcher {
 	return func(cfg []byte, geoDir string) (engine.Instance, error) {
 		inst, err := inner(cfg, geoDir)
 		if err != nil {
-			code := "tun_failed"
-			if errors.Is(err, tun.ErrDeclined) {
-				code = "tun_declined"
-			}
-			return nil, &engine.Error{Code: code, Detail: err.Error()}
+			return nil, tunError(err)
 		}
 		d.tunw.mu.Lock()
 		d.tunw.remote, _ = inst.(*tun.Remote)
@@ -86,13 +84,38 @@ func (d *desk) tunLauncher() engine.Launcher {
 	}
 }
 
-// startTUN starts (or restarts) the proxy in TUN mode.
+func tunError(err error) error {
+	code := "tun_failed"
+	if errors.Is(err, tun.ErrDeclined) {
+		code = "tun_declined"
+	}
+	return &engine.Error{Code: code, Detail: err.Error()}
+}
+
+// startTUN starts (or restarts, or attaches to) the proxy in TUN mode.
 func (d *desk) startTUN(ctx context.Context) error {
 	return d.e.StartTUN(ctx, systemTUN(), d.tunLauncher())
 }
 
-// checkTUN stops the proxy when the helper is gone (killed, or its TUN failed), so the app doesn't show a
-// connection that no longer exists.
+// tunActive: TUN mode is chosen and the service runs a config (e.g. since boot): the app attaches on launch.
+func (d *desk) tunActive() bool {
+	return d.e.GetSettings().Options.Mode == engine.ModeVPN && tun.Query().Active
+}
+
+// detachTUN leaves the TUN running in the service (the app quits); false when TUN isn't running.
+func (d *desk) detachTUN() bool {
+	d.tunw.mu.Lock()
+	r := d.tunw.remote
+	d.tunw.mu.Unlock()
+	if r == nil || !d.e.Status().VPN {
+		return false
+	}
+	r.Detach()
+	return true
+}
+
+// checkTUN notices a lost service connection (the service restarted after a crash: it resumes the last
+// config on its own) and attaches again.
 func (d *desk) checkTUN(st engine.Status) {
 	if !st.Running || !st.VPN {
 		return
@@ -100,9 +123,12 @@ func (d *desk) checkTUN(st engine.Status) {
 	d.tunw.mu.Lock()
 	r := d.tunw.remote
 	d.tunw.mu.Unlock()
-	if r != nil && !r.Alive() {
-		d.e.Stop()
-		d.notify(&engine.Error{Code: "tun_failed", Detail: "the TUN helper stopped"})
-		d.changed()
+	if r == nil || r.Alive() {
+		return
 	}
+	d.e.Stop() // the service blocks or is gone; either way nothing leaks
+	if err := d.startTUN(context.Background()); err != nil {
+		d.notify(engine.Classify(err))
+	}
+	d.changed()
 }

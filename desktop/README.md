@@ -1,7 +1,7 @@
 # sockmnezia desktop
 
 The desktop app (Windows 10/11, Linux): the shared Go core (`../core`) with a web UI in the OS webview, built
-with [Wails v3](https://v3.wails.io). Plan and decisions: `docs/10-desktop-plan.md`, D30, D33–D37.
+with [Wails v3](https://v3.wails.io). Plan and decisions: `docs/10-desktop-plan.md`, D30, D33–D40.
 
 | Path | What |
 |---|---|
@@ -10,7 +10,7 @@ with [Wails v3](https://v3.wails.io). Plan and decisions: `docs/10-desktop-plan.
 | `desktop.go` | `Desktop` service: build info, prefs, autostart, update check, file dialogs, QR codes |
 | `sysproxy*.go` | OS proxy settings (Windows WinINET, Linux GSettings/KDE), saved and restored |
 | `secret*.go` | state encryption (DPAPI, Secret Service keyring) |
-| `tun/`, `tunmode.go` | TUN mode: the elevated helper (`--tun-helper`), its pipe/socket, prompts and no-prompt setup (D37) |
+| `tun/`, `tunmode.go` | TUN mode: the system service (`--tun-service`, `--tun-install`, `--tun-uninstall`), its pipe/socket, the Linux kill switch (D40) |
 | `tray.go`, `prefs.go` | tray menu and icons; the app's own preferences (`desktop.json`) |
 | `frontend/` | Svelte 5 + TypeScript UI; `bindings/` is generated, `src/lib/strings.json` comes from `tool/strings.py` |
 | `build/` | app icon, Windows manifest/version info/installer, Linux `.desktop` and nfpm config |

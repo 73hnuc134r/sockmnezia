@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nuc134r/sockmnezia/core/engine"
+	"github.com/nuc134r/sockmnezia/desktop/tun"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -80,7 +81,7 @@ func (d *desk) start() {
 	d.changed()
 }
 
-// startProxy starts the proxy in the configured mode: TUN (through the helper) or proxy only. The time limit
+// startProxy starts the proxy in the configured mode: TUN (through the system service) or proxy only. The time limit
 // leaves room for the administrator prompt.
 func (d *desk) startProxy(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
@@ -104,9 +105,31 @@ func (d *desk) setMode(mode string) error {
 	if err := d.e.SetSettings(s); err != nil {
 		return err
 	}
-	if d.e.Status().Running && wasTUN != (mode == "tun") {
-		d.e.Stop()
-		err := d.startProxy(context.Background())
+	if wasTUN != (mode == "tun") {
+		running := d.e.Status().Running
+		if mode == "tun" {
+			// The service is installed when TUN is chosen (one prompt) and removed when it isn't (one prompt).
+			if st := tun.Query(); st.Running && st.Version == Version {
+				// installed and current: nothing to ask
+			} else if err := tun.Install(); err != nil {
+				s.Options.Mode, s.Options.SystemProxy = engine.ModeProxy, ""
+				d.e.SetSettings(s)
+				return tunError(err)
+			}
+		} else {
+			d.e.Stop() // the service blocks everything until it is removed
+			if err := tun.Uninstall(); err != nil {
+				s.Options.Mode, s.Options.SystemProxy = engine.ModeVPN, "" // still in TUN mode: nothing leaks
+				d.e.SetSettings(s)
+				d.changed()
+				return tunError(err)
+			}
+		}
+		var err error
+		if running {
+			d.e.Stop()
+			err = d.startProxy(context.Background())
+		}
 		d.changed()
 		return err
 	}

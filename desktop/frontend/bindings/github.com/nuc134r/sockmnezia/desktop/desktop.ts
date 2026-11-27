@@ -14,6 +14,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as engine$0 from "../core/engine/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as tun$0 from "./tun/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -106,20 +109,20 @@ export function SetPrefs(p: $models.Prefs): $CancellablePromise<void> {
     return $Call.ByID(1559277294, p);
 }
 
-/**
- * SetTUNNoPrompt sets that up or removes it; asks for administrator rights once.
- */
-export function SetTUNNoPrompt(on: boolean): $CancellablePromise<void> {
-    return $Call.ByID(4217934214, on);
-}
-
 export function State(): $CancellablePromise<$models.DesktopState> {
     return $Call.ByID(3152233241);
 }
 
 /**
- * TUNNoPrompt reports whether TUN mode starts without an administrator prompt (logon task / polkit rule).
+ * TUNDNSWarning: TUN on Linux without systemd-resolved: name lookups keep going to the system's resolver.
  */
-export function TUNNoPrompt(): $CancellablePromise<boolean> {
-    return $Call.ByID(2512156286);
+export function TUNDNSWarning(): $CancellablePromise<boolean> {
+    return $Call.ByID(2611971194);
+}
+
+/**
+ * TUNService is the state of the TUN service (installed only while TUN mode is chosen).
+ */
+export function TUNService(): $CancellablePromise<tun$0.Status> {
+    return $Call.ByID(147927270);
 }

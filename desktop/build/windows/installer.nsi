@@ -2,6 +2,7 @@
 ; makensis -DVERSION=0.1.0 -DEXE=path\to\sockmnezia.exe -DICON=appicon.ico -DOUTFILE=setup.exe installer.nsi
 Unicode true
 !include "MUI2.nsh"
+!include "LogicLib.nsh"
 
 Name "sockmnezia"
 OutFile "${OUTFILE}"
@@ -49,6 +50,13 @@ Section "Install"
 SectionEnd
 
 Section "Uninstall"
+  ; The TUN service (installed by the app for TUN mode) runs from its own copy; removing it needs
+  ; administrator rights: one prompt, only when it is installed.
+  nsExec::ExecToStack 'sc query sockmnezia-tun'
+  Pop $0
+  ${If} $0 == 0
+    ExecShellWait "runas" "$INSTDIR\sockmnezia.exe" "--tun-uninstall" SW_HIDE
+  ${EndIf}
   nsExec::Exec 'taskkill /IM sockmnezia.exe'
   Sleep 1000
   Delete "$INSTDIR\sockmnezia.exe"
@@ -59,9 +67,6 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\sockmnezia.lnk"
   ; Login item, if the user turned it on (the app's data in %LOCALAPPDATA%\sockmnezia stays).
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "sockmnezia"
-  ; The "sockmnezia TUN" logon task (TUN without prompts) needs administrator rights to delete; the app's
-  ; switch removes it. Try anyway (it works when the uninstaller runs elevated).
-  nsExec::Exec 'schtasks /Delete /TN "sockmnezia TUN" /F'
   DeleteRegKey HKCU "${UNINST}"
   DeleteRegKey HKCU "Software\sockmnezia"
 SectionEnd

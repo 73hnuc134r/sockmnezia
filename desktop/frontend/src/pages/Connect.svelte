@@ -69,6 +69,8 @@
   const sys = $derived(store.desktop?.sys_proxy);
   const mode = $derived(st?.mode === "vpn" ? "tun" : (st?.system_proxy ?? ""));
   let modeBusy = $state(false);
+  let dnsWarning = $state(false);
+  Desktop.TUNDNSWarning().then((w) => (dnsWarning = w));
   async function setMode(v: string) {
     modeBusy = true; // switching to or from TUN restarts the proxy (and may ask for administrator rights)
     await store.act(() => Core.SetConnectionMode(v));
@@ -135,7 +137,13 @@
   {#if st}
     <div class="modeinfo">
       <div class="hint">{t(mode === "tun" ? "d_mode_tun_hint" : mode === "system" ? "d_mode_system_hint" : "d_mode_off_hint")}</div>
-      {#if mode === "tun" && !st.running}<div class="hint">{t("d_mode_tun_admin")}</div>{/if}
+      {#if mode === "tun"}
+        <div class="hint">{t("d_mode_tun_service")}</div>
+        {#if dnsWarning}<div class="hint warn">{t("d_tun_dns_warning")}</div>{/if}
+        {#if !st.running}<div class="hint warn">{t("d_tun_blocking")}</div>{/if}
+      {:else}
+        <div class="hint">{t("d_mode_tun_admin")}</div>
+      {/if}
       {#if mode === "system"}
         <div class="hint warn">{t("d_mode_warning")}</div>
         {#if sys && !sys.supported}

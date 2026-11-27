@@ -18,7 +18,7 @@ contents:
   - src: build/linux/sockmnezia.desktop
     dst: /usr/share/applications/sockmnezia.desktop
 scripts:
-  # The "TUN without a password" polkit rules belong to this binary.
+  # Removes the TUN service (and its firewall rules) the app installed for TUN mode.
   postremove: build/linux/postremove.sh
 # GTK 4 + WebKitGTK 6 (Ubuntu 24.04+, Debian 13+, Fedora 39+), D34.
 depends:
@@ -26,6 +26,7 @@ depends:
   - libwebkitgtk-6.0-4
 recommends:
   - pkexec
+  - nftables
 overrides:
   rpm:
     depends:
@@ -33,3 +34,4 @@ overrides:
       - webkitgtk6.0
     recommends:
       - polkit
+      - nftables

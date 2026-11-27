@@ -348,7 +348,7 @@ tray is on.
   not exist yet; until then the user installs from the release page (HTTPS, SHA256SUMS published).
 - Binaries are not code-signed (no certificate); SmartScreen warns on first run (docs/RELEASING.md).
 
-## D37 · Desktop TUN mode: an elevated helper, prompt or no-prompt (2026-11-27)
+## D37 · Desktop TUN mode: an elevated helper, prompt or no-prompt (2026-11-27) — superseded by D40
 
 Owner's choice after comparing v2rayN (which elevates the whole app on Windows, with an elevated Task Scheduler
 logon task for autostart, and on Linux pipes the user's sudo password, kept in memory, into `sudo -S`).
@@ -390,3 +390,32 @@ chooses Off (or TUN). A failure to set them never falls back to removing them.
 A PAC script is served by the app; when sockmnezia isn't running, browsers and Windows treat the unreachable
 script as "no proxy" and go direct, which breaks the fail-closed rule (D38). Serving it as a file is not
 reliable on Windows. A saved "pac" mode is read as the system proxy. `routing.PAC` is removed.
+
+## D40 · Desktop TUN mode runs in a system service, fail-closed (2026-11-27)
+
+Owner: drop the per-start helper (D37); install a service only when TUN is chosen; nothing may leak around the
+proxy (D38). Portable builds stay.
+
+- Choosing TUN installs the service (one administrator prompt: UAC / pkexec); choosing another mode removes
+  it (one prompt; if declined, TUN mode stays). Windows: a LocalSystem service with restart-on-failure;
+  Linux: a systemd unit (`Restart=always`, ordered before `network-pre.target`). The service binary is a
+  copy in an administrators-only directory (`%ProgramData%\sockmnezia\bin`, `/usr/local/libexec/sockmnezia`):
+  a SYSTEM/root service must never run a file the user can change. A version mismatch reinstalls (prompt).
+  Portable builds install the same way. Package removal / the Windows uninstaller remove the service too.
+- The service runs the engine's configs (audited, with the tun inbound) and keeps the last one in an
+  administrators-only state file, so TUN continues when the app quits and starts at boot. The app attaches on
+  launch without restarting it (an identical config is not restarted).
+- Fail-closed: Stop in TUN mode makes the service run the same config with everything blocked
+  (`xrayconf.BlockAll`): the tun and its routes stay, internet traffic is dropped until Start or another mode.
+  Windows: Xray's WFP filters `allexceptlan` + `misconfigtun` let nothing but Xray leave outside the tun
+  while the service runs. Linux: an nftables table (`inet sockmnezia`) drops all output except loopback, the
+  tun, the local network and sockets with Xray's mark (`SO_MARK` on every outbound in TUN mode), from the
+  service start until the uninstall, so it also covers a crash/restart of the service and the boot until
+  Xray is up. Windows has a gap of about a second when the service crashes (restarted by Windows) and at boot
+  before the service starts. Inbound connections from the internet to this computer's own servers get no
+  answer while the kill switch is on (local network excepted).
+- Linux DNS without systemd-resolved: name lookups still go to the system's resolver; the UI says so (no
+  change, owner's choice). Linux TUN needs systemd and nftables.
+- Pipe/socket and identity as in D37, now one per machine for the installing user: Windows
+  `\\.\pipe\sockmnezia-tun` (DACL: that user and SYSTEM; the app checks the server is LocalSystem), Linux
+  `/run/sockmnezia/tun.sock` (owner = installing user, 0600; SO_PEERCRED both ways).

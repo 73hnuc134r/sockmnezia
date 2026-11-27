@@ -142,17 +142,8 @@ func (s *Desktop) CheckUpdate(ctx context.Context, beta bool) (*engine.Update, e
 	return u, nil
 }
 
-// TUNNoPrompt reports whether TUN mode starts without an administrator prompt (logon task / polkit rule).
-func (s *Desktop) TUNNoPrompt() bool { return tun.NoPromptInstalled() }
+// TUNService is the state of the TUN service (installed only while TUN mode is chosen).
+func (s *Desktop) TUNService() tun.Status { return tun.Query() }
 
-// SetTUNNoPrompt sets that up or removes it; asks for administrator rights once.
-func (s *Desktop) SetTUNNoPrompt(on bool) error {
-	if err := tun.SetNoPrompt(on); err != nil {
-		code := "tun_failed"
-		if errors.Is(err, tun.ErrDeclined) {
-			code = "tun_declined"
-		}
-		return &engine.Error{Code: code, Detail: err.Error()}
-	}
-	return nil
-}
+// TUNDNSWarning: TUN on Linux without systemd-resolved: name lookups keep going to the system's resolver.
+func (s *Desktop) TUNDNSWarning() bool { return runtime.GOOS == "linux" && !resolvedActive() }

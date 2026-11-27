@@ -21,7 +21,7 @@ type Core struct {
 	changed func()
 	// selected records the chain ("c:<id>") or server ("s:<id>") just selected (recent list in the tray).
 	selected func(key string)
-	// start and setMode are the desktop's (TUN goes through the elevated helper).
+	// start and setMode are the desktop's (TUN goes through the system service).
 	start   func(ctx context.Context) error
 	setMode func(mode string) error
 }

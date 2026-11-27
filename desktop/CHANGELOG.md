@@ -11,8 +11,10 @@ First desktop version (Windows 10/11, Linux with GTK 4), the same core as the An
 - Connect: the active chain left to right (this PC → hops → internet), Start/Stop, exit address and ping on
   click, live download/upload graphs, the local SOCKS5/HTTP address with copy.
 - TUN mode: all traffic of the computer through the chain, also from apps without proxy settings; DNS over
-  HTTPS through the chain, the local network keeps working. Only a small helper gets administrator rights
-  (a prompt on each start, or once with "TUN without prompts", which also brings TUN up at login).
+  HTTPS through the chain, the local network keeps working. Choosing TUN installs a small system service
+  (one administrator prompt; choosing another mode removes it), which keeps TUN up when sockmnezia is closed
+  and starts with the computer. Nothing goes around the chain: when the proxy is stopped, internet traffic is
+  blocked until you start it again or choose another mode.
 - System proxy: Windows / GNOME / KDE settings point at a loopback port and stay so while the mode is chosen,
   also when the proxy is stopped or sockmnezia is closed: traffic then fails instead of going direct. Choosing
   Off puts the previous settings back.

@@ -550,3 +550,46 @@ func TestSystemTUN(t *testing.T) {
 		}
 	}
 }
+
+// D40: the stopped TUN service blocks everything; Xray's sockets carry the mark the firewall lets out.
+func TestBlockAllAndMark(t *testing.T) {
+	sys := &SystemTUN{Gateway: []string{"172.19.0.1/30"}, Routes: []string{"0.0.0.0/0"}, Mark: 0x534d58}
+	hops := []Hop{OwnHop(own(t, vpsLink)), OwnHop(own(t, vpsLink))}
+	b, err := Build(Spec{Hops: hops, Inbound: goodIn, VPN: &VPN{DoH: []string{"https://1.1.1.1/dns-query"}, System: sys}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	json.Unmarshal(b, &m)
+	for _, x := range m["outbounds"].([]any) {
+		o := x.(map[string]any)
+		if o["tag"] == TagDNSOut { // answers from Xray's DNS module, opens no socket itself
+			continue
+		}
+		ss, _ := o["streamSettings"].(map[string]any)
+		so, _ := ss["sockopt"].(map[string]any)
+		if so["mark"] != float64(0x534d58) {
+			t.Errorf("outbound %v without the mark", o["tag"])
+		}
+	}
+	if !strings.Contains(string(b), `"dialerProxy"`) {
+		t.Error("the mark replaced the chain's dialerProxy")
+	}
+	blocked, err := BlockAll(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Audit(blocked); err != nil {
+		t.Fatal(err)
+	}
+	m = nil
+	json.Unmarshal(blocked, &m)
+	rules := m["routing"].(map[string]any)["rules"].([]any)
+	last := rules[len(rules)-1].(map[string]any)
+	if len(rules) != len(routing.Locked())+1 || last["outboundTag"] != TagBlock || last["network"] != "tcp,udp" || m["dns"] != nil {
+		t.Fatalf("not everything blocked: %v", rules)
+	}
+	if !HasTun(blocked) {
+		t.Fatal("tun gone")
+	}
+}

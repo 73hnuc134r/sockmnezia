@@ -56,16 +56,15 @@ func dataDir() string {
 }
 
 func main() {
-	// The TUN helper and its setup run with administrator rights and never open a window (D37).
+	// The TUN service and its setup run with administrator rights and never open a window (D40).
 	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "--tun-helper":
-			if err := tun.RunHelper(Version, os.Args[2:]); err != nil {
-				log.Fatal(err)
-			}
-			return
-		case "--tun-noprompt-on", "--tun-noprompt-off":
-			if err := tun.RunNoPrompt(os.Args[1] == "--tun-noprompt-on", os.Args[2:]); err != nil {
+		run := map[string]func() error{
+			"--tun-service":   func() error { return tun.RunService(Version, os.Args[2:]) },
+			"--tun-install":   func() error { return tun.RunInstall(os.Args[2:]) },
+			"--tun-uninstall": func() error { return tun.RunUninstall(os.Args[2:]) },
+		}[os.Args[1]]
+		if run != nil {
+			if err := run(); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -98,7 +97,10 @@ func main() {
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) { d.show() },
 		},
 		OnShutdown: func() {
-			e.Stop()
+			// TUN keeps running in the service when the app quits; everything else stops.
+			if !d.detachTUN() {
+				e.Stop()
+			}
 		},
 	})
 
@@ -117,8 +119,8 @@ func main() {
 	d.win.RegisterHook(events.Common.WindowClosing, d.onClose)
 	d.tray = newTray(d)
 
-	if d.prefs.Get().ConnectOnLaunch {
-		go d.start()
+	if d.prefs.Get().ConnectOnLaunch || d.tunActive() {
+		go d.start() // in TUN mode with the service running: attach to it (no restart)
 	}
 	go d.loop()
 

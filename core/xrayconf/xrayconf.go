@@ -99,7 +99,10 @@ type SystemTUN struct {
 	// adapter's DNS; Linux: through systemd-resolved when DNSToGateway).
 	DNS          []string
 	DNSToGateway bool     // Linux: point systemd-resolved at the tun (autoSystemDnsToGateway)
-	WFP          []string // Windows: leak filters (autoSystemWfpBlockLeak), e.g. dns, misconfigtun
+	WFP          []string // Windows: leak filters (autoSystemWfpBlockLeak), e.g. allexceptlan
+	// Mark (Linux) is put on every socket Xray opens (SO_MARK), so the TUN service's firewall rules let
+	// exactly Xray's own connections leave outside the tun and drop everything else (D40).
+	Mark int
 }
 
 // Spec is everything Build needs.
@@ -489,6 +492,11 @@ func Build(s Spec) ([]byte, error) {
 			if len(sys.WFP) > 0 {
 				tun["autoSystemWfpBlockLeak"] = sys.WFP
 			}
+			if sys.Mark != 0 {
+				for _, o := range outs {
+					obj(obj(o, "streamSettings"), "sockopt")["mark"] = sys.Mark
+				}
+			}
 		}
 		inbounds = append(inbounds, map[string]any{
 			"tag": TagTunIn, "protocol": "tun",
@@ -770,4 +778,33 @@ func HasTun(cfg []byte) bool {
 		}
 	}
 	return false
+}
+
+// BlockAll returns cfg with every connection blocked (after the locked rules, which block too): what the
+// desktop TUN service runs while TUN mode is chosen but the proxy is stopped, so the tun and its routes stay
+// and nothing leaves around them (fail-closed, D40). Inbounds and outbounds stay, so it passes the audit.
+func BlockAll(cfg []byte) ([]byte, error) {
+	var c map[string]any
+	if err := json.Unmarshal(cfg, &c); err != nil {
+		return nil, err
+	}
+	rt, _ := c["routing"].(map[string]any)
+	if rt == nil {
+		return nil, errors.New("no routing")
+	}
+	rules, _ := rt["rules"].([]any)
+	n := len(routing.Locked())
+	if len(rules) < n {
+		return nil, errors.New("locked rules missing")
+	}
+	rt["rules"] = append(append([]any{}, rules[:n]...), map[string]any{"type": "field", "network": "tcp,udp", "outboundTag": TagBlock})
+	delete(c, "dns")
+	var outs []any
+	for _, x := range c["outbounds"].([]any) {
+		if o, _ := x.(map[string]any); o["tag"] != TagDNSOut {
+			outs = append(outs, x)
+		}
+	}
+	c["outbounds"] = outs
+	return json.Marshal(c)
 }
