@@ -46,7 +46,7 @@ blocked · secrets encrypted with the Android Keystore and never logged. The rul
 universal APK fits all. The app checks for updates on GitHub. English and Russian.
 
 **Desktop (Windows, Linux):** the same core with a desktop UI: a servers-and-chains grid, the tray, the
-system proxy (or PAC) set and restored for you, and a TUN mode for all traffic. Releases are tagged `desktop-v…`
+the system proxy set for you (and kept set, so nothing goes around it), and a TUN mode for all traffic. Releases are tagged `desktop-v…`
 ([releases](https://github.com/73hnuc134r/sockmnezia/releases)); see [`desktop/README.md`](desktop/README.md).
 
 A command-line version with the same core (chains, servers, sharing, routing, geo files) is in

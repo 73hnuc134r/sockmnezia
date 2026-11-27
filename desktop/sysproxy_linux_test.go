@@ -31,12 +31,6 @@ func TestGnomeProxyRoundTrip(t *testing.T) {
 		!strings.Contains(get("org.gnome.system.proxy", "ignore-hosts"), "'192.168.0.0/16'") {
 		t.Fatal("HTTP proxy not set")
 	}
-	if err := p.SetPAC("http://127.0.0.1:1/proxy.pac"); err != nil {
-		t.Fatal(err)
-	}
-	if get("org.gnome.system.proxy", "mode") != "'auto'" {
-		t.Fatal("PAC not set")
-	}
 	if err := p.Restore(saved); err != nil {
 		t.Fatal(err)
 	}

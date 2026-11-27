@@ -125,7 +125,7 @@ tr.grp td { padding: 10px 10px 4px; font: 500 11px/1 var(--mono); color: var(--d
           </div>
           <div class="row">
             <span class="btn p big">■ Stop</span>
-            <div class="grid" style="display:grid;gap:6px"><span class="cap">Mode</span><div class="seg"><span>Off</span><span class="on">System</span><span>PAC</span><span>TUN</span></div></div>
+            <div class="grid" style="display:grid;gap:6px"><span class="cap">Mode</span><div class="seg"><span>Off</span><span class="on">System</span><span>TUN</span></div></div>
             <span class="grow"></span>
             <div style="display:grid;gap:6px;justify-items:end"><span class="cap">Exit · click to test</span><span class="mono okc">203.0.113.9 [US] · 412 ms</span></div>
           </div>
@@ -145,7 +145,7 @@ tr.grp td { padding: 10px 10px 4px; font: 500 11px/1 var(--mono); color: var(--d
       </div>
       <div class="statusbar"><span><span class="led"></span>Running</span><span>Work · 3 hops</span><span class="mono">SOCKS 127.0.0.1:41377</span><span>Mode: system proxy</span><span class="grow"></span><span class="mono">↓ 1.24 MB/s ↑ 84 KB/s</span></div>
     </div></div>
-    <p class="note">The chain reads left to right, as on Android, top to bottom. Start/Stop is the main action; the connection mode (Off / System proxy / PAC / TUN, plan §3 and §3a) is next to it because it is the desktop-only switch people use most.</p>
+    <p class="note">The chain reads left to right, as on Android, top to bottom. Start/Stop is the main action; the connection mode (Off / System proxy / TUN, plan §3 and §3a) is next to it because it is the desktop-only switch people use most.</p>
   </section>
 
   <section>
@@ -226,7 +226,6 @@ tr.grp td { padding: 10px 10px 4px; font: 500 11px/1 var(--mono); color: var(--d
         <span class="cap">Settings · Connection mode</span>
         <div class="opt"><span class="radio"></span><div><b>Off</b><div class="muted">Apps use the proxy only if you set them up (SOCKS or HTTP, with the password).</div></div></div>
         <div class="opt on"><span class="radio"></span><div><b>System proxy</b><div class="muted">Windows / GNOME / KDE use an HTTP port on 127.0.0.1. The system can't store a password, so this port has none while the mode is on.</div><div class="warnc" style="margin-top:6px">Any program on this computer, from any user account, can use it while it is on.</div></div></div>
-        <div class="opt"><span class="radio"></span><div><b>PAC</b><div class="muted">Only addresses your routing sends through the proxy; the rest go direct.</div></div></div>
         <div class="opt"><span class="radio"></span><div><b>TUN</b><div class="muted">All traffic of this computer, also from apps without proxy settings. Needs administrator rights once (Windows service / Linux helper). DNS and local network settings as on Android.</div><div class="warnc" style="margin-top:6px">If the chain breaks, traffic is blocked, not sent directly.</div></div></div>
         <div class="note" style="margin:0">Previous system settings are saved and restored on stop, quit, and after a crash.</div>
       </div>

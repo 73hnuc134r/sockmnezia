@@ -25,7 +25,7 @@ wiki (Nov 2026):
 | **Ctrl+V anywhere** imports: subscription URL, share links, SIP008, WireGuard, custom configs | Ctrl+V anywhere imports links / shared chains / outbound JSON through our existing import (preview first) |
 | **Pre-proxy / landing proxy** per subscription group, by alias; missing alias silently skipped at config time | Our chains are explicit and **fail-closed**: a missing hop is an error, never a skip |
 | Latency + "real connection" + speed tests in batches | Test (exit IP + ping through a temporary instance, D28) per row and "Test all" with bounded concurrency |
-| System proxy: clear / set / don't change / **PAC**; Windows can't use SOCKS5 as system proxy | Off / On (HTTP) / PAC (§3) and TUN (§3a); restore after crash (v2rayN doesn't reliably) |
+| System proxy: clear / set / don't change / **PAC**; Windows can't use SOCKS5 as system proxy | Off / On (HTTP) (§3) and TUN (§3a); PAC dropped (D39); restore after crash (v2rayN doesn't reliably) |
 | TUN (gvisor for Xray), admin rights, complex | TUN mode via Xray's own tun inbound, elevated service on Windows (§3a) |
 | Tray: switch profile (limited count), proxy mode | Tray: start/stop, switch chain/server (recent 8 + "More…"), system proxy mode, copy address |
 | Routing: ordered rules, import/export JSON with `enabled`/`remarks`; DNS separate | We already have this model (D-routing); same editor as Android |
@@ -78,7 +78,7 @@ after a crash.
 
 ## 3a. TUN mode (owner's addition, 2026-11-26)
 
-A third connection mode next to Off / System proxy / PAC: **TUN** captures all traffic of the computer, for
+A connection mode next to Off / System proxy: **TUN** captures all traffic of the computer, for
 apps without proxy support. Same approach as Android VPN mode (`docs/11`): Xray's own `tun` inbound in the
 same instance (no tun2socks, no second process), the same chains and fail-closed outbounds.
 
@@ -102,7 +102,7 @@ same instance (no tun2socks, no second process), the same chains and fail-closed
 ### 4.1 Main window (`Connect`)
 Left navigation: **Connect · Servers & chains · Routing · Logs · Settings**. Connect shows what runs: the active
 chain as a horizontal stepper (phone→… becomes "This PC → hop → hop → Internet"), the big Start/Stop, the
-connection mode (Off / System proxy / PAC / TUN), exit address and ping (click to test), live up/down and a 60 s traffic
+connection mode (Off / System proxy / TUN), exit address and ping (click to test), live up/down and a 60 s traffic
 sparkline, and the local addresses with copy buttons (`socks5://user:pass@127.0.0.1:port`).
 
 ### 4.2 Servers & chains
@@ -114,7 +114,7 @@ Chain editor in the panel with drag-and-drop hops.
 
 ### 4.3 Tray
 Icon shows state (stopped / running / error). Menu: Start/Stop · current chain ▸ (recent 8 + "More…") · System
-proxy ▸ Off / System / PAC / TUN · Copy SOCKS address · Open sockmnezia · Quit.
+proxy ▸ Off / System / TUN · Copy SOCKS address · Open sockmnezia · Quit.
 
 ### 4.4 Status bar (bottom of the window)
 `● Running · Work (3 hops) · SOCKS 127.0.0.1:41377 · System proxy: On · ↓ 1.2 MB/s ↑ 84 KB/s`.

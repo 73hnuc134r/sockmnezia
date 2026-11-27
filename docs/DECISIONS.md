@@ -384,3 +384,9 @@ of D35. While System proxy or PAC is chosen, the OS settings point at sockmnezia
 not; stopping, quitting or a crash leave them, so apps that use the system proxy fail instead of going direct.
 The settings from before the first change are kept in `sysproxy-restore.json` and put back only when the user
 chooses Off (or TUN). A failure to set them never falls back to removing them.
+
+## D39 · PAC mode dropped (2026-11-27)
+
+A PAC script is served by the app; when sockmnezia isn't running, browsers and Windows treat the unreachable
+script as "no proxy" and go direct, which breaks the fail-closed rule (D38). Serving it as a file is not
+reliable on Windows. A saved "pac" mode is read as the system proxy. `routing.PAC` is removed.

@@ -91,7 +91,7 @@ func (d *desk) startProxy(ctx context.Context) error {
 	return d.e.Start(ctx)
 }
 
-// setMode switches between Off / System proxy / PAC ("", "system", "pac") and TUN ("tun"); a running proxy
+// setMode switches between Off / System proxy ("", "system") and TUN ("tun"); a running proxy
 // restarts in the new mode.
 func (d *desk) setMode(mode string) error {
 	s := d.e.GetSettings()

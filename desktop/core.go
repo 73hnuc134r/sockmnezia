@@ -156,10 +156,10 @@ func (c *Core) SetActiveServer(id string) error {
 }
 
 // SetConnectionMode sets how traffic reaches the proxy: "" (only apps set up for it), "system" (the OS proxy
-// settings), "pac", or "tun" (all traffic, with administrator rights). A running proxy switches over.
+// settings) or "tun" (all traffic, with administrator rights). A running proxy switches over.
 func (c *Core) SetConnectionMode(mode string) error {
 	switch mode {
-	case "", "system", "pac", "tun":
+	case "", "system", "tun":
 	default:
 		return &engine.Error{Code: engine.CodeInvalidSettings, Field: "mode", Detail: "unknown mode"}
 	}

@@ -27,13 +27,13 @@ func TestSystemProxyOption(t *testing.T) {
 		t.Fatal("system-proxy port while off")
 	}
 	set := e.GetSettings()
-	set.Options.SystemProxy = SystemProxyPAC
+	set.Options.SystemProxy = "pac" // dropped (D39): read as the system proxy
 	if err := e.SetSettings(set); err != nil {
 		t.Fatal(err)
 	}
 	st := e.Status()
 	in := e.GetSettings().Inbound
-	if p := st.SystemProxyPort; p == 0 || p == in.SocksPort || p == in.HTTPPort || st.SystemProxy != SystemProxyPAC {
+	if p := st.SystemProxyPort; p == 0 || p == in.SocksPort || p == in.HTTPPort || st.SystemProxy != SystemProxyOn {
 		t.Fatalf("status %+v", st)
 	}
 	if !strings.Contains(build(), xrayconf.TagSysProxyIn) {

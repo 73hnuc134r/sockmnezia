@@ -142,7 +142,7 @@ func (tr *tray) Refresh(st engine.Status) {
 	if st.Mode == engine.ModeVPN {
 		cur = "tun"
 	}
-	for _, o := range []struct{ v, label string }{{"", "d_mode_off"}, {engine.SystemProxyOn, "d_mode_system"}, {engine.SystemProxyPAC, "d_mode_pac"}, {"tun", "d_mode_tun"}} {
+	for _, o := range []struct{ v, label string }{{"", "d_mode_off"}, {engine.SystemProxyOn, "d_mode_system"}, {"tun", "d_mode_tun"}} {
 		v := o.v
 		mode.AddRadio(T(o.label), cur == v).OnClick(func(*application.Context) { go tr.d.setSystemProxy(v) })
 	}

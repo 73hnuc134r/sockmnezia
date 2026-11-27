@@ -110,7 +110,7 @@
     <div class="modebox">
       <span class="cap">{t("d_mode")}</span>
       <div class="seg">
-        {#each [["", "d_mode_off"], ["system", "d_mode_system"], ["pac", "d_mode_pac"], ["tun", "d_mode_tun"]] as [v, label]}
+        {#each [["", "d_mode_off"], ["system", "d_mode_system"], ["tun", "d_mode_tun"]] as [v, label]}
           <button class:on={mode === v} disabled={modeBusy} onclick={() => setMode(v)}>{t(label)}</button>
         {/each}
       </div>
@@ -134,9 +134,9 @@
 
   {#if st}
     <div class="modeinfo">
-      <div class="hint">{t(mode === "tun" ? "d_mode_tun_hint" : mode === "pac" ? "d_mode_pac_hint" : mode === "system" ? "d_mode_system_hint" : "d_mode_off_hint")}</div>
+      <div class="hint">{t(mode === "tun" ? "d_mode_tun_hint" : mode === "system" ? "d_mode_system_hint" : "d_mode_off_hint")}</div>
       {#if mode === "tun" && !st.running}<div class="hint">{t("d_mode_tun_admin")}</div>{/if}
-      {#if mode === "pac" || mode === "system"}
+      {#if mode === "system"}
         <div class="hint warn">{t("d_mode_warning")}</div>
         {#if sys && !sys.supported}
           <div class="hint warn selectable">{t("d_mode_unsupported", st.system_proxy_port)}</div>

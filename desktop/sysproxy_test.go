@@ -24,11 +24,6 @@ func (f *fakeOS) SetHTTP(hp string, _ []string) error {
 	f.calls = append(f.calls, "http")
 	return nil
 }
-func (f *fakeOS) SetPAC(url string) error {
-	f.cur = map[string]string{"mode": "pac"}
-	f.calls = append(f.calls, "pac")
-	return nil
-}
 func (f *fakeOS) Restore(m map[string]string) error {
 	f.cur = m
 	f.calls = append(f.calls, "restore")

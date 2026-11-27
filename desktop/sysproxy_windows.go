@@ -38,10 +38,6 @@ func (winProxy) SetHTTP(hostport string, bypass []string) error {
 	return setInet(map[string]string{"ProxyEnable": "1", "ProxyServer": hostport, "ProxyOverride": winBypass(bypass)})
 }
 
-func (winProxy) SetPAC(url string) error {
-	return setInet(map[string]string{"ProxyEnable": "0", "AutoConfigURL": url})
-}
-
 func (winProxy) Restore(m map[string]string) error {
 	if _, ok := m["ProxyEnable"]; !ok {
 		m["ProxyEnable"] = "0"

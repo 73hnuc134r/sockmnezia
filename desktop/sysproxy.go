@@ -5,18 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
 
 	"github.com/nuc134r/sockmnezia/core/engine"
-	"github.com/nuc134r/sockmnezia/core/routing"
 )
 
-// System proxy (docs/10 §3, D30, D38): while the System proxy or PAC mode is chosen, the OS proxy settings point
-// at the loopback HTTP port (or at a PAC script served on loopback) and STAY there, also while the proxy is
+// System proxy (docs/10 §3, D30, D38): while the System proxy mode is chosen, the OS proxy settings point at the
+// loopback HTTP port and STAY there, also while the proxy is
 // stopped, after quitting and after a crash: then connections fail instead of leaving around the proxy. The
 // settings found before the first change are saved to a file and put back only when the user chooses Off
 // (or TUN).
@@ -34,8 +32,6 @@ type osProxy interface {
 	Save() (map[string]string, error)
 	// SetHTTP points the OS at an HTTP proxy (host:port), with the bypass list.
 	SetHTTP(hostport string, bypass []string) error
-	// SetPAC points the OS at a proxy auto-config URL.
-	SetPAC(url string) error
 	Restore(map[string]string) error
 }
 
@@ -45,11 +41,10 @@ type sysProxy struct {
 	file string // the settings from before the first change, while applied (survives quitting and crashes)
 
 	mu      sync.Mutex
-	applied string // "", engine.SystemProxyOn, engine.SystemProxyPAC
+	applied string // "" or engine.SystemProxyOn
 	port    int
 	err     error
 	failed  string // the mode:port that failed (not retried until it changes)
-	pacPort int
 }
 
 func newSysProxy(e *engine.Engine, dir string) *sysProxy {
@@ -117,10 +112,6 @@ func (s *sysProxy) applyLocked(want string, port int) error {
 	switch want {
 	case engine.SystemProxyOn:
 		err = s.os.SetHTTP(net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), bypass)
-	case engine.SystemProxyPAC:
-		if err = s.servePACLocked(); err == nil {
-			err = s.os.SetPAC(fmt.Sprintf("http://127.0.0.1:%d/proxy.pac", s.pacPort))
-		}
 	}
 	if err != nil {
 		return err // keep whatever is set: never fall back to no proxy on our own
@@ -144,31 +135,6 @@ func (s *sysProxy) restoreLocked() error {
 		return err
 	}
 	return os.Remove(s.file)
-}
-
-// servePACLocked starts the loopback PAC server once; the script is built from the current rules on every
-// request, so rule changes apply without touching the OS settings.
-func (s *sysProxy) servePACLocked() error {
-	if s.pacPort != 0 {
-		return nil
-	}
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return err
-	}
-	s.pacPort = l.Addr().(*net.TCPAddr).Port
-	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/proxy.pac" {
-			http.NotFound(w, r)
-			return
-		}
-		st := s.e.Status()
-		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
-		w.Header().Set("Cache-Control", "no-store")
-		w.Write([]byte(routing.PAC(s.e.GetSettings().Routing, net.JoinHostPort("127.0.0.1", strconv.Itoa(st.SystemProxyPort)))))
-	})}
-	go srv.Serve(l)
-	return nil
 }
 
 // SysProxyState is what the UI shows about the OS settings.

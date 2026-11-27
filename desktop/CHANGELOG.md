@@ -13,10 +13,9 @@ First desktop version (Windows 10/11, Linux with GTK 4), the same core as the An
 - TUN mode: all traffic of the computer through the chain, also from apps without proxy settings; DNS over
   HTTPS through the chain, the local network keeps working. Only a small helper gets administrator rights
   (a prompt on each start, or once with "TUN without prompts", which also brings TUN up at login).
-- System proxy: Off, System proxy or PAC. Windows / GNOME / KDE settings point at a loopback port and stay so
-  while the mode is chosen, also when the proxy is stopped or sockmnezia is closed: traffic then fails instead
-  of going direct. Choosing Off puts the previous settings back. PAC sends what your rules
-  send directly around the proxy.
+- System proxy: Windows / GNOME / KDE settings point at a loopback port and stay so while the mode is chosen,
+  also when the proxy is stopped or sockmnezia is closed: traffic then fails instead of going direct. Choosing
+  Off puts the previous settings back.
 - Servers & chains: grids with host groups, colour tags, ping and exit country; sort by name or ping, filter;
   Test / Test all without switching; double-click to connect. Server editor with fields or link/JSON; chain
   editor with drag-and-drop hops.

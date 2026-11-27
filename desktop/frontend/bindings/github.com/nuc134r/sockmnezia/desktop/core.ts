@@ -171,7 +171,7 @@ export function SetActiveServer(id: string): $CancellablePromise<void> {
 
 /**
  * SetConnectionMode sets how traffic reaches the proxy: "" (only apps set up for it), "system" (the OS proxy
- * settings), "pac", or "tun" (all traffic, with administrator rights). A running proxy switches over.
+ * settings) or "tun" (all traffic, with administrator rights). A running proxy switches over.
  */
 export function SetConnectionMode(mode: string): $CancellablePromise<void> {
     return $Call.ByID(2218268360, mode);

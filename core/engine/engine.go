@@ -431,7 +431,10 @@ func (e *Engine) SetSettings(s Settings) error {
 	}
 	switch s.Options.SystemProxy {
 	case "":
-	case SystemProxyOn, SystemProxyPAC:
+	case "pac": // dropped (D39): it went direct when sockmnezia wasn't running
+		s.Options.SystemProxy = SystemProxyOn
+		fallthrough
+	case SystemProxyOn:
 		if p := s.Options.SystemProxyPort; p == 0 || p == s.Inbound.SocksPort || p == s.Inbound.HTTPPort {
 			s.Options.SystemProxyPort = RandomPort("127.0.0.1", s.Inbound.SocksPort, s.Inbound.HTTPPort)
 		}

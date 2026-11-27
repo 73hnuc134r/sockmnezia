@@ -85,18 +85,6 @@ func (p linuxProxy) SetHTTP(hostport string, bypass []string) error {
 	return errors.Join(errs...)
 }
 
-func (p linuxProxy) SetPAC(url string) error {
-	var errs []error
-	if p.gnome {
-		errs = append(errs, gset("org.gnome.system.proxy", "autoconfig-url", url), gset("org.gnome.system.proxy", "mode", "auto"))
-	}
-	if p.kde != "" {
-		errs = append(errs, p.kset("Proxy Config Script", url), p.kset("ProxyType", "2"))
-		kdeReload()
-	}
-	return errors.Join(errs...)
-}
-
 func (p linuxProxy) Restore(m map[string]string) error {
 	var errs []error
 	for k, v := range m {
