@@ -221,7 +221,7 @@ type Instance interface {
 	ExitIP(ctx context.Context, url string) (string, error)
 }
 
-// Launcher runs a config somewhere else: the desktop's elevated TUN helper (D37). geoDir holds the geo files
+// Launcher runs a config somewhere else: the desktop's TUN system service (D40). geoDir holds the geo files
 // the rules may use.
 type Launcher func(cfg []byte, geoDir string) (Instance, error)
 
@@ -230,7 +230,7 @@ type tunMode struct {
 	launch Launcher
 }
 
-// StartTUN runs the proxy with a desktop TUN (D37): the config, with Xray's tun inbound creating the
+// StartTUN runs the proxy with a desktop TUN (D40): the config, with Xray's tun inbound creating the
 // interface and the routes (sys), is run by launch with the rights that needs. The SOCKS/HTTP ports keep
 // working. A running proxy is restarted in TUN mode; Stop leaves it.
 func (e *Engine) StartTUN(ctx context.Context, sys xrayconf.SystemTUN, launch Launcher) error {

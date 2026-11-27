@@ -85,7 +85,7 @@ type VPN struct {
 	// module over these DNS-over-HTTPS URLs (IP literals, so no bootstrap lookup), sent through the chain.
 	// Empty: DNS packets are ordinary traffic and go through the chain like everything else.
 	DoH []string
-	// System, on the desktop (TUN mode, D37), has Xray create the interface, its address and the system
+	// System, on the desktop (TUN mode, D40), has Xray create the interface, its address and the system
 	// routes itself; nil on Android, where the VpnService does that and hands over a file descriptor.
 	System *SystemTUN
 }
@@ -650,7 +650,7 @@ func Audit(cfg []byte) error {
 	for k, v := range c {
 		switch k {
 		case "log":
-			// Never a file: the desktop TUN helper runs configs with administrator rights (D37).
+			// Never a file: the desktop TUN service runs configs with administrator rights (D40).
 			l, _ := v.(map[string]any)
 			for lk, lv := range l {
 				switch lk {
@@ -762,7 +762,7 @@ func Audit(cfg []byte) error {
 	return nil
 }
 
-// HasTun reports whether cfg has the tun inbound (the desktop TUN helper runs nothing else, D37).
+// HasTun reports whether cfg has the tun inbound (the desktop TUN service runs nothing else, D40).
 func HasTun(cfg []byte) bool {
 	var c struct {
 		Inbounds []struct {

@@ -39,7 +39,7 @@ type Engine struct {
 	secrets   atomic.Pointer[[]string] // for log redaction; readable without mu
 	inst      Instance
 	vpnFD     int      // the VpnService tun while VPN mode runs, -1 otherwise
-	tun       *tunMode // the desktop TUN while it runs (D37), nil otherwise
+	tun       *tunMode // the desktop TUN while it runs (D40), nil otherwise
 	startedAt time.Time
 	lastErr   *Error
 
