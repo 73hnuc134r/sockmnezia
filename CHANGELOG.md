@@ -3,6 +3,11 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.1.7
+
+- Stats: tap or drag on the chart to see a day's exact numbers; long chain and server names are no longer
+  cut off, and the legend no longer breaks in the middle of a value.
+
 ## 1.1.6
 
 - New Stats tab: traffic per day (today, 7 or 30 days), sent and received, through each chain or server and

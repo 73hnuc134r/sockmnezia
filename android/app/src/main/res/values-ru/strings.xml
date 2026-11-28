@@ -18,6 +18,7 @@
     <string name="stats_deleted">%1$s (удалено)</string>
     <string name="stats_empty">За этот период трафика нет.</string>
     <string name="stats_hint">Считается, пока работает прокси, для того, что было выбрано в это время. Хранится только на этом устройстве, год.</string>
+    <string name="stats_tap_hint">Нажмите на график или проведите по нему, чтобы увидеть цифры за день.</string>
     <string name="stats_reset">Сбросить статистику</string>
     <string name="stats_reset_q">Удалить всю статистику?</string>
     <string name="tab_routing">Маршруты</string>

@@ -2,6 +2,12 @@ package io.nuc134r.sockmnezia.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.input.pointer.pointerInput
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +42,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +68,7 @@ fun StatsScreen() {
     var days by remember { mutableStateOf(emptyList<StatsDay>()) }
     var reset by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
+    var selected by remember(period) { mutableStateOf<Int?>(null) }
     LaunchedEffect(period, reload) {
         while (true) {
             runCatching { days = Core.stats(period) }
@@ -89,13 +98,24 @@ fun StatsScreen() {
                 Total(stringResource(R.string.stats_received), received, Modifier.weight(1f))
                 Total(stringResource(R.string.stats_sent), sent, Modifier.weight(1f))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Wraps whole items, never in the middle of one.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Legend(chainColor, stringResource(R.string.stats_through_chain, formatBytes(sent + received - direct)))
                 Legend(directColor, stringResource(R.string.stats_direct, formatBytes(direct)))
             }
             if (period > 1) {
                 val max = days.maxOfOrNull { d -> d.entries.sumOf { it.up + it.down } }?.coerceAtLeast(1) ?: 1
-                Canvas(Modifier.fillMaxWidth().height(120.dp).padding(top = 8.dp)) {
+                // The day picked by tapping or dragging on the chart (the phone's hover), with its exact numbers.
+                val sel = selected?.takeIf { it in days.indices }
+                DayDetail(sel?.let { days[it] }, chainColor, directColor)
+                fun dayAt(x: Float, width: Int) = (x / width * days.size).toInt().coerceIn(0, days.lastIndex)
+                Canvas(
+                    Modifier.fillMaxWidth().height(120.dp)
+                        .pointerInput(days.size) { detectTapGestures { o -> if (days.isNotEmpty()) selected = dayAt(o.x, size.width) } }
+                        .pointerInput(days.size) {
+                            detectHorizontalDragGestures { change, _ -> if (days.isNotEmpty()) selected = dayAt(change.position.x, size.width) }
+                        },
+                ) {
                     if (days.isEmpty()) return@Canvas
                     val slot = size.width / days.size
                     val bw = (slot * 0.7f).coerceAtLeast(2f)
@@ -105,11 +125,12 @@ fun StatsScreen() {
                         val x = i * slot + (slot - bw) / 2
                         val hTotal = size.height * total / max
                         val hDir = size.height * dir / max
+                        val alpha = if (sel == null || sel == i) 1f else 0.35f
                         if (total > 0) {
-                            drawRoundRect(chainColor, Offset(x, size.height - hTotal), Size(bw, hTotal - hDir), CornerRadius(3f, 3f))
-                            if (dir > 0) drawRoundRect(directColor, Offset(x, size.height - hDir), Size(bw, hDir), CornerRadius(3f, 3f))
+                            drawRoundRect(chainColor.copy(alpha = alpha), Offset(x, size.height - hTotal), Size(bw, hTotal - hDir), CornerRadius(3f, 3f))
+                            if (dir > 0) drawRoundRect(directColor.copy(alpha = alpha), Offset(x, size.height - hDir), Size(bw, hDir), CornerRadius(3f, 3f))
                         } else {
-                            drawRect(Color.Gray.copy(alpha = 0.25f), Offset(x, size.height - 2f), Size(bw, 2f))
+                            drawRect(Color.Gray.copy(alpha = if (sel == i) 0.8f else 0.25f), Offset(x, size.height - 2f), Size(bw, 2f))
                         }
                     }
                 }
@@ -127,10 +148,16 @@ fun StatsScreen() {
                     e.deleted -> stringResource(R.string.stats_deleted, e.name)
                     else -> e.name
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(Modifier.size(10.dp).background(if (e.kind == "direct") directColor else chainColor, CircleShape))
-                    Text(name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("↓ ${formatBytes(down)}  ↑ ${formatBytes(up)}", style = MaterialTheme.typography.bodySmall)
+                // Name on its own line, the numbers under it: long names are not cut.
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.padding(top = 6.dp).size(10.dp).background(if (e.kind == "direct") directColor else chainColor, CircleShape))
+                    Column(Modifier.weight(1f)) {
+                        Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "↓ ${formatBytes(down)}   ↑ ${formatBytes(up)}",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -165,6 +192,38 @@ private fun Total(label: String, bytes: Long, modifier: Modifier = Modifier) {
 private fun Legend(color: Color, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.size(10.dp).background(color, CircleShape))
-        Text(text, style = MaterialTheme.typography.bodySmall)
+        Text(text, style = MaterialTheme.typography.bodySmall, maxLines = 1, softWrap = false)
+    }
+}
+
+/** The picked day's numbers above the chart; a hint until one is picked. Always two lines tall, so the chart
+ * doesn't jump. */
+@Composable
+private fun DayDetail(day: StatsDay?, chainColor: Color, directColor: Color) {
+    Column(
+        Modifier.fillMaxWidth().height(56.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (day == null) {
+            Text(stringResource(R.string.stats_tap_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Column
+        }
+        val up = day.entries.sumOf { it.up }
+        val down = day.entries.sumOf { it.down }
+        val direct = day.entries.filter { it.kind == "direct" }.sumOf { it.up + it.down }
+        val locale = LocalConfiguration.current.locales[0]
+        val date = runCatching {
+            LocalDate.parse(day.date).format(DateTimeFormatter.ofPattern("EEE, d MMM", locale))
+        }.getOrDefault(day.date)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(date, style = MaterialTheme.typography.labelLarge)
+            Text("↓ ${formatBytes(down)}   ↑ ${formatBytes(up)}", style = MaterialTheme.typography.labelLarge)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Legend(chainColor, stringResource(R.string.stats_through_chain, formatBytes(up + down - direct)))
+            Legend(directColor, stringResource(R.string.stats_direct, formatBytes(direct)))
+        }
     }
 }

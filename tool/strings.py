@@ -17,6 +17,7 @@ S = {  # key: (english, russian)
  "stats_deleted": ("%1$s (deleted)", "%1$s (удалено)"),
  "stats_empty": ("No traffic recorded in this period.", "За этот период трафика нет."),
  "stats_hint": ("Counted while the proxy runs, for what was selected at the time. Kept on this device only, for a year.", "Считается, пока работает прокси, для того, что было выбрано в это время. Хранится только на этом устройстве, год."),
+ "stats_tap_hint": ("Tap or drag on the chart to see a day's numbers.", "Нажмите на график или проведите по нему, чтобы увидеть цифры за день."),
  "stats_reset": ("Reset statistics", "Сбросить статистику"), "stats_reset_q": ("Delete all statistics?", "Удалить всю статистику?"), "tab_routing": ("Routing", "Маршруты"), "tab_settings": ("Settings", "Настройки"),
  "title_routing": ("Routing", "Маршрутизация"), "title_settings": ("Settings", "Настройки"),
  "title_amnezia": ("Amnezia subscription", "Подписка Amnezia"), "title_health": ("Background work", "Работа в фоне"),
@@ -360,6 +361,7 @@ D = {
  "d_tun_dns_warning": ("This system has no systemd-resolved, so name lookups still go to the system's DNS server (usually your router), outside the chain. The connections themselves go through the chain.", "В этой системе нет systemd-resolved, поэтому запросы имён по-прежнему идут к системному DNS-серверу (обычно роутеру), мимо цепочки. Сами соединения идут через цепочку."),
  "err_tun_declined": ("TUN mode needs administrator rights; the request was declined.", "Для режима TUN нужны права администратора; запрос отклонён."),
  "err_tun_failed": ("TUN mode could not start.", "Не удалось запустить режим TUN."),
+ "d_stats_hover_hint": ("Point at a day to see its numbers.", "Наведите на день, чтобы увидеть его цифры."),
  "d_follow": ("Follow", "Следить"),
  "d_close_hint": ("sockmnezia keeps running in the tray. Use Quit in the tray menu to exit.", "sockmnezia продолжает работать в трее. Чтобы выйти, выберите «Выход» в меню значка."),
 }

@@ -19,6 +19,7 @@
     <string name="stats_deleted">%1$s (deleted)</string>
     <string name="stats_empty">No traffic recorded in this period.</string>
     <string name="stats_hint">Counted while the proxy runs, for what was selected at the time. Kept on this device only, for a year.</string>
+    <string name="stats_tap_hint">Tap or drag on the chart to see a day\'s numbers.</string>
     <string name="stats_reset">Reset statistics</string>
     <string name="stats_reset_q">Delete all statistics?</string>
     <string name="tab_routing">Routing</string>
