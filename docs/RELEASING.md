@@ -6,6 +6,7 @@
 | `secrets.yml` | every push and pull request | gitleaks scan of the whole history |
 | `release.yml` | pushing a `v*` tag, or "Run workflow" with a version | Android: signed APKs + SHA256SUMS on a GitHub release |
 | `release-desktop.yml` | pushing a `desktop-v*` tag, or "Run workflow" with a version | desktop: Windows installer and zip, Linux .deb/.rpm/.tar.gz + SHA256SUMS |
+| `security.yml` | weekly, dependency changes | govulncheck (core, desktop), npm audit, Xray release/advisory watch (opens issues) |
 | `release-notes.yml` | manual | re-syncs release notes from CHANGELOG.md / desktop/CHANGELOG.md |
 
 The Android and desktop apps are released **separately** from this one repository (D33): Android tags `v1.2.3`
@@ -95,6 +96,17 @@ export ANDROID_HOME=~/Android/Sdk            # with an NDK installed (sdkmanager
 bash tool/build-aar.sh                       # Go core -> android/app/libs/sockmnezia-core.aar
 cd android && ./gradlew assembleDebug        # or assembleRelease with android/key.properties
 ```
+
+## Security scanning
+
+- `security.yml` runs every Monday and when `go.mod`/`go.sum`/`package-lock.json` change. govulncheck only reports
+  vulnerabilities in code that is actually called. A failing scheduled run emails the owner.
+- The Xray watch opens an issue when Xray-core publishes a newer release than the pinned commit, or a security
+  advisory that isn't listed in `.github/xray-advisories-reviewed.txt`. Update Xray-core in `core/` and `desktop/`,
+  run the tests, release both apps; list reviewed advisories in that file.
+- Dependabot (`.github/dependabot.yml`) opens grouped weekly update PRs (Go, npm, Gradle; Actions monthly).
+  Xray-core is left to the watch. Turn on **Settings → Code security → Dependabot alerts** and **Dependabot
+  security updates** so known vulnerabilities also raise alerts and fix PRs.
 
 ## Desktop releases
 

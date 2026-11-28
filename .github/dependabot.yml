@@ -1,0 +1,25 @@
+# Dependency updates as weekly pull requests, grouped per ecosystem. Security updates for known
+# vulnerabilities come on top of this when "Dependabot security updates" is on in the repository settings.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directories: ["/core", "/desktop"]
+    schedule: { interval: weekly }
+    groups: { go: { patterns: ["*"] } }
+    # Xray-core is pinned to a release commit and watched by security.yml (its Go tags lag its releases).
+    ignore: [{ dependency-name: "github.com/xtls/xray-core" }]
+    open-pull-requests-limit: 2
+  - package-ecosystem: npm
+    directory: "/desktop/frontend"
+    schedule: { interval: weekly }
+    groups: { npm: { patterns: ["*"] } }
+    open-pull-requests-limit: 2
+  - package-ecosystem: gradle
+    directory: "/android"
+    schedule: { interval: weekly }
+    groups: { gradle: { patterns: ["*"] } }
+    open-pull-requests-limit: 2
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: monthly }
+    groups: { actions: { patterns: ["*"] } }

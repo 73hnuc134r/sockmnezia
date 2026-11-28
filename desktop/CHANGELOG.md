@@ -4,6 +4,11 @@ Each `## <version>` section becomes the GitHub release notes for the `desktop-v<
 (`tool/changelog.sh <version> desktop`). The Android app has its own changelog (`CHANGELOG.md`). Write for people
 using the app.
 
+## 0.1.3
+
+- Security: updated two libraries Xray uses with known vulnerabilities (zstd decompression could crash on bad
+  data; WebSocket mask keys from a weak random source).
+
 ## 0.1.2
 
 - Statistics: point at a day on the chart to see its exact numbers.

@@ -3,6 +3,11 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.1.8
+
+- Security: updated two libraries Xray uses with known vulnerabilities (zstd decompression could crash on bad
+  data; WebSocket mask keys from a weak random source).
+
 ## 1.1.7
 
 - Stats: tap or drag on the chart to see a day's exact numbers; long chain and server names are no longer

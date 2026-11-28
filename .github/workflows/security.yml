@@ -1,0 +1,99 @@
+name: Security scan
+
+# Weekly and on dependency changes:
+# - govulncheck: known vulnerabilities (Go vulnerability database) in code the core and the desktop app
+#   actually call, including Xray-core and everything it pulls in. A failing scheduled run emails the owner.
+# - npm audit: the desktop UI's runtime dependencies.
+# - Xray watch: opens an issue when Xray-core publishes a release newer than the pinned one, or a security
+#   advisory not yet reviewed (.github/xray-advisories-reviewed.txt).
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  push:
+    branches: [main]
+    paths: ['core/go.mod', 'core/go.sum', 'desktop/go.mod', 'desktop/go.sum', 'desktop/frontend/package-lock.json', '.github/workflows/security.yml']
+  pull_request:
+    paths: ['core/go.mod', 'core/go.sum', 'desktop/go.mod', 'desktop/go.sum', 'desktop/frontend/package-lock.json']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [core, desktop]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: |
+            core/go.sum
+            desktop/go.sum
+      - name: GTK 4 and WebKitGTK (the desktop module loads cgo packages)
+        if: matrix.module == 'desktop'
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends libgtk-4-dev libwebkitgtk-6.0-dev
+      - name: govulncheck
+        working-directory: ${{ matrix.module }}
+        run: |
+          [[ "${{ matrix.module }}" == desktop ]] && mkdir -p frontend/dist && touch frontend/dist/.gitkeep
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: npm audit (runtime dependencies)
+        working-directory: desktop/frontend
+        run: npm audit --omit=dev --audit-level=moderate
+
+  xray-watch:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Newer Xray release or unreviewed advisory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pinned=$(awk '$1 == "github.com/xtls/xray-core" {print $2}' core/go.mod)
+          pinned_sha=$(echo "$pinned" | sed -nE 's/.*-([0-9a-f]{12})$/\1/p')
+          latest=$(gh api repos/XTLS/Xray-core/releases/latest --jq .tag_name)
+          latest_sha=$(gh api "repos/XTLS/Xray-core/commits/$latest" --jq .sha | cut -c1-12)
+          echo "pinned $pinned ($pinned_sha), latest release $latest ($latest_sha)"
+          open_issue() { # title, body: once per title
+            if [[ -z "$(gh issue list --state all --search "in:title \"$1\"" --json number --jq '.[0].number')" ]]; then
+              gh issue create --title "$1" --body "$2"
+            fi
+          }
+          if [[ -n "$pinned_sha" && "$pinned_sha" != "$latest_sha" ]]; then
+            open_issue "Xray-core $latest is out" "Xray-core [$latest](https://github.com/XTLS/Xray-core/releases/tag/$latest) is newer than the pinned \`$pinned\`.
+
+          To update: \`cd core && go get github.com/xtls/xray-core@$latest_sha && go mod tidy\`, then the same in \`desktop/\`, run the tests (\`core/runner\` has the real-Xray integration tests), check \`runner/features.go\` still builds, and release both apps.
+
+          _Opened by the weekly security scan._"
+          fi
+          gh api repos/XTLS/Xray-core/security-advisories --paginate \
+            --jq '.[] | select(.state == "published") | [.ghsa_id, .severity, .summary] | @tsv' |
+          while IFS=$'\t' read -r id sev summary; do
+            grep -q "^$id" .github/xray-advisories-reviewed.txt && continue
+            open_issue "Xray-core security advisory $id" "**$sev**: $summary
+
+          https://github.com/XTLS/Xray-core/security/advisories/$id
+
+          Check whether the pinned Xray-core (\`$pinned\`) is affected; after updating or deciding it isn't, add \`$id\` to \`.github/xray-advisories-reviewed.txt\`.
+
+          _Opened by the weekly security scan._"
+          done

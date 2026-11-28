@@ -1,0 +1,1 @@
+GHSA-5wf9-h793-w73c  low; pinnedPeerCertSha256 CA pin MITM (Hy2, gRPC); fixed in v26.7.11, pinned is v26.11.9 (2026-11-28)
