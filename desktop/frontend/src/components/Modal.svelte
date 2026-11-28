@@ -16,7 +16,7 @@
 
 <style>
   .back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; z-index: 40; }
-  .dlg { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); display: grid; gap: 14px; max-height: 88vh; }
+  .dlg { background: var(--s-high); border-radius: var(--r-island); padding: 24px; box-shadow: var(--shadow-dlg); display: grid; gap: 14px; max-height: 88vh; }
   .body { overflow: auto; display: grid; gap: 10px; min-height: 0; }
   .actions { display: flex; gap: 8px; justify-content: flex-end; }
 </style>

@@ -4,6 +4,16 @@ Each `## <version>` section becomes the GitHub release notes for the `desktop-v<
 (`tool/changelog.sh <version> desktop`). The Android app has its own changelog (`CHANGELOG.md`). Write for people
 using the app.
 
+## 0.1.4
+
+- New Material 3 look, the same as the Android app: teal colours (light and dark follow the system), a navigation
+  rail, rounded blocks instead of cards and tables.
+- Connect: the status, Switch and Start/Stop are at the bottom; click the status to check the exit (country and IP).
+  Hops show protocol, security and port, and the country of their address.
+- Servers & chains: chains first, then one block per host with its servers; Test all, Share all, New chain and Add
+  at the bottom right.
+- Routing: "Where does it go?" on top, rules with their conditions and a coloured Proxy / Direct / Block label.
+
 ## 0.1.3
 
 - "Share all" on the Servers & chains page: every server and chain in one text, for sockmnezia on another

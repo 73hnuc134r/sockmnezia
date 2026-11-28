@@ -25,6 +25,7 @@
 </script>
 
 <div class="page">
+  <h1>{t("title_settings")}</h1>
   <div class="tabs">
     {#each tabs as [id, label]}<button class:on={tab === id} onclick={() => (tab = id)}>{t(label)}</button>{/each}
   </div>
@@ -39,8 +40,9 @@
 </div>
 
 <style>
-  .page { display: grid; gap: 14px; align-content: start; max-width: 920px; }
-  .tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--line); }
-  .tabs button { padding: 8px 2px; color: var(--muted); background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer; }
-  .tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
+  .page { display: grid; gap: 16px; align-content: start; max-width: 960px; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tabs button { height: 32px; padding: 0 14px; border-radius: 8px; color: var(--muted); background: transparent; border: 1px solid var(--outline); cursor: pointer; font-weight: 500; }
+  .tabs button:hover { background: var(--state); }
+  .tabs button.on { color: var(--on-secondary-c); background: var(--secondary-c); border-color: transparent; }
 </style>

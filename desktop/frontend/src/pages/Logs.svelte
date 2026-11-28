@@ -44,7 +44,7 @@
 <style>
   .page { display: grid; grid-template-rows: auto auto 1fr; gap: 10px; height: 100%; min-height: 0; }
   .filter { width: 220px; }
-  .log { overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font: 12px/1.55 var(--mono); min-height: 0; }
+  .log { overflow: auto; background: var(--s); border-radius: var(--r-island); padding: 16px 20px; font: 12px/1.55 var(--mono); min-height: 0; }
   .line { white-space: pre-wrap; word-break: break-word; }
   .lvl { display: inline-block; width: 60px; color: var(--dim); }
   .error .lvl, .Error .lvl { color: var(--warn); }

@@ -2,7 +2,6 @@
   import { onMount } from "svelte";
   import { store, type Page } from "./lib/store.svelte";
   import { t } from "./lib/i18n";
-  import { rate } from "./lib/format";
   import Icon from "./components/Icon.svelte";
   import Toasts from "./components/Toasts.svelte";
   import ImportDialog from "./components/ImportDialog.svelte";
@@ -19,8 +18,8 @@
   const nav: { id: Page; icon: string; label: string }[] = [
     { id: "connect", icon: "home", label: "d_nav_connect" },
     { id: "servers", icon: "servers", label: "d_nav_servers" },
-    { id: "stats", icon: "chart", label: "title_stats" },
     { id: "routing", icon: "routes", label: "title_routing" },
+    { id: "stats", icon: "chart", label: "title_stats" },
     { id: "logs", icon: "log", label: "title_logs" },
     { id: "settings", icon: "gear", label: "title_settings" },
   ];
@@ -35,20 +34,23 @@
   }
 
   const st = $derived(store.status);
-  const current = $derived(st?.server_id ? (store.servers.find((s) => s.id === st.server_id)?.name ?? "") : (st?.chain_name ?? ""));
 </script>
 
 <svelte:window onkeydown={onkey} />
 <div class="shell">
-  <nav class="side">
-    <div class="brand">sockmnezia</div>
+  <nav class="rail">
+    <div class="brand" title="sockmnezia">
+      <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M8,2h7v9.5l4.2,4.2a3.5,3.5 0,0 1,0 4.95l-0.35,0.35a3.5,3.5 0,0 1,-4.95 0L8,15.1V2z" /><path fill="var(--primary)" d="M10,5h3v1.5h-3z" /></svg>
+    </div>
     {#each nav as n}
+      {#if n.id === "settings"}<span class="grow"></span>{/if}
       <button class="nav" class:on={store.page === n.id} onclick={() => (store.page = n.id)}>
-        <Icon name={n.icon} />{t(n.label)}
+        <span class="ind"><Icon name={n.icon} size={22} />{#if n.id === "connect" && st?.running}<span class="led"></span>{/if}</span>
+        <span class="lbl">{t(n.label)}</span>
       </button>
     {/each}
   </nav>
-  <main class="main">
+  <main class="main" class:fill={store.page === "servers"}>
     {#if store.page === "connect"}<Connect />
     {:else if store.page === "servers"}<Servers />
     {:else if store.page === "stats"}<Stats />
@@ -56,14 +58,6 @@
     {:else if store.page === "logs"}<Logs />
     {:else}<Settings />{/if}
   </main>
-  <footer class="statusbar">
-    <span class="row nowrap"><span class="led" class:on={st?.running} class:bad={!!st?.last_error && !st?.running}></span>{st?.running ? t("d_running") : t("conn_stopped")}</span>
-    {#if current}<span class="ellipsis">{current}{st?.hops && st.hops.length > 1 ? ` · ${t("d_hops", st.hops.length)}` : ""}</span>{/if}
-    {#if st?.running && st.vpn}<span>TUN</span>{/if}
-    {#if st?.running}<span class="mono">SOCKS {st.listen}:{st.socks_port}</span>{/if}
-    <span class="grow"></span>
-    {#if st?.running}<span class="mono">↓ {rate(store.downRate.at(-1) ?? 0)} ↑ {rate(store.upRate.at(-1) ?? 0)}</span>{/if}
-  </footer>
 </div>
 <Toasts />
 {#if store.importText !== null}
@@ -71,15 +65,18 @@
 {/if}
 
 <style>
-  .shell { display: grid; grid-template-columns: 196px 1fr; grid-template-rows: 1fr auto; height: 100vh; }
-  .side { grid-row: 1; background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: grid; align-content: start; gap: 2px; }
-  .brand { font-weight: 600; font-size: 15px; padding: 4px 10px 16px; }
-  .nav { display: flex; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 8px; color: var(--muted); background: transparent; border: 0; cursor: pointer; text-align: left; }
-  .nav:hover { background: var(--hover); }
-  .nav.on { background: var(--sel); color: var(--ink); }
-  .main { grid-row: 1; padding: 18px 20px; overflow: auto; min-width: 0; }
-  .statusbar { grid-column: 1 / span 2; display: flex; gap: 18px; align-items: center; padding: 6px 14px; background: var(--side); border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; white-space: nowrap; min-width: 0; }
-  .led { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); display: inline-block; }
-  .led.on { background: var(--ok); }
-  .led.bad { background: var(--warn); }
+  .shell { display: grid; grid-template-columns: 88px 1fr; height: 100vh; background: var(--s); }
+  .rail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 0 16px; min-height: 0; overflow: auto; }
+  .brand { width: 52px; height: 52px; border-radius: 16px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; margin-bottom: 20px; flex: none; }
+  .nav { display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent; border: 0; cursor: pointer; color: var(--muted); padding: 4px 0 6px; width: 80px; }
+  .ind { position: relative; width: 56px; height: 32px; border-radius: 16px; display: grid; place-items: center; }
+  .nav:hover .ind { background: var(--state); }
+  .nav.on { color: var(--ink); }
+  .nav.on .ind { background: var(--secondary-c); color: var(--on-secondary-c); }
+  .lbl { font: 500 12px/16px var(--ui); text-align: center; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav.on .lbl { font-weight: 600; }
+  .led { position: absolute; top: 4px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 2px var(--s); }
+  .grow { flex: 1; }
+  .main { margin: 12px 12px 12px 0; background: var(--surface); border-radius: var(--r-island); padding: 28px 32px 20px; overflow: auto; min-width: 0; min-height: 0; }
+  .main.fill { display: grid; }
 </style>

@@ -78,22 +78,25 @@
     store.toast(t("rules_copied"));
   }
 
-  const describe = (r: routing.Rule) =>
-    [...(r.domain ?? []), ...(r.ip ?? []), r.port ? `:${r.port}` : "", r.network ?? "", ...(r.protocol ?? [])].filter(Boolean).join(", ");
-  const outColor = (o: string) => (o === "direct" ? "var(--ok)" : o === "block" ? "var(--warn)" : "var(--accent)");
+  /** A rule's conditions as short chips (domains, IPs, port, network, detected protocol). */
+  const conds = (r: routing.Rule) => {
+    const l = [...(r.domain ?? []), ...(r.ip ?? []), r.port ? String(r.port) : "", r.network ?? "", ...(r.protocol ?? [])].filter(Boolean);
+    return l.length > 6 ? [...l.slice(0, 6), `+${l.length - 6}`] : l;
+  };
+  const outTone = (o: string) => (o === "direct" ? "blue" : o === "block" ? "red" : "teal") as "blue" | "red" | "teal";
 
   // Route tester.
   let host = $state("");
   let tport = $state("443");
   let udp = $state(false);
-  let verdict = $state("");
+  let verdict = $state<{ out: string; text: string } | null>(null);
   async function testRoute() {
     try {
       const v = await Core.TestRoute(host.trim(), Number(tport) || 443, udp ? "udp" : "tcp");
       const by = v.locked ? t("verdict_locked") : v.rule_index < 0 ? t("verdict_default") : v.remarks || t("rule_n", v.rule_index - locked.length + 1);
-      verdict = `→ ${t(`out_${v.outbound}`)} (${by})`;
+      verdict = { out: v.outbound, text: by };
     } catch (e) {
-      verdict = errorText(e);
+      verdict = { out: "", text: errorText(e) };
     }
   }
 
@@ -118,46 +121,74 @@
 
 <div class="page">
   <div class="main col">
-    <div class="row">
+    <div class="row nowrap">
       <h1 class="grow">{t("title_routing")}</h1>
-      <button class="btn p" onclick={() => (editing = -1)}><Icon name="plus" />{t("add_rule")}</button>
+      <button class="btn icon flat" title={t("import_clipboard")} onclick={importClipboard}><Icon name="import" size={20} /></button>
+      <button class="btn icon flat" title={t("export_clipboard")} onclick={exportRules}><Icon name="copy" size={20} /></button>
+    </div>
+
+    <section class="island tester">
+      <span class="cap">{t("d_where_goes")}</span>
+      <div class="row nowrap">
+        <input class="grow q" placeholder={t("host_or_ip")} bind:value={host} onkeydown={(e) => e.key === "Enter" && host.trim() && testRoute()} />
+        <input class="mono portin" placeholder={t("port")} bind:value={tport} />
+        <label class="check"><input type="checkbox" bind:checked={udp} /><span>UDP</span></label>
+        <button class="btn" disabled={!host.trim()} onclick={testRoute}>{t("test")}</button>
+      </div>
+      {#if verdict}
+        <div class="row nowrap verdict">
+          {#if verdict.out}<Tag text={t(`out_${verdict.out}`)} tone={outTone(verdict.out)} />{/if}
+          <span class="muted">{verdict.text}</span>
+        </div>
+      {/if}
+    </section>
+
+    <section class="island list">
+      <span class="cap">{t("d_your_rules")}</span>
+      <span class="hint pad">{t("d_routing_hint")}</span>
+      {#if rules.length}
+        <div class="group">
+          {#each rules as r, i (i)}
+            <div class="item rule" class:off={r.enabled === false} class:over={dragOver === i && dragFrom !== null && dragFrom !== i} class:sel={editing === i}
+              draggable="true" role="listitem"
+              ondragstart={(e) => { dragFrom = i; e.dataTransfer?.setData("text/plain", String(i)); }}
+              ondragover={(e) => { e.preventDefault(); dragOver = i; }}
+              ondrop={(e) => { e.preventDefault(); if (dragFrom !== null) move(dragFrom, i); dragFrom = null; dragOver = null; }}
+              ondragend={() => { dragFrom = null; dragOver = null; }}>
+              <span class="handle" title={t("d_drag")}><Icon name="drag" size={16} /></span>
+              <input type="checkbox" checked={r.enabled !== false} title={t("rule_enabled")}
+                onchange={(e) => { const l = structuredClone($state.snapshot(rules)) as routing.Rule[]; l[i].enabled = e.currentTarget.checked ? null : false; void saveRules(l); }} />
+              <button class="body" onclick={() => (editing = i)}>
+                <span class="ellipsis rn">{r.remarks || t("rule_n", i + 1)}</span>
+                <span class="conds">{#each conds(r) as c}<span class="cond">{c}</span>{/each}</span>
+              </button>
+              <Tag text={t(`out_${r.outboundTag}`)} tone={outTone(r.outboundTag)} />
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </section>
+
+    <section class="island list">
+      <span class="cap">{t("d_everything_else")}</span>
+      <div class="group">
+        <div class="item"><span class="grow txt"><span>{t("default_route")}</span><span class="dim small">{t("default_route_hint")}</span></span><Tag text={t("out_proxy")} tone="teal" /></div>
+        {#each locked as r}
+          <div class="item"><Icon name="key" size={18} /><span class="grow">{r.domain?.length ? t("locked_domain") : t("locked_ip")}</span><span class="dim small">{t("locked_rules")}</span></div>
+        {/each}
+      </div>
+    </section>
+
+    <div class="fabs">
       <div class="menuwrap">
-        <button class="btn" onclick={() => (presetsOpen = !presetsOpen)}>{t("presets")}<Icon name="down" size={12} /></button>
+        <button class="fab" onclick={() => (presetsOpen = !presetsOpen)}><Icon name="sort" size={20} />{t("presets")}</button>
         {#if presetsOpen}
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
           <div class="scrim" onclick={() => (presetsOpen = false)}></div>
-          <div class="menu">{#each presets as p}<button onclick={() => { presetsOpen = false; presetFor = p.id; }}>{presetName(p.id)}</button>{/each}</div>
+          <div class="menu up">{#each presets as p}<button onclick={() => { presetsOpen = false; presetFor = p.id; }}>{presetName(p.id)}</button>{/each}</div>
         {/if}
       </div>
-      <button class="btn" title={t("import_clipboard")} onclick={importClipboard}><Icon name="import" /></button>
-      <button class="btn" title={t("export_clipboard")} onclick={exportRules}><Icon name="copy" /></button>
-    </div>
-    <div class="hint">{t("d_routing_hint")}</div>
-
-    <div class="list">
-      <div class="cap pad">{t("locked_rules")}</div>
-      {#each locked as r}
-        <div class="rule locked"><span class="handle"></span><span class="grow"><span>{r.domain?.length ? t("locked_domain") : t("locked_ip")}</span></span><Tag text={t("out_block")} color="var(--warn)" /></div>
-      {/each}
-      <div class="cap pad">{t("d_your_rules")}</div>
-      {#each rules as r, i (i)}
-        <div class="rule" class:off={r.enabled === false} class:over={dragOver === i && dragFrom !== null && dragFrom !== i} class:sel={editing === i}
-          draggable="true" role="listitem"
-          ondragstart={(e) => { dragFrom = i; e.dataTransfer?.setData("text/plain", String(i)); }}
-          ondragover={(e) => { e.preventDefault(); dragOver = i; }}
-          ondrop={(e) => { e.preventDefault(); if (dragFrom !== null) move(dragFrom, i); dragFrom = null; dragOver = null; }}
-          ondragend={() => { dragFrom = null; dragOver = null; }}>
-          <span class="handle" title={t("d_drag")}><Icon name="drag" size={14} /></span>
-          <input type="checkbox" checked={r.enabled !== false} title={t("rule_enabled")}
-            onchange={(e) => { const l = structuredClone($state.snapshot(rules)) as routing.Rule[]; l[i].enabled = e.currentTarget.checked ? null : false; void saveRules(l); }} />
-          <button class="body" onclick={() => (editing = i)}>
-            <span class="ellipsis">{r.remarks || t("rule_n", i + 1)}</span>
-            <span class="dim ellipsis small">{describe(r)}</span>
-          </button>
-          <Tag text={t(`out_${r.outboundTag}`)} color={outColor(r.outboundTag)} />
-        </div>
-      {/each}
-      <div class="rule default"><span class="handle"></span><span class="grow"><span>{t("default_route")}</span><span class="dim small">{t("default_route_hint")}</span></span><Tag text={t("out_proxy")} color="var(--accent)" /></div>
+      <button class="fab p" onclick={() => (editing = -1)}><Icon name="plus" size={20} />{t("add_rule")}</button>
     </div>
   </div>
 
@@ -173,18 +204,6 @@
         {/key}
       </div>
     {/if}
-
-    <div class="card">
-      <h3>{t("route_tester")}</h3>
-      <input placeholder={t("host_or_ip")} bind:value={host} onkeydown={(e) => e.key === "Enter" && host.trim() && testRoute()} />
-      <div class="row nowrap">
-        <input class="mono" style="width:90px" placeholder={t("port")} bind:value={tport} />
-        <label class="check"><input type="checkbox" bind:checked={udp} /><span>UDP</span></label>
-        <span class="grow"></span>
-        <button class="btn" disabled={!host.trim()} onclick={testRoute}>{t("test")}</button>
-      </div>
-      {#if verdict}<div>{verdict}</div>{/if}
-    </div>
 
     <div class="card">
       <h3>{t("domain_strategy")}</h3>
@@ -232,22 +251,25 @@
 {/if}
 
 <style>
-  .page { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
-  .list { border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
-  .pad { padding: 10px 12px 4px; }
-  .rule { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line2); }
-  .rule.over { box-shadow: inset 0 2px 0 var(--accent); }
-  .rule.sel { background: var(--sel); }
-  .rule.off .body { opacity: 0.5; }
-  .rule.locked, .rule.default { color: var(--muted); }
-  .rule .grow { display: grid; gap: 1px; }
-  .handle { width: 16px; color: var(--dim); cursor: grab; display: grid; place-items: center; }
-  .locked .handle, .default .handle { cursor: default; }
-  .body { flex: 1; min-width: 0; display: grid; gap: 1px; text-align: left; background: transparent; border: 0; padding: 0; cursor: pointer; }
-  .small { font-size: 11.5px; }
-  .menuwrap { position: relative; }
-  .scrim { position: fixed; inset: 0; z-index: 9; }
-  .menu { position: absolute; top: 38px; right: 0; z-index: 10; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 5px; box-shadow: var(--shadow); display: grid; min-width: 240px; }
-  .menu button { padding: 8px 10px; border-radius: 6px; background: transparent; border: 0; cursor: pointer; text-align: left; }
-  .menu button:hover { background: var(--hover); }
+  .page { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; min-height: 100%; }
+  .main { gap: 12px; min-height: 100%; display: flex; flex-direction: column; }
+  .side { gap: 12px; }
+  .list, .tester { background: var(--s); padding: 14px 10px 10px; gap: 8px; }
+  .list > .cap, .tester > .cap { padding: 0 8px; }
+  .tester { padding: 14px 14px 14px; }
+  .q { border-radius: 20px; background: var(--s-highest); border-color: transparent; padding: 0 16px; }
+  .portin { width: 80px; }
+  .verdict { padding: 0 4px; }
+  .rule.over { box-shadow: inset 0 3px 0 var(--primary); }
+  .rule.sel { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .rule.off .body, .rule.off :global(.pill) { opacity: 0.5; }
+  .handle { width: 18px; color: var(--outline); cursor: grab; display: grid; place-items: center; }
+  .body { flex: 1; min-width: 0; display: grid; gap: 4px; text-align: left; background: transparent; border: 0; padding: 0; cursor: pointer; }
+  .rn { font-size: 15px; }
+  .conds { display: flex; flex-wrap: wrap; gap: 4px; }
+  .cond { font: 11.5px/16px var(--mono); background: var(--s-high); color: var(--muted); border-radius: 6px; padding: 1px 6px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .txt { display: grid; gap: 1px; }
+  .small { font-size: 12px; }
+  .pad { padding: 0 8px; }
+  .fabs { margin-top: auto; }
 </style>

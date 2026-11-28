@@ -140,18 +140,18 @@
 {/if}
 
 <style>
-  .page { display: grid; gap: 14px; align-content: start; max-width: 920px; }
+  .page { display: grid; gap: 16px; align-content: start; max-width: 960px; }
   .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .totals div { display: grid; gap: 4px; }
-  .totals b { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .totals b { font-size: 24px; font-weight: 400; font-variant-numeric: tabular-nums; }
   .legend { gap: 18px; color: var(--muted); font-size: 12px; }
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; flex: none; }
   .dot.chain, rect.chain { background: var(--accent); fill: var(--accent); }
-  .dot.direct, rect.direct { background: var(--ok); fill: var(--ok); }
+  .dot.direct, rect.direct { background: var(--direct); fill: var(--direct); }
   rect.none { fill: var(--line); }
   rect.hit { fill: transparent; cursor: default; }
   g.dim { opacity: 0.35; }
-  .detail { min-height: 48px; display: grid; gap: 2px; align-content: center; background: var(--card2); border-radius: 8px; padding: 6px 10px; }
+  .detail { min-height: 48px; display: grid; gap: 2px; align-content: center; background: var(--s-high); border-radius: 12px; padding: 6px 12px; }
   .detail .row { gap: 12px; }
   .chart { width: 100%; height: 140px; display: block; }
   .axis { font-size: 11px; color: var(--dim); }

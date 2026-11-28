@@ -3,20 +3,19 @@
   import { Core, type engine } from "../lib/api";
   import { store } from "../lib/store.svelte";
   import { t } from "../lib/i18n";
-  import { flag } from "../lib/format";
+  import { countryName } from "../lib/format";
   import { errorText } from "../lib/errors";
   import Icon from "../components/Icon.svelte";
   import Ping from "../components/Ping.svelte";
-  import Tag from "../components/Tag.svelte";
   import ServerTags from "../components/ServerTags.svelte";
   import ServerEditor from "../components/ServerEditor.svelte";
   import ChainEditor from "../components/ChainEditor.svelte";
   import ShareDialog from "../components/ShareDialog.svelte";
   import Modal from "../components/Modal.svelte";
 
-  // Servers & chains (docs/10 §4.2): two grids, the selected row's editor on the right. Click selects,
-  // double-click connects through it. Servers are grouped by host, like the Android list.
-  let tab = $state<"servers" | "chains">("servers");
+  // Servers & chains: a Chains island, then one island per host with its servers (like the Android list); the
+  // selected row's editor on the right. Click selects, double-click connects through it.
+  let selKind = $state<"server" | "chain">("server");
   let selected = $state<string | null>(null); // id, or "" for a new item
   let filter = $state("");
   let sort = $state<"name" | "ping">("name");
@@ -54,13 +53,18 @@
     return [...list].sort((a, b) => (sort === "ping" ? pingKey(a.last) - pingKey(b.last) : 0) || a.name.localeCompare(b.name));
   });
 
-  const selServer = $derived(tab === "servers" && selected ? store.servers.find((s) => s.id === selected) : undefined);
-  const selChain = $derived(tab === "chains" && selected ? store.chains.find((c) => c.id === selected) : undefined);
+  const selServer = $derived(selKind === "server" && selected ? store.servers.find((s) => s.id === selected) : undefined);
+  const amneziaReady = $derived(!!st?.has_key && !!st?.has_gateway_key);
 
-  function switchTab(to: "servers" | "chains") {
-    tab = to;
-    selected = null;
+  function pick(kind: "server" | "chain", id: string) {
+    selKind = kind;
+    selected = id;
   }
+  const initial = (name: string) => (name.trim()[0] ?? "?").toUpperCase();
+  /** The chain's protocols, e.g. "VLESS · Trojan". */
+  const protos = (c: engine.ChainInfo) =>
+    [...new Set((c.hops ?? []).filter((h) => h.protocol).map((h) => (h.protocol === "shadowsocks" ? "SS" : h.protocol!.toUpperCase())))].join(" · ");
+  const exitCC = (l?: engine.TestResult | null) => (l && !l.error ? (l.country ?? "") : "");
 
   async function connectServer(id: string) {
     await store.act(() => Core.SetActiveServer(id));
@@ -70,8 +74,10 @@
   }
 
   function testAll() {
-    if (tab === "servers") void store.testAll(servers.map((s) => ({ chain: "", server: s.id })));
-    else void store.testAll(chains.filter((c) => !c.error).map((c) => ({ chain: c.id, server: "" })));
+    void store.testAll([
+      ...chains.filter((c) => !c.error).map((c) => ({ chain: c.id, server: "" })),
+      ...servers.map((s) => ({ chain: "", server: s.id })),
+    ]);
   }
   const anyTesting = $derived(Object.keys(store.testing).length > 0);
 
@@ -89,37 +95,11 @@
     else store.toast(t("d_clipboard_empty"), true);
   }
 
-  function exitOf(l?: engine.TestResult | null): string {
-    return l && !l.error && l.country ? `${flag(l.country)} ${l.country}` : "";
-  }
 </script>
 
 <div class="page">
-  <div class="row tabs">
-    <button class:on={tab === "servers"} onclick={() => switchTab("servers")}>{t("d_tab_servers", store.servers.length)}</button>
-    <button class:on={tab === "chains"} onclick={() => switchTab("chains")}>{t("d_tab_chains", store.chains.length)}</button>
-  </div>
-
-  <div class="row toolbar">
-    <div class="menuwrap">
-      {#if tab === "servers"}
-        <button class="btn p" onclick={() => (addOpen = !addOpen)}><Icon name="plus" />{t("add")}<Icon name="down" size={12} /></button>
-        {#if addOpen}
-          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-          <div class="scrim" onclick={() => (addOpen = false)}></div>
-          <div class="menu">
-            <button onclick={() => { addOpen = false; selected = ""; }}><Icon name="edit" />{t("d_new_server")}</button>
-            <button onclick={importClipboard}><Icon name="import" />{t("import_clipboard")}</button>
-            <button onclick={() => { addOpen = false; pasteText = ""; pasteOpen = true; }}><Icon name="link" />{t("import_links")}</button>
-          </div>
-        {/if}
-      {:else}
-        <button class="btn p" onclick={() => (selected = "")}><Icon name="plus" />{t("chain_new")}</button>
-      {/if}
-    </div>
-    <button class="btn" disabled={anyTesting} onclick={testAll}><Icon name="test" />{t("test_all")}</button>
-    <button class="btn" disabled={!store.servers.length && !store.chains.length} onclick={() => (sharingAll = true)}><Icon name="share" />{t("share_all")}</button>
-    <span class="grow"></span>
+  <div class="row nowrap head">
+    <h1 class="grow">{t("d_nav_servers")}</h1>
     <div class="seg" title={t("d_sort")}>
       <button class:on={sort === "name"} onclick={() => (sort = "name")}>{t("sort_name")}</button>
       <button class:on={sort === "ping"} onclick={() => (sort = "ping")}>{t("sort_ping")}</button>
@@ -128,72 +108,109 @@
   </div>
 
   <div class="split">
-    <div class="gridwrap">
-      {#if tab === "servers"}
-        {#if !store.servers.length}
-          <div class="empty">{t("selector_no_servers")} {t("d_paste_hint")}</div>
-        {:else}
-          <table>
-            <thead><tr><th class="mark"></th><th>{t("srv_name")}</th><th>{t("d_col_type")}</th><th>{t("sort_ping")}</th><th>{t("d_col_exit")}</th></tr></thead>
-            <tbody>
-              {#each groups as [host, rows] (host)}
-                <tr class="grp"><td colspan="5"><span class="mono">{host}</span>{#if rows[0].host_country}<span> · {flag(rows[0].host_country)} {rows[0].host_country}</span>{/if}</td></tr>
-                {#each rows as s (s.id)}
-                  <tr class:sel={selected === s.id} onclick={() => (selected = s.id)} ondblclick={() => connectServer(s.id)}>
-                    <td class="mark">{#if st?.server_id === s.id}<span class="dot" title={t("d_selected")}></span>{/if}</td>
-                    <td class="name ellipsis" title={s.name}>{s.name}</td>
-                    <td><ServerTags protocol={s.protocol} security={s.security} network={s.network} port={s.port} /></td>
-                    <td><Ping ms={s.last?.ms ?? 0} error={s.last?.error ?? ""} testing={!!store.testing[`s:${s.id}`]} /></td>
-                    <td class="exit" title={s.last?.ip ?? ""}>{exitOf(s.last)}</td>
-                  </tr>
-                {/each}
-              {/each}
-            </tbody>
-          </table>
-        {/if}
-      {:else}
+    <div class="lists">
+      <section class="island">
+        <div class="row nowrap"><span class="cap grow">{t("d_chains_title")}</span><span class="dim small">{chains.length}</span></div>
         {#if !store.chains.length}
-          <div class="empty">{t("chain_none")}</div>
+          <div class="hint">{t("chain_none")}</div>
         {:else}
-          <table>
-            <thead><tr><th class="mark"></th><th>{t("chain_name")}</th><th>{t("d_col_hops")}</th><th>{t("sort_ping")}</th><th>{t("d_col_exit")}</th></tr></thead>
-            <tbody>
-              {#each chains as c (c.id)}
-                <tr class:sel={selected === c.id} onclick={() => (selected = c.id)} ondblclick={() => !c.error && connectChain(c.id)}>
-                  <td class="mark">{#if c.active && !st?.server_id}<span class="dot" title={t("d_selected")}></span>{/if}</td>
-                  <td class="name ellipsis" title={c.name}>{c.name}</td>
-                  <td><div class="hops">
+          <div class="rows">
+            {#each chains as c (c.id)}
+              {@const on = c.active && !st?.server_id}
+              <button class="li" class:active={on} class:sel={selKind === "chain" && selected === c.id}
+                onclick={() => pick("chain", c.id)} ondblclick={() => !c.error && connectChain(c.id)}>
+                <span class="av" class:avon={on}>{#if on}<Icon name="check" size={18} />{:else}{initial(c.name)}{/if}</span>
+                <span class="grow txt">
+                  <span class="ellipsis nm">{c.name}</span>
+                  <span class="sub">
                     {#each c.hops ?? [] as h, i}
                       {#if i > 0}<span class="dim">→</span>{/if}
-                      {#if h.kind === "amnezia"}<Tag text="amnezia" color="var(--t-amz)" />{:else}<span class:warnc={h.missing}>{h.missing ? t("hop_missing") : h.name}</span>{/if}
+                      {#if h.missing}<span class="warnc">{t("hop_missing")}</span>
+                      {:else if h.country}<span class="cc">{h.country.toUpperCase()}</span>
+                      {:else}<span class="ellipsis hn">{h.kind === "amnezia" ? "Amnezia" : h.name}</span>{/if}
                     {/each}
-                    {#if c.error}<span class="warnc"> · {t("chain_cannot_run")}</span>{/if}
-                  </div></td>
-                  <td><Ping ms={c.last?.ms ?? 0} error={c.last?.error ?? ""} testing={!!store.testing[`c:${c.id}`]} /></td>
-                  <td class="exit" title={c.last?.ip ?? ""}>{exitOf(c.last)}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
+                    {#if protos(c)}<span class="dim pr">{protos(c)}</span>{/if}
+                    {#if c.error}<span class="warnc">· {t("chain_cannot_run")}</span>{/if}
+                  </span>
+                </span>
+                <Ping cc={exitCC(c.last)} ms={c.last?.ms ?? 0} error={c.last?.error ?? ""} testing={!!store.testing[`c:${c.id}`]} title={c.last?.ip ?? ""} />
+              </button>
+            {/each}
+          </div>
         {/if}
+      </section>
+
+      {#if !store.servers.length}
+        <section class="island"><div class="hint">{t("selector_no_servers")} {t("d_paste_hint")}</div></section>
       {/if}
+      {#each groups as [host, rows] (host)}
+        <section class="island">
+          <div class="row nowrap hosthead">
+            <span class="hicon"><Icon name="servers" size={18} /></span>
+            <span class="grow row nowrap"><span class="mono ellipsis hostname selectable">{host}</span><span class="pill">{rows.length}</span></span>
+            {#if rows[0].host_country}<span class="ccpill"><span class="cc">{rows[0].host_country.toUpperCase()}</span>{countryName(rows[0].host_country)}</span>{/if}
+          </div>
+          <div class="group">
+            {#each rows as s (s.id)}
+              {@const on = st?.server_id === s.id}
+              <button class="item li2" class:active={on} class:sel={selKind === "server" && selected === s.id}
+                onclick={() => pick("server", s.id)} ondblclick={() => connectServer(s.id)}>
+                <span class="grow txt">
+                  <span class="row nowrap"><span class="ellipsis nm">{s.name}</span>{#if on}<Icon name="check" size={16} />{/if}</span>
+                  <ServerTags protocol={s.protocol} security={s.security} network={s.network} port={s.port} />
+                </span>
+                <Ping cc={s.last && !s.last.error && s.last.country && s.last.country !== s.host_country ? s.last.country : ""} ms={s.last?.ms ?? 0} error={s.last?.error ?? ""} testing={!!store.testing[`s:${s.id}`]} title={s.last?.ip ?? ""} />
+              </button>
+            {/each}
+          </div>
+        </section>
+      {/each}
+
+      {#if amneziaReady}
+        <section class="island">
+          <div class="row nowrap hosthead">
+            <span class="hicon amz"><Icon name="globe" size={18} /></span>
+            <span class="grow nm">Amnezia Premium</span>
+            {#if st?.country}<span class="ccpill"><span class="cc">{st.country.toUpperCase()}</span>{st.country_name || countryName(st.country)}</span>{/if}
+            <button class="btn flat" onclick={() => (store.page = "settings")}>{t("amnezia_settings")}</button>
+          </div>
+        </section>
+      {/if}
+
+      <div class="fabs">
+        <button class="fab sq" title={t("test_all")} disabled={anyTesting || (!store.servers.length && !store.chains.length)} onclick={testAll}><Icon name="refresh" size={22} /></button>
+        <button class="fab sq" title={t("share_all")} disabled={!store.servers.length && !store.chains.length} onclick={() => (sharingAll = true)}><Icon name="share" size={22} /></button>
+        <button class="fab" onclick={() => pick("chain", "")}><Icon name="plus" size={20} />{t("chain_new")}</button>
+        <div class="menuwrap">
+          <button class="fab p" onclick={() => (addOpen = !addOpen)}><Icon name="plus" size={20} />{t("add_server")}</button>
+          {#if addOpen}
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+            <div class="scrim" onclick={() => (addOpen = false)}></div>
+            <div class="menu up">
+              <button onclick={() => { addOpen = false; pick("server", ""); }}><Icon name="edit" />{t("d_new_server")}</button>
+              <button onclick={importClipboard}><Icon name="import" />{t("import_clipboard")}</button>
+              <button onclick={() => { addOpen = false; pasteText = ""; pasteOpen = true; }}><Icon name="link" />{t("import_links")}</button>
+            </div>
+          {/if}
+        </div>
+      </div>
     </div>
 
-    <aside class="panel">
+    <aside class="panel island">
       {#if selected === null}
-        <div class="hint">{tab === "servers" ? t("d_servers_panel_hint") : t("d_chains_panel_hint")}</div>
-      {:else if tab === "servers"}
+        <div class="hint">{t("d_servers_panel_hint")} {t("d_chains_panel_hint")}</div>
+      {:else if selKind === "server"}
         <div class="row nowrap">
           <h2 class="grow ellipsis">{selServer?.name ?? t("add_server")}</h2>
           {#if selServer}
-            <button class="btn icon flat" title={t("test")} disabled={!!store.testing[`s:${selServer.id}`]} onclick={() => store.test("", selServer.id)}><Icon name="test" /></button>
-            <button class="btn icon flat" title={t("share")} onclick={() => (sharing = { kind: "server", id: selServer.id, name: selServer.name, withAmnezia: false })}><Icon name="share" /></button>
-            <button class="btn icon flat danger" title={t("delete")} onclick={() => (deleting = { kind: "server", id: selServer.id, name: selServer.name })}><Icon name="trash" /></button>
+            <button class="btn icon flat" title={t("test")} disabled={!!store.testing[`s:${selServer.id}`]} onclick={() => store.test("", selServer.id)}><Icon name="test" size={18} /></button>
+            <button class="btn icon flat" title={t("share")} onclick={() => (sharing = { kind: "server", id: selServer.id, name: selServer.name, withAmnezia: false })}><Icon name="share" size={18} /></button>
+            <button class="btn icon flat danger" title={t("delete")} onclick={() => (deleting = { kind: "server", id: selServer.id, name: selServer.name })}><Icon name="trash" size={18} /></button>
           {/if}
         </div>
         {#if selServer?.used_in?.length}<div class="hint">{t("d_used_in", selServer.used_in.join(", "))}</div>{/if}
         {#if selServer && st?.server_id !== selServer.id}
-          <button class="btn" onclick={() => connectServer(selServer.id)}><Icon name="swap" />{t("d_connect_through_this")}</button>
+          <button class="btn" onclick={() => connectServer(selServer.id)}><Icon name="swap" size={18} />{t("d_connect_through_this")}</button>
         {/if}
         {#key selected}
           <ServerEditor id={selected} onsaved={(id) => { store.toast(t("srv_saved")); selected = id; }} oncancel={selected ? undefined : () => (selected = null)} />
@@ -234,32 +251,32 @@
 {/if}
 
 <style>
-  .page { display: grid; gap: 12px; grid-template-rows: auto auto 1fr; height: 100%; min-height: 0; }
-  .tabs { gap: 18px; border-bottom: 1px solid var(--line); }
-  .tabs button { padding: 8px 2px; color: var(--muted); background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer; }
-  .tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
-  .toolbar { gap: 8px; }
-  .filter { width: 200px; }
-  .menuwrap { position: relative; }
-  .scrim { position: fixed; inset: 0; z-index: 9; }
-  .menu { position: absolute; top: 38px; left: 0; z-index: 10; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 5px; box-shadow: var(--shadow); display: grid; min-width: 230px; }
-  .menu button { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 6px; background: transparent; border: 0; cursor: pointer; text-align: left; }
-  .menu button:hover { background: var(--hover); }
-  .split { display: grid; grid-template-columns: 1fr 320px; gap: 14px; min-height: 0; }
-  .gridwrap { overflow: auto; min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
-  th { text-align: left; font: 500 11px/1 var(--ui); color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; padding: 10px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--card); z-index: 1; }
-  th:nth-child(2) { width: 30%; } th:nth-child(4) { width: 92px; } th:nth-child(5) { width: 64px; }
-  td { padding: 8px 10px; border-bottom: 1px solid var(--line2); vertical-align: middle; }
-  tbody tr:not(.grp) { cursor: default; }
-  tbody tr:not(.grp):hover td { background: var(--hover); }
-  tr.sel td, tr.sel:hover td { background: var(--sel) !important; }
-  tr.grp td { padding: 10px 10px 3px; font-size: 11px; color: var(--dim); border-bottom: 0; }
-  .mark { width: 26px; padding-right: 0; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
-  .name { font-weight: 500; }
-  .hops { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .exit { white-space: nowrap; }
-  .empty { padding: 30px; text-align: center; color: var(--dim); }
-  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 10px; align-content: start; overflow: auto; min-height: 0; }
+  .page { display: grid; gap: 16px; grid-template-rows: auto 1fr; height: 100%; min-height: 0; }
+  .head { gap: 12px; }
+  .filter { width: 220px; border-radius: 20px; padding: 0 16px; background: var(--s); border-color: transparent; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 16px; min-height: 0; }
+  .lists { overflow: auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding-right: 2px; }
+  .lists > .island { background: var(--s); padding: 14px 10px 10px; gap: 8px; }
+  .lists > .island > .row, .hosthead { padding: 0 8px; }
+  .small { font-size: 12px; }
+  .rows { display: grid; gap: 2px; }
+  .li, .li2 { border: 0; color: inherit; text-align: left; cursor: pointer; display: flex; gap: 12px; align-items: center; width: 100%; font: inherit; }
+  .li { background: transparent; border-radius: var(--r-item); padding: 10px 12px; }
+  .li:hover, .li2:hover { box-shadow: inset 0 0 0 100px var(--state); }
+  .li.active { background: var(--primary-c); color: var(--on-primary-c); }
+  .li2.active { color: var(--primary); }
+  .sel { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .av { width: 36px; height: 36px; flex: none; border-radius: 18px; background: var(--secondary-c); color: var(--on-secondary-c); display: grid; place-items: center; font-weight: 600; }
+  .av.avon { background: var(--primary); color: var(--on-primary); }
+  .txt { display: grid; gap: 4px; min-width: 0; }
+  .nm { font-size: 15px; font-weight: 500; }
+  .sub { display: flex; gap: 4px; align-items: center; font-size: 12px; flex-wrap: wrap; min-width: 0; }
+  .hn { max-width: 140px; }
+  .pr { margin-left: 4px; }
+  .hicon { width: 32px; height: 32px; flex: none; border-radius: 10px; background: var(--s-high); color: var(--muted); display: grid; place-items: center; }
+  .hicon.amz { background: var(--tertiary-c); color: var(--on-tertiary-c); }
+  .hostname { font-size: 13.5px; font-weight: 500; }
+  .ccpill { display: inline-flex; gap: 5px; align-items: center; font: 500 12px/16px var(--ui); background: var(--s-high); color: var(--muted); border-radius: 8px; padding: 3px 8px 3px 4px; white-space: nowrap; }
+  .panel { overflow: auto; min-height: 0; align-content: start; }
+  .fabs { margin-top: auto; }
 </style>
