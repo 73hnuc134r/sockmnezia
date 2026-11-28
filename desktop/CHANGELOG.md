@@ -6,6 +6,10 @@ using the app.
 
 ## 0.1.3
 
+- "Share all" on the Servers & chains page: every server and chain in one text, for sockmnezia on another
+  computer or phone (already saved ones are not duplicated).
+- The app and tray icons are the sock from the Android app.
+- Settings → Local proxy and App no longer flicker every second.
 - Security: updated two libraries Xray uses with known vulnerabilities (zstd decompression could crash on bad
   data; WebSocket mask keys from a weak random source).
 

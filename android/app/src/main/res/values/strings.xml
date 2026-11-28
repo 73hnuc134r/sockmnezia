@@ -302,6 +302,11 @@
     <string name="udp_hint">Only if an app needs it. The app should tell the proxy its own port when it opens UDP (most do).</string>
     <string name="http_hint">A second port for apps that only speak HTTP proxy; same credentials.</string>
     <string name="http_port">HTTP port</string>
+    <string name="share_all">Share all</string>
+    <string name="share_all_title">All servers and chains</string>
+    <string name="share_all_hint">Every server as a link, then every chain. Import it into sockmnezia on another device to get them all; other apps import the links.</string>
+    <string name="import_all_q">Import everything? Chains: %1$d</string>
+    <string name="import_chains">Chains: %1$s</string>
     <string name="share_lan">Share on local network</string>
     <string name="share_lan_hint">Other devices on your Wi-Fi or hotspot can use the proxy (with the password).</string>
     <string name="share_lan_none">No local network address right now.</string>

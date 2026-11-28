@@ -301,6 +301,11 @@
     <string name="udp_hint">Только если приложению нужно. Приложение должно сообщать прокси свой порт при открытии UDP (большинство так делает).</string>
     <string name="http_hint">Второй порт для приложений, умеющих только HTTP-прокси; те же логин и пароль.</string>
     <string name="http_port">Порт HTTP</string>
+    <string name="share_all">Поделиться всем</string>
+    <string name="share_all_title">Все серверы и цепочки</string>
+    <string name="share_all_hint">Каждый сервер ссылкой, затем каждая цепочка. Импортируйте это в sockmnezia на другом устройстве, чтобы получить всё; другие приложения импортируют ссылки.</string>
+    <string name="import_all_q">Импортировать всё? Цепочек: %1$d</string>
+    <string name="import_chains">Цепочки: %1$s</string>
     <string name="share_lan">Раздавать в локальную сеть</string>
     <string name="share_lan_hint">Другие устройства в вашей Wi-Fi-сети или точке доступа смогут пользоваться прокси (с паролем).</string>
     <string name="share_lan_none">Сейчас нет адреса в локальной сети.</string>

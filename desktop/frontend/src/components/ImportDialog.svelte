@@ -27,11 +27,13 @@
   }
 </script>
 
-<Modal title={preview?.chain ? t("import_chain_q", preview.chain) : t("import_servers_q")} {onclose}>
+<Modal title={(preview?.chains?.length ?? 0) > 1 ? t("import_all_q", preview!.chains!.length) : preview?.chains?.length ? t("import_chain_q", preview.chain) : t("import_servers_q")} {onclose}>
   {#if error}
     <div class="hint warn" style="white-space:pre-line">{error}</div>
   {:else if preview}
-    {#if preview.chain}<div>{t("import_hops", preview.hops ?? 0)}</div>{/if}
+    {#if preview.chains?.length === 1}<div>{t("import_hops", preview.hops ?? 0)}</div>{/if}
+    {#if (preview.chains?.length ?? 0) > 1}<div>{t("import_chains", preview.chains!.join(", "))}</div>{/if}
+    {#if preview.known_chains?.length}<div class="muted">{t("import_known", preview.known_chains.join(", "))}</div>{/if}
     {#if preview.new_servers?.length}<div>{t("import_new", preview.new_servers.join(", "))}</div>{/if}
     {#if preview.known_servers?.length}<div class="muted">{t("import_known", preview.known_servers.join(", "))}</div>{/if}
     {#if preview.needs_amnezia}<div class="hint warn">{t("import_needs_amnezia")}</div>{/if}

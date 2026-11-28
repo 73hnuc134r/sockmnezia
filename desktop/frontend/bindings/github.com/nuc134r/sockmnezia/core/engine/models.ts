@@ -117,14 +117,28 @@ export interface HopInfo {
  */
 export interface ImportResult {
     /**
-     * name of the imported chain ("" when the text is not a chain)
+     * name of the imported chain, when the text has exactly one
      */
     "chain"?: string;
 
     /**
-     * set after a real import
+     * set after a real import of exactly one chain
      */
     "chain_id"?: string;
+
+    /**
+     * names of the chains that will be / were added
+     */
+    "chains": string[] | null;
+
+    /**
+     * chains already saved with the same hops (not duplicated)
+     */
+    "known_chains": string[] | null;
+
+    /**
+     * hops of the one chain
+     */
     "hops"?: number;
 
     /**
@@ -138,7 +152,7 @@ export interface ImportResult {
     "known_servers": string[] | null;
 
     /**
-     * the chain has an Amnezia hop but no subscription is set up
+     * a chain has an Amnezia hop but no subscription is set up
      */
     "needs_amnezia": boolean;
 }

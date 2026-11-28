@@ -5,6 +5,8 @@ shown in the app's update card. Write for people using the app, not for develope
 
 ## 1.1.8
 
+- "Share all" (under the server list): every server and chain in one text. Import it into sockmnezia on another
+  phone or computer to get them all; chains and servers you already have are not duplicated.
 - Security: updated two libraries Xray uses with known vulnerabilities (zstd decompression could crash on bad
   data; WebSocket mask keys from a weak random source).
 

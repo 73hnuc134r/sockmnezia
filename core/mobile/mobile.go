@@ -291,6 +291,12 @@ func (c *Core) ShareChain(id, format string) (string, error) {
 	return t, wrap(err)
 }
 
+// ShareAll returns every saved server and chain as one text (contains credentials).
+func (c *Core) ShareAll() (string, error) {
+	s, err := c.e.ShareAll()
+	return s, wrap(err)
+}
+
 // ImportJSON imports shared text (a chain, links or an outbound JSON) and returns the engine.ImportResult
 // JSON; with dryRun nothing is saved.
 func (c *Core) ImportJSON(text string, dryRun bool) (string, error) {

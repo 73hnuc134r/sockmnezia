@@ -191,6 +191,7 @@ object Core {
     suspend fun shareChain(id: String, format: String): String = call { it.shareChain(id, format) }
 
     /** Imports shared text (a chain, links or an outbound JSON); with [dryRun] nothing is saved. */
+    suspend fun shareAll(): String = call { it.shareAll() }
     suspend fun import(text: String, dryRun: Boolean): ImportResult =
         call { CoreJson.decodeFromString(ImportResult.serializer(), it.importJSON(text, dryRun)) }
             .also { if (!dryRun) changed() }

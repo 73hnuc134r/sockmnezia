@@ -101,3 +101,37 @@ func mustShare(t *testing.T, e *Engine, id string) string {
 	}
 	return l
 }
+
+// Share all → import elsewhere: every server and chain arrives; importing it again adds nothing.
+func TestShareAllRoundTrip(t *testing.T) {
+	a, _ := Open(t.TempDir(), nil, "linux")
+	solo, _ := a.AddOwnServer("trojan://p@solo.example.com:443#solo", "")
+	h1, _ := a.AddOwnServer("trojan://p@one.example.com:443#one", "")
+	h2, _ := a.AddOwnServer("trojan://p@two.example.com:443#two", "")
+	a.SaveChain(Chain{Name: "pair", Hops: []ChainHop{{Kind: HopServer, Server: h1}, {Kind: HopServer, Server: h2}}})
+	a.SaveChain(Chain{Name: "via amnezia", Hops: []ChainHop{{Kind: HopServer, Server: h1}, {Kind: HopAmnezia}}})
+	_ = solo
+	text, err := a.ShareAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(text, ChainHeader) != 3 || !strings.Contains(text, "solo.example.com") { // + the default Amnezia chain
+		t.Fatalf("shared text:\n%s", text)
+	}
+
+	b, _ := Open(t.TempDir(), nil, "linux")
+	pre, err := b.Import(text, true)
+	if err != nil || len(pre.NewServers) != 3 || len(pre.Chains) != 2 || len(pre.KnownChains) != 1 || !pre.NeedsAmnezia {
+		t.Fatalf("preview %+v %v", pre, err) // b already has the default Amnezia chain
+	}
+	if _, err := b.Import(text, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(b.Snapshot().Own) != 3 || len(b.Chains()) != 3 {
+		t.Fatalf("imported %d servers, %d chains", len(b.Snapshot().Own), len(b.Chains()))
+	}
+	again, err := b.Import(text, false)
+	if err != nil || len(again.NewServers) != 0 || len(again.Chains) != 0 || len(again.KnownChains) != 3 || len(b.Chains()) != 3 {
+		t.Fatalf("second import %+v %v (%d chains)", again, err, len(b.Chains()))
+	}
+}

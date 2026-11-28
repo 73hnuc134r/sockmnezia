@@ -197,6 +197,13 @@ export function Settings(): $CancellablePromise<engine$0.Settings> {
     return $Call.ByID(1155394940);
 }
 
+/**
+ * ShareAll returns every saved server and chain as one text (contains credentials).
+ */
+export function ShareAll(): $CancellablePromise<string> {
+    return $Call.ByID(614317999);
+}
+
 export function ShareChain(id: string, format: string): $CancellablePromise<string> {
     return $Call.ByID(2022408957, id, format);
 }

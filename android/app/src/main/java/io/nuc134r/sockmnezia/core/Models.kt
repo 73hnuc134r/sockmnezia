@@ -252,6 +252,8 @@ data class DownloadProgress(val done: Long = 0, val total: Long = -1, val verify
 data class ImportResult(
     val chain: String = "",
     @SerialName("chain_id") val chainId: String = "",
+    val chains: List<String> = emptyList(),
+    @SerialName("known_chains") val knownChains: List<String> = emptyList(),
     val hops: Int = 0,
     @SerialName("new_servers") val newServers: List<String> = emptyList(),
     @SerialName("known_servers") val knownServers: List<String> = emptyList(),

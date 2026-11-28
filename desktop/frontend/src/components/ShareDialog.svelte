@@ -7,7 +7,7 @@
   import Modal from "./Modal.svelte";
 
   // Shares a saved server (its link) or chain (links, or Xray JSON for chains without Amnezia), with a QR code.
-  let { kind, id, name, withAmnezia = false, onclose }: { kind: "server" | "chain"; id: string; name: string; withAmnezia?: boolean; onclose: () => void } = $props();
+  let { kind, id = "", name = "", withAmnezia = false, onclose }: { kind: "server" | "chain" | "all"; id?: string; name?: string; withAmnezia?: boolean; onclose: () => void } = $props();
 
   let format = $state<"links" | "xray">("links");
   let text = $state("");
@@ -18,7 +18,7 @@
     const f = format;
     error = "";
     qr = "";
-    (kind === "server" ? Core.ShareServer(id) : Core.ShareChain(id, f))
+    (kind === "all" ? Core.ShareAll() : kind === "server" ? Core.ShareServer(id) : Core.ShareChain(id, f))
       .then(async (s) => {
         text = s;
         qr = await Desktop.QR(s.trim()).catch(() => "");
@@ -32,7 +32,8 @@
   }
 </script>
 
-<Modal title={t("share_title", name)} {onclose} width={640}>
+<Modal title={kind === "all" ? t("share_all_title") : t("share_title", name)} {onclose} width={640}>
+  {#if kind === "all"}<div class="hint">{t("share_all_hint")} {t("share_amnezia_note")}</div>{/if}
   {#if kind === "chain"}
     <div class="seg" style="justify-self:start">
       <button class:on={format === "links"} onclick={() => (format = "links")}>{t("share_format_links")}</button>

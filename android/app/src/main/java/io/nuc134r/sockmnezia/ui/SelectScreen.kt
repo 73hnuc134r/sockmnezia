@@ -104,6 +104,7 @@ fun SelectScreen(nav: NavController, pickHop: String? = null) {
     var deleteServer by remember { mutableStateOf<OwnServer?>(null) }
     var shareChain by remember { mutableStateOf<ChainInfo?>(null) }
     var shareServer by remember { mutableStateOf<OwnServer?>(null) }
+    var shareAll by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var sort by remember { mutableStateOf(prefs.listSort) }
     /** Tests in flight; finished results come from the core with the lists. */
@@ -225,6 +226,9 @@ fun SelectScreen(nav: NavController, pickHop: String? = null) {
         Row(Modifier.padding(horizontal = 8.dp)) {
             TextButton(onClick = { nav.navigate(Routes.server(Routes.NEW)) }) { Text(stringResource(R.string.add_server)) }
             TextButton(onClick = { adding = true }) { Text(stringResource(R.string.import_links)) }
+            if (!picking && (servers.isNotEmpty() || chains.isNotEmpty())) {
+                TextButton(onClick = { shareAll = true }) { Text(stringResource(R.string.share_all)) }
+            }
         }
     }
 
@@ -243,6 +247,7 @@ fun SelectScreen(nav: NavController, pickHop: String? = null) {
     }
     shareServer?.let { s -> ServerShareSheet(s.id, s.name, onDismiss = { shareServer = null }) }
     if (adding) AddServerDialog(onDismiss = { adding = false }, onAdded = { adding = false })
+    if (shareAll) AllShareSheet(onDismiss = { shareAll = false })
 }
 
 /** Amnezia as a hop: disabled with the reason when it is already in the chain or not set up yet. */

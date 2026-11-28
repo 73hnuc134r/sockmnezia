@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/nuc134r/sockmnezia/core/links"
@@ -89,21 +90,63 @@ func (e *Engine) ShareChain(id, format string) (string, error) {
 	return "", &Error{Code: CodeInvalidSettings, Field: "format", Detail: "unknown format"}
 }
 
-// ImportResult describes what Import added (or would add, in a dry run).
-type ImportResult struct {
-	Chain        string   `json:"chain,omitempty"`    // name of the imported chain ("" when the text is not a chain)
-	ChainID      string   `json:"chain_id,omitempty"` // set after a real import
-	Hops         int      `json:"hops,omitempty"`
-	NewServers   []string `json:"new_servers"`   // names of servers that will be / were added
-	KnownServers []string `json:"known_servers"` // names of saved servers the text refers to (reused, not duplicated)
-	NeedsAmnezia bool     `json:"needs_amnezia"` // the chain has an Amnezia hop but no subscription is set up
+// ShareAll returns every saved server and chain as one text (contains credentials): first the servers that
+// are in no chain, one link per line, then each chain as in ShareChain. Import reads it back; other apps import
+// the links. Amnezia stays a placeholder.
+func (e *Engine) ShareAll() (string, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	inChain := map[string]bool{}
+	for _, c := range e.st.Chains {
+		for _, h := range c.Hops {
+			inChain[h.Server] = true
+		}
+	}
+	var lines []string
+	for i := range e.st.Own {
+		if s := &e.st.Own[i]; s.Server != nil && !inChain[s.ID] {
+			lines = append(lines, shareServerLocked(s))
+		}
+	}
+	for i := range e.st.Chains {
+		c := &e.st.Chains[i]
+		lines = append(lines, ChainHeader+"?v=1&name="+url.QueryEscape(e.chainNameLocked(c)))
+		for _, h := range c.Hops {
+			if h.Kind == HopAmnezia {
+				lines = append(lines, AmneziaPlaceholder)
+				continue
+			}
+			s := e.serverLocked(h.Server)
+			if s == nil || s.Server == nil {
+				return "", newErr(CodeNoOwnServer, errors.New("unknown server"))
+			}
+			lines = append(lines, shareServerLocked(s))
+		}
+	}
+	if len(lines) == 0 {
+		return "", newErr(CodeNoOwnServer, errors.New("nothing saved"))
+	}
+	return strings.Join(lines, "\n") + "\n", nil
 }
 
-// Import reads shared text: a chain (header line first), or one or more server links / one Xray outbound
-// JSON. Servers already saved (same outbound) are reused instead of duplicated. With dryRun nothing is
-// saved. The chain is validated before anything is written, so a failed import leaves nothing behind.
+// ImportResult describes what Import added (or would add, in a dry run).
+type ImportResult struct {
+	Chain        string   `json:"chain,omitempty"`    // name of the imported chain, when the text has exactly one
+	ChainID      string   `json:"chain_id,omitempty"` // set after a real import of exactly one chain
+	Chains       []string `json:"chains"`             // names of the chains that will be / were added
+	KnownChains  []string `json:"known_chains"`       // chains already saved with the same hops (not duplicated)
+	Hops         int      `json:"hops,omitempty"`     // hops of the one chain
+	NewServers   []string `json:"new_servers"`        // names of servers that will be / were added
+	KnownServers []string `json:"known_servers"`      // names of saved servers the text refers to (reused, not duplicated)
+	NeedsAmnezia bool     `json:"needs_amnezia"`      // a chain has an Amnezia hop but no subscription is set up
+}
+
+// Import reads shared text: one or more server links / one Xray outbound JSON, a chain (header line, then its
+// hops), or everything at once (ShareAll: links, then chains). Servers already saved (same outbound) are reused
+// instead of duplicated. With dryRun nothing is saved. Every chain is validated before anything is written,
+// so a failed import leaves nothing behind.
 func (e *Engine) Import(text string, dryRun bool) (ImportResult, error) {
-	res := ImportResult{NewServers: []string{}, KnownServers: []string{}}
+	res := ImportResult{Chains: []string{}, KnownChains: []string{}, NewServers: []string{}, KnownServers: []string{}}
 	text = strings.TrimSpace(text)
 	var lines []string
 	if strings.HasPrefix(text, "{") {
@@ -118,95 +161,124 @@ func (e *Engine) Import(text string, dryRun bool) (ImportResult, error) {
 	if len(lines) == 0 {
 		return res, newErr(CodeInvalidLink, errors.New("nothing to import"))
 	}
-	isChain := strings.HasPrefix(lines[0], ChainHeader)
-	if isChain {
-		u, err := url.Parse(lines[0])
-		if err != nil {
-			return res, newErr(CodeInvalidLink, fmt.Errorf("bad chain header: %v", err))
+
+	// Blocks: the lines before the first chain header are loose servers; each header starts a chain.
+	type block struct {
+		chain bool
+		name  string
+		lines []string
+	}
+	blocks := []block{{}}
+	for _, l := range lines {
+		if strings.HasPrefix(l, ChainHeader) {
+			u, err := url.Parse(l)
+			if err != nil {
+				return res, newErr(CodeInvalidLink, fmt.Errorf("bad chain header: %v", err))
+			}
+			blocks = append(blocks, block{chain: true, name: strings.TrimSpace(u.Query().Get("name"))})
+			continue
 		}
-		res.Chain = strings.TrimSpace(u.Query().Get("name"))
-		lines = lines[1:]
-		if len(lines) == 0 {
-			return res, newErr(CodeChainEmpty, errors.New("the chain has no hops"))
-		}
+		blocks[len(blocks)-1].lines = append(blocks[len(blocks)-1].lines, l)
 	}
 
 	type item struct {
 		amnezia bool
 		srv     *links.Server
+		line    string
 		id      string // existing server, or the ID it gets
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	var items []item
-	for i, l := range lines {
-		if l == AmneziaPlaceholder {
-			if !isChain {
-				return res, newErr(CodeInvalidLink, errors.New("an Amnezia hop outside a chain"))
-			}
-			items = append(items, item{amnezia: true})
-			continue
-		}
+	var added []item // new servers, each once
+	resolve := func(l string, hop int) (item, error) {
 		srv, err := links.Parse(l)
 		if err != nil {
 			code := CodeInvalidLink
 			if errors.Is(err, links.ErrUnsupported) {
 				code = CodeUnsupportedLink
 			}
-			return res, &Error{Code: code, Field: fmt.Sprintf("hop%d", i+1), Detail: err.Error()}
+			return item{}, &Error{Code: code, Field: fmt.Sprintf("hop%d", hop), Detail: err.Error()}
 		}
-		it := item{srv: srv}
+		it := item{srv: srv, line: l}
 		for _, o := range e.st.Own {
 			if o.Server != nil && links.SameOutbound(o.Server.Outbound, srv.Outbound) {
 				it.id = o.ID
-				res.KnownServers = append(res.KnownServers, o.Name)
-				break
-			}
-		}
-		if it.id == "" {
-			// The same new server twice in one text is added once.
-			for _, prev := range items {
-				if prev.srv != nil && links.SameOutbound(prev.srv.Outbound, srv.Outbound) {
-					it.id = prev.id
+				if !slices.Contains(res.KnownServers, o.Name) {
+					res.KnownServers = append(res.KnownServers, o.Name)
 				}
-			}
-			if it.id == "" {
-				it.id = newID()
-				res.NewServers = append(res.NewServers, srv.Name)
+				return it, nil
 			}
 		}
-		items = append(items, it)
+		for _, prev := range added { // the same new server twice in one text is added once
+			if links.SameOutbound(prev.srv.Outbound, srv.Outbound) {
+				it.id = prev.id
+				return it, nil
+			}
+		}
+		it.id = newID()
+		added = append(added, it)
+		res.NewServers = append(res.NewServers, srv.Name)
+		return it, nil
 	}
 
-	var chain Chain
-	if isChain {
+	var chains []Chain
+	for _, b := range blocks {
+		if !b.chain {
+			for i, l := range b.lines {
+				if l == AmneziaPlaceholder {
+					return res, newErr(CodeInvalidLink, errors.New("an Amnezia hop outside a chain"))
+				}
+				if _, err := resolve(l, i+1); err != nil {
+					return res, err
+				}
+			}
+			continue
+		}
+		if len(b.lines) == 0 {
+			return res, newErr(CodeChainEmpty, errors.New("the chain has no hops"))
+		}
+		var chain Chain
 		var hops []xrayconf.Hop
-		for _, it := range items {
-			if it.amnezia {
+		for i, l := range b.lines {
+			if l == AmneziaPlaceholder {
 				chain.Hops = append(chain.Hops, ChainHop{Kind: HopAmnezia})
 				hops = append(hops, xrayconf.AmneziaHop(stubAmnezia))
-				res.NeedsAmnezia = e.st.Amnezia.Key == ""
-			} else {
-				chain.Hops = append(chain.Hops, ChainHop{Kind: HopServer, Server: it.id})
-				hops = append(hops, xrayconf.OwnHop(it.srv.Outbound))
+				if e.st.Amnezia.Key == "" {
+					res.NeedsAmnezia = true
+				}
+				continue
 			}
+			it, err := resolve(l, i+1)
+			if err != nil {
+				return res, err
+			}
+			chain.Hops = append(chain.Hops, ChainHop{Kind: HopServer, Server: it.id})
+			hops = append(hops, xrayconf.OwnHop(it.srv.Outbound))
 		}
 		if _, _, err := xrayconf.Outbounds(hops); err != nil {
 			return res, Classify(err)
 		}
-		res.Hops = len(chain.Hops)
+		chain.Name = b.name
+		if known := e.sameChainLocked(chain.Hops); known != nil {
+			res.KnownChains = append(res.KnownChains, e.chainNameLocked(known))
+			continue
+		}
+		chains = append(chains, chain)
+		res.Chains = append(res.Chains, b.name)
+	}
+	if len(chains) == 1 {
+		res.Chain, res.Hops = chains[0].Name, len(chains[0].Hops)
 	}
 	if dryRun {
 		return res, nil
 	}
 
-	for i, it := range items {
-		if it.srv != nil && e.serverLocked(it.id) == nil {
-			e.st.Own = append(e.st.Own, OwnServer{ID: it.id, Name: it.srv.Name, Link: lines[i], Server: it.srv})
-		}
+	for _, it := range added {
+		e.st.Own = append(e.st.Own, OwnServer{ID: it.id, Name: it.srv.Name, Link: it.line, Server: it.srv})
 	}
-	if isChain {
-		chain.ID, chain.Name = newID(), res.Chain
+	for i := range chains {
+		chain := chains[i]
+		chain.ID = newID()
 		if chain.Name == "" {
 			chain.Name, chain.AutoName = e.defaultChainNameLocked(&chain), true
 		}
@@ -214,10 +286,23 @@ func (e *Engine) Import(text string, dryRun bool) (ImportResult, error) {
 		if e.activeChainLocked() == nil {
 			e.st.ActiveChain = chain.ID
 		}
-		res.ChainID, res.Chain = chain.ID, chain.Name
+		res.Chains[i] = chain.Name
+		if len(chains) == 1 {
+			res.ChainID, res.Chain = chain.ID, chain.Name
+		}
 	}
 	if err := e.persist(); err != nil {
 		return res, newErr(CodeInternal, err)
 	}
 	return res, nil
+}
+
+// sameChainLocked finds a saved chain with exactly these hops.
+func (e *Engine) sameChainLocked(hops []ChainHop) *Chain {
+	for i := range e.st.Chains {
+		if slices.Equal(e.st.Chains[i].Hops, hops) {
+			return &e.st.Chains[i]
+		}
+	}
+	return nil
 }

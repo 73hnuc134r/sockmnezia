@@ -10,10 +10,16 @@
 
   let tab = $state<"proxy" | "amnezia" | "app" | "about">("proxy");
   let settings = $state<engine.Settings | null>(null);
+  // Reload when saved state changes or the mode is switched (from the tray). The status object is replaced every
+  // second, so depend on the derived value, not on the status; and keep the same object when nothing changed,
+  // or the forms below would be rebuilt (flicker, lost focus).
+  const mode = $derived(`${store.status?.system_proxy ?? ""}/${store.status?.mode ?? ""}`);
   $effect(() => {
-    void store.chains; // reload after changes
-    void store.status?.system_proxy;
-    Core.Settings().then((s) => (settings = s));
+    void store.chains;
+    void mode;
+    Core.Settings().then((s) => {
+      if (JSON.stringify(s) !== JSON.stringify($state.snapshot(settings))) settings = s;
+    });
   });
   const tabs = [["proxy", "local_proxy"], ["amnezia", "amnezia_settings"], ["app", "app_settings"], ["about", "title_about"]] as const;
 </script>

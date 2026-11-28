@@ -139,6 +139,17 @@ fun ChainShareSheet(id: String, name: String, withAmnezia: Boolean, onDismiss: (
     )
 }
 
+/** Share sheet for everything saved: every server and chain in one text (another sockmnezia imports it all). */
+@Composable
+fun AllShareSheet(onDismiss: () -> Unit) {
+    ShareSheet(
+        title = stringResource(R.string.share_all_title),
+        formats = listOf(ShareFormat(stringResource(R.string.share_format_links)) { Core.shareAll() }),
+        notes = listOf(stringResource(R.string.share_all_hint), stringResource(R.string.share_amnezia_note)),
+        onDismiss = onDismiss,
+    )
+}
+
 /** Share sheet for a saved server: its link. */
 @Composable
 fun ServerShareSheet(id: String, name: String, onDismiss: () -> Unit) {

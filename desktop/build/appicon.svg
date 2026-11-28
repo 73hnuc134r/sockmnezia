@@ -1,7 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect x="16" y="16" width="480" height="480" rx="112" fill="#3554c4"/>
-  <path d="M120 256 H392" stroke="#c9d4ff" stroke-width="28" stroke-linecap="round"/>
-  <circle cx="120" cy="256" r="44" fill="#ffffff"/>
-  <circle cx="256" cy="256" r="52" fill="#3554c4" stroke="#ffffff" stroke-width="28"/>
-  <circle cx="392" cy="256" r="44" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- The Android app's sock (res/drawable/ic_launcher_foreground.xml) on its teal, as a desktop icon. -->
+  <rect x="3" y="3" width="102" height="102" rx="24" fill="#00695C"/>
+  <g transform="translate(6.06 13.7) scale(3.4)"><path fill="#FFFFFF" d="M8,2h7v9.5l4.2,4.2a3.5,3.5 0,0 1,0 4.95l-0.35,0.35a3.5,3.5 0,0 1,-4.95 0L8,15.1V2z"/><path fill="#00695C" d="M10,5h3v1.5h-3z"/></g>
 </svg>

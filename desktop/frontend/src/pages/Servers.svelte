@@ -24,6 +24,7 @@
   let sharing = $state<{ kind: "server" | "chain"; id: string; name: string; withAmnezia: boolean } | null>(null);
   let deleting = $state<{ kind: "server" | "chain"; id: string; name: string } | null>(null);
   let pasteOpen = $state(false);
+  let sharingAll = $state(false);
   let pasteText = $state("");
 
   const st = $derived(store.status);
@@ -117,6 +118,7 @@
       {/if}
     </div>
     <button class="btn" disabled={anyTesting} onclick={testAll}><Icon name="test" />{t("test_all")}</button>
+    <button class="btn" disabled={!store.servers.length && !store.chains.length} onclick={() => (sharingAll = true)}><Icon name="share" />{t("share_all")}</button>
     <span class="grow"></span>
     <div class="seg" title={t("d_sort")}>
       <button class:on={sort === "name"} onclick={() => (sort = "name")}>{t("sort_name")}</button>
@@ -210,6 +212,7 @@
 </div>
 
 {#if sharing}<ShareDialog {...sharing} onclose={() => (sharing = null)} />{/if}
+{#if sharingAll}<ShareDialog kind="all" onclose={() => (sharingAll = false)} />{/if}
 {#if deleting}
   <Modal title={deleting.kind === "server" ? t("delete_server_q", deleting.name) : t("chain_delete_q", deleting.name)} onclose={() => (deleting = null)}>
     <div class="muted">{t("d_delete_text")}</div>

@@ -66,10 +66,20 @@ fun AddServerDialog(onDismiss: () -> Unit, onAdded: (String?) -> Unit) {
     if (p != null) {
         AlertDialog(
             onDismissRequest = { preview = null },
-            title = { Text(if (p.chain.isNotBlank() || p.hops > 0) stringResource(R.string.import_chain_q, p.chain) else stringResource(R.string.import_servers_q)) },
+            title = {
+                Text(
+                    when {
+                        p.chains.size > 1 -> stringResource(R.string.import_all_q, p.chains.size)
+                        p.chains.size == 1 -> stringResource(R.string.import_chain_q, p.chain)
+                        else -> stringResource(R.string.import_servers_q)
+                    },
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (p.hops > 0) Text(stringResource(R.string.import_hops, p.hops))
+                    if (p.chains.size == 1 && p.hops > 0) Text(stringResource(R.string.import_hops, p.hops))
+                    if (p.chains.size > 1) Text(stringResource(R.string.import_chains, p.chains.joinToString(", ")))
+                    if (p.knownChains.isNotEmpty()) Text(stringResource(R.string.import_known, p.knownChains.joinToString(", ")))
                     if (p.newServers.isNotEmpty()) Text(stringResource(R.string.import_new, p.newServers.joinToString(", ")))
                     if (p.knownServers.isNotEmpty()) Text(stringResource(R.string.import_known, p.knownServers.joinToString(", ")))
                     if (p.needsAmnezia) Hint(stringResource(R.string.import_needs_amnezia), warn = true)
