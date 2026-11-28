@@ -58,6 +58,22 @@ import io.nuc134r.sockmnezia.ui.Section
 import io.nuc134r.sockmnezia.ui.SwitchRow
 import io.nuc134r.sockmnezia.ui.act
 import io.nuc134r.sockmnezia.ui.copy
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.ui.draw.alpha
+import io.nuc134r.sockmnezia.ui.GroupRow
+import io.nuc134r.sockmnezia.ui.Island
+import io.nuc134r.sockmnezia.ui.Pill
+import io.nuc134r.sockmnezia.ui.RowText
+import io.nuc134r.sockmnezia.ui.TipRow
 import io.nuc134r.sockmnezia.ui.formatBytes
 import io.nuc134r.sockmnezia.ui.paste
 import kotlinx.coroutines.delay
@@ -112,72 +128,70 @@ fun RoutingScreen(nav: NavController) {
         scope.act(ctx, snackbar) { Core.setSettings(ns) }
     }
 
-    LazyColumn(Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 4.dp, bottom = 96.dp)) {
+        item { RouteTester() }
         item {
-            Section {
-                Hint(stringResource(R.string.routing_hint))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { nav.navigate(Routes.rule(-1)) }) { Text(stringResource(R.string.add_rule)) }
-                    PresetMenu { id -> presetFor = id }
-                    MoreMenu(
-                        onImport = {
-                            scope.act(ctx, snackbar, ok = res.getString(R.string.rules_imported)) {
-                                val r = Core.parseRouting(paste(ctx))
-                                save(r.rules, r.domainStrategy)
-                            }
-                        },
-                        onExport = {
-                            copy(ctx, "rules", Core.exportRules(rules))
-                            scope.act(ctx, snackbar, ok = res.getString(R.string.rules_copied)) {}
-                        },
-                    )
-                }
-            }
-        }
-        item {
-            Section(stringResource(R.string.locked_rules)) {
-                Core.lockedRules().forEach { r ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Lock, null)
-                        Column(Modifier.padding(start = 8.dp).weight(1f)) {
-                            Text(stringResource(if (r.ip != null) R.string.locked_ip else R.string.locked_domain))
-                            Text(ruleSummary(r), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Island(title = stringResource(R.string.your_rules), trailing = {
+                Text(stringResource(R.string.first_match_wins), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                MoreMenu(
+                    onImport = {
+                        scope.act(ctx, snackbar, ok = res.getString(R.string.rules_imported)) {
+                            val r = Core.parseRouting(paste(ctx))
+                            save(r.rules, r.domainStrategy)
                         }
-                        Text(outboundLabel(r.outboundTag))
-                    }
-                }
-            }
-        }
-        itemsIndexed(rules) { i, r ->
-            Section(modifier = Modifier.clickable { nav.navigate(Routes.rule(i)) }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(r.remarks?.ifBlank { null } ?: stringResource(R.string.rule_n, i + 1), style = MaterialTheme.typography.titleSmall)
-                        Text(ruleSummary(r), style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                        AssistChip(onClick = { nav.navigate(Routes.rule(i)) }, label = { Text(outboundLabel(r.outboundTag)) })
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    },
+                    onExport = {
+                        copy(ctx, "rules", Core.exportRules(rules))
+                        scope.act(ctx, snackbar, ok = res.getString(R.string.rules_copied)) {}
+                    },
+                )
+            }) {
+                if (rules.isEmpty()) TipRow(stringResource(R.string.routing_hint))
+                rules.forEachIndexed { i, r ->
+                    GroupRow(i, rules.size, onClick = { nav.navigate(Routes.rule(i)) }, modifier = Modifier.alpha(if (r.isEnabled) 1f else 0.6f)) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    r.remarks?.ifBlank { null } ?: stringResource(R.string.rule_n, i + 1),
+                                    style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                OutboundPill(r.outboundTag)
+                            }
+                            RuleChips(r)
+                        }
                         Switch(checked = r.isEnabled, onCheckedChange = { on ->
                             save(rules.toMutableList().also { it[i] = r.copy(enabled = on) })
                         })
-                        Row {
-                            IconButton(enabled = i > 0, onClick = {
-                                save(rules.toMutableList().also { it.add(i - 1, it.removeAt(i)) })
-                            }) { Icon(Icons.Default.KeyboardArrowUp, stringResource(R.string.move_up)) }
-                            IconButton(enabled = i < rules.size - 1, onClick = {
-                                save(rules.toMutableList().also { it.add(i + 1, it.removeAt(i)) })
-                            }) { Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.move_down)) }
-                            IconButton(onClick = { save(rules.toMutableList().also { it.removeAt(i) }) }) {
-                                Icon(Icons.Default.Delete, stringResource(R.string.delete))
-                            }
-                        }
+                        RuleMenu(
+                            canUp = i > 0, canDown = i < rules.size - 1,
+                            onUp = { save(rules.toMutableList().also { it.add(i - 1, it.removeAt(i)) }) },
+                            onDown = { save(rules.toMutableList().also { it.add(i + 1, it.removeAt(i)) }) },
+                            onDelete = { save(rules.toMutableList().also { it.removeAt(i) }) },
+                        )
                     }
                 }
             }
         }
         item {
-            Section(stringResource(R.string.default_route)) {
-                Hint(stringResource(R.string.default_route_hint))
+            Island(title = stringResource(R.string.default_route)) {
+                val locked = Core.lockedRules()
+                val n = 1 + locked.size
+                GroupRow(0, n) {
+                    RowText(stringResource(R.string.not_matched), Modifier.weight(1f), subtitle = stringResource(R.string.default_route_hint))
+                    OutboundPill("proxy")
+                }
+                locked.forEachIndexed { j, r ->
+                    GroupRow(j + 1, n) {
+                        Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(if (r.ip != null) R.string.locked_ip else R.string.locked_domain), style = MaterialTheme.typography.bodyLarge)
+                            RuleChips(r)
+                        }
+                        OutboundPill(r.outboundTag)
+                    }
+                }
             }
         }
         item {
@@ -193,7 +207,6 @@ fun RoutingScreen(nav: NavController) {
                 Hint(stringResource(R.string.domain_strategy_hint), warn = s.routing.domainStrategy != "AsIs")
             }
         }
-        item { RouteTester() }
         item {
             Section(stringResource(R.string.geo_files)) {
                 val sources = remember { Core.geoSources() }
@@ -222,6 +235,16 @@ fun RoutingScreen(nav: NavController) {
                 }
             }
         }
+    }
+
+    Row(
+        Modifier.align(Alignment.BottomEnd).padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PresetMenu { id -> presetFor = id }
+        FloatingActionButton(onClick = { nav.navigate(Routes.rule(-1)) }) { Icon(Icons.Default.Add, stringResource(R.string.add_rule)) }
+    }
     }
 
     presetFor?.let { id ->
@@ -263,7 +286,13 @@ fun presetName(id: String) = stringResource(
 private fun PresetMenu(onPick: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }) { Text(stringResource(R.string.presets)) }
+        ExtendedFloatingActionButton(
+            onClick = { open = true },
+            icon = { Icon(Icons.AutoMirrored.Filled.List, null) },
+            text = { Text(stringResource(R.string.presets)) },
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
         DropdownMenu(open, { open = false }) {
             Core.presets().forEach { p ->
                 DropdownMenuItem(text = { Text(presetName(p.id)) }, onClick = { open = false; onPick(p.id) })
@@ -276,7 +305,7 @@ private fun PresetMenu(onPick: (String) -> Unit) {
 private fun MoreMenu(onImport: () -> Unit, onExport: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) { Text("⋮") }
+        IconButton(onClick = { open = true }, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.MoreVert, stringResource(R.string.more_actions)) }
         DropdownMenu(open, { open = false }) {
             DropdownMenuItem(text = { Text(stringResource(R.string.import_clipboard)) }, onClick = { open = false; onImport() })
             DropdownMenuItem(text = { Text(stringResource(R.string.export_clipboard)) }, onClick = { open = false; onExport() })
@@ -328,31 +357,78 @@ private fun RouteTester() {
     var host by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("443") }
     var udp by remember { mutableStateOf(false) }
-    var result by remember { mutableStateOf<String?>(null) }
+    var verdict by remember { mutableStateOf<Pair<String, String>?>(null) }
     Section(stringResource(R.string.route_tester)) {
-        OutlinedTextField(host, { host = it.trim() }, label = { Text(stringResource(R.string.host_or_ip)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(port, { port = it.filter(Char::isDigit).take(5) }, label = { Text(stringResource(R.string.port)) }, singleLine = true, modifier = Modifier.width(120.dp))
-            Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("UDP")
-                Switch(udp, { udp = it })
-            }
-        }
+        OutlinedTextField(
+            host, { host = it.trim() }, label = { Text(stringResource(R.string.host_or_ip)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+        )
         val okLocked = stringResource(R.string.verdict_locked)
         val noRule = stringResource(R.string.verdict_default)
-        val labels = mapOf("proxy" to stringResource(R.string.out_proxy), "direct" to stringResource(R.string.out_direct), "block" to stringResource(R.string.out_block))
         val ruleN = stringResource(R.string.rule_n)
-        OutlinedButton(enabled = host.isNotBlank(), onClick = {
-            scope.act(ctx, snackbar) {
-                val v = Core.testRoute(host, port.toIntOrNull() ?: 443, if (udp) "udp" else "tcp")
-                val by = when {
-                    v.locked -> okLocked
-                    v.ruleIndex < 0 -> noRule
-                    else -> v.remarks?.ifBlank { null } ?: ruleN.format(v.ruleIndex - Core.lockedRules().size + 1)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(
+                port, { port = it.filter(Char::isDigit).take(5) }, label = { Text(stringResource(R.string.port)) }, singleLine = true,
+                modifier = Modifier.width(110.dp), shape = RoundedCornerShape(16.dp),
+            )
+            Text("UDP")
+            Switch(udp, { udp = it })
+            Spacer(Modifier.weight(1f))
+            FilledTonalButton(enabled = host.isNotBlank(), onClick = {
+                scope.act(ctx, snackbar) {
+                    val v = Core.testRoute(host, port.toIntOrNull() ?: 443, if (udp) "udp" else "tcp")
+                    val by = when {
+                        v.locked -> okLocked
+                        v.ruleIndex < 0 -> noRule
+                        else -> v.remarks?.ifBlank { null } ?: ruleN.format(v.ruleIndex - Core.lockedRules().size + 1)
+                    }
+                    verdict = v.outbound to by
                 }
-                result = "→ ${labels[v.outbound] ?: v.outbound} ($by)"
+            }) { Text(stringResource(R.string.test)) }
+        }
+        verdict?.let { (out, by) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutboundPill(out)
+                Text(by, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }) { Text(stringResource(R.string.test)) }
-        result?.let { Text(it) }
+        }
+    }
+}
+
+/** Proxy (teal), Direct (blue) or Block (red) as a pill. */
+@Composable
+fun OutboundPill(tag: String) {
+    val cs = MaterialTheme.colorScheme
+    val (bg, fg) = when (tag) {
+        "direct" -> cs.tertiaryContainer to cs.onTertiaryContainer
+        "block" -> cs.errorContainer to cs.onErrorContainer
+        else -> cs.primaryContainer to cs.onPrimaryContainer
+    }
+    Pill(outboundLabel(tag), bg, fg)
+}
+
+/** A rule's conditions as small monospace chips: domains, IPs, port, network, protocols. */
+@Composable
+fun RuleChips(r: Rule) {
+    val cs = MaterialTheme.colorScheme
+    val chips = r.domain.orEmpty() + r.ip.orEmpty() +
+        listOfNotNull(r.port?.takeIf { it.isNotBlank() }?.let { "port $it" }, r.network?.takeIf { it.isNotBlank() }) +
+        r.protocol.orEmpty().map { "protocol:$it" }
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        chips.take(6).forEach { Pill(it, cs.surfaceContainerHigh, cs.onSurfaceVariant, mono = true) }
+        if (chips.size > 6) Pill("+${chips.size - 6}", cs.surfaceContainerHigh, cs.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun RuleMenu(canUp: Boolean, canDown: Boolean, onUp: () -> Unit, onDown: () -> Unit, onDelete: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.MoreVert, stringResource(R.string.more_actions)) }
+        DropdownMenu(open, { open = false }) {
+            if (canUp) DropdownMenuItem(text = { Text(stringResource(R.string.move_up)) }, onClick = { open = false; onUp() })
+            if (canDown) DropdownMenuItem(text = { Text(stringResource(R.string.move_down)) }, onClick = { open = false; onDown() })
+            DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, onClick = { open = false; onDelete() })
+        }
     }
 }

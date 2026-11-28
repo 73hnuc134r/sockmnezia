@@ -10,7 +10,28 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
+import io.nuc134r.sockmnezia.core.Modes
+import io.nuc134r.sockmnezia.ui.GroupGap
+import io.nuc134r.sockmnezia.ui.GroupRow
+import io.nuc134r.sockmnezia.ui.Island
+import io.nuc134r.sockmnezia.ui.RowText
+import io.nuc134r.sockmnezia.ui.rememberStarter
+import io.nuc134r.sockmnezia.ui.theme.UiPrefs
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -44,7 +65,6 @@ import io.nuc134r.sockmnezia.ui.Hint
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
-import io.nuc134r.sockmnezia.ui.SwitchRow
 import io.nuc134r.sockmnezia.ui.act
 import io.nuc134r.sockmnezia.ui.copy
 import java.net.Inet4Address
@@ -90,75 +110,128 @@ fun SettingsScreen(nav: NavController) {
         udp != s.inbound.udp || listen != s.inbound.listen ||
         (if (httpOn) httpPort else "") != (if (s.inbound.httpPort != 0) s.inbound.httpPort.toString() else "")
 
+    val status by Core.status.collectAsState()
+    val start = rememberStarter()
+    var wallpaper by remember { mutableStateOf(prefs.wallpaperColors) }
+
     Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
-        Section(stringResource(R.string.local_proxy)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                OutlinedTextField(
-                    port, { port = it.filter(Char::isDigit).take(5) }, label = { Text(stringResource(R.string.socks_port)) },
-                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f),
-                )
-                OutlinedButton(onClick = { scope.act(ctx, snackbar) { port = Core.randomPort(s.inbound.httpPort).toString() } }) {
-                    Text(stringResource(R.string.random))
+        // Proxy (apps set up for SOCKS/HTTP) or VPN (the whole phone or chosen apps; the ports stay open).
+        Section(stringResource(R.string.mode_title)) {
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                listOf(Modes.PROXY to R.string.mode_proxy_long, Modes.VPN to R.string.mode_vpn_long).forEachIndexed { i, (m, label) ->
+                    SegmentedButton(
+                        selected = status.mode == m,
+                        onClick = {
+                            if (status.mode != m) scope.act(ctx, snackbar) {
+                                Core.setSettings(Core.settings().let { it.copy(options = it.options.copy(mode = m)) })
+                                if (status.running) start() // restart in the new mode (asks for VPN consent first)
+                            }
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(i, 2),
+                    ) { Text(stringResource(label), maxLines = 1) }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Hint(stringResource(if (status.mode == Modes.VPN) R.string.mode_vpn_hint else R.string.mode_proxy_hint))
+        }
+
+        Section(stringResource(R.string.local_proxy)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    port, { port = it.filter(Char::isDigit).take(5) }, label = { Text(stringResource(R.string.socks_port)) },
+                    trailingIcon = {
+                        IconButton(onClick = { scope.act(ctx, snackbar) { port = Core.randomPort(s.inbound.httpPort).toString() } }) {
+                            Icon(DiceIcon, stringResource(R.string.random))
+                        }
+                    },
+                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    if (httpOn) httpPort else "", {
+                        httpPort = it.filter(Char::isDigit).take(5)
+                        httpOn = httpPort.isNotEmpty()
+                    },
+                    label = { Text(stringResource(R.string.http_port)) }, placeholder = { Text(stringResource(R.string.off)) },
+                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(user, { user = it }, label = { Text(stringResource(R.string.username)) }, singleLine = true,
                     isError = !credentialOk.matches(user), modifier = Modifier.weight(1f))
-                OutlinedButton(onClick = { user = Core.randomUser() }) { Text(stringResource(R.string.random)) }
+                FilledTonalIconButton(onClick = { user = Core.randomUser() }) { Icon(DiceIcon, stringResource(R.string.random)) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     pass, { pass = it }, label = { Text(stringResource(R.string.password)) }, singleLine = true,
                     isError = !credentialOk.matches(pass),
                     visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showPass = !showPass }) {
+                            Icon(EyeIcon, stringResource(if (showPass) R.string.hide else R.string.show))
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                 )
-                OutlinedButton(onClick = { pass = Core.randomPassword() }) { Text(stringResource(R.string.random)) }
+                FilledTonalIconButton(onClick = { pass = Core.randomPassword() }) { Icon(DiceIcon, stringResource(R.string.random)) }
             }
-            TextButton(onClick = { showPass = !showPass }) { Text(stringResource(if (showPass) R.string.hide else R.string.show)) }
             if (!credentialOk.matches(user) || !credentialOk.matches(pass)) Hint(stringResource(R.string.credential_rule), warn = true)
             else if (pass.length < 12) Hint(stringResource(R.string.password_weak), warn = true)
             Hint(stringResource(R.string.credentials_hint))
 
-            SwitchRow(stringResource(R.string.udp), udp, stringResource(R.string.udp_hint)) { udp = it }
-            SwitchRow(stringResource(R.string.http_proxy), httpOn, stringResource(R.string.http_hint)) {
-                httpOn = it
-                if (it && httpPort.isBlank()) scope.act(ctx, snackbar) { httpPort = Core.randomPort(port.toIntOrNull() ?: 0).toString() }
+            Column(verticalArrangement = Arrangement.spacedBy(GroupGap)) {
+                val lan = remember { lanAddresses() }
+                GroupRow(0, 2) {
+                    RowText(stringResource(R.string.udp), Modifier.weight(1f), subtitle = stringResource(R.string.udp_hint))
+                    Switch(udp, { udp = it })
+                }
+                GroupRow(1, 2) {
+                    RowText(
+                        stringResource(R.string.share_lan), Modifier.weight(1f),
+                        subtitle = stringResource(if (lan.isEmpty()) R.string.share_lan_none else R.string.share_lan_hint),
+                    )
+                    Switch(listen != "127.0.0.1", { on -> listen = if (on) lan.first() else "127.0.0.1" }, enabled = lan.isNotEmpty() || listen != "127.0.0.1")
+                }
+                if (listen != "127.0.0.1") {
+                    Choice(lan.map { it to it }.ifEmpty { listOf(listen to listen) }, listen) { listen = it }
+                    Hint(stringResource(R.string.share_lan_warning), warn = true)
+                }
             }
-            if (httpOn) {
-                OutlinedTextField(httpPort, { httpPort = it.filter(Char::isDigit).take(5) }, label = { Text(stringResource(R.string.http_port)) },
-                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                OutlinedButton(onClick = {
+                    copy(ctx, "proxy", "socks5://${s.inbound.user}:${s.inbound.pass}@${s.inbound.listen}:${s.inbound.socksPort}", sensitive = true)
+                }) { Text(stringResource(R.string.copy_link)) }
+                Button(enabled = dirty, onClick = {
+                    val ns = s.copy(
+                        inbound = s.inbound.copy(
+                            socksPort = port.toIntOrNull() ?: 0, user = user, pass = pass, udp = udp, listen = listen,
+                            httpPort = if (httpOn) httpPort.toIntOrNull() ?: 0 else 0,
+                        ),
+                    )
+                    scope.act(ctx, snackbar, ok = res.getString(R.string.saved)) { Core.setSettings(ns) }
+                }) { Text(stringResource(R.string.save)) }
             }
-            val lan = remember { lanAddresses() }
-            SwitchRow(
-                stringResource(R.string.share_lan), listen != "127.0.0.1",
-                stringResource(if (lan.isEmpty()) R.string.share_lan_none else R.string.share_lan_hint),
-                enabled = lan.isNotEmpty() || listen != "127.0.0.1",
-            ) { on -> listen = if (on) lan.first() else "127.0.0.1" }
-            if (listen != "127.0.0.1") {
-                Choice(lan.map { it to it }.ifEmpty { listOf(listen to listen) }, listen) { listen = it }
-                Hint(stringResource(R.string.share_lan_warning), warn = true)
-            }
-            OutlinedButton(onClick = {
-                copy(ctx, "proxy", "socks5://${s.inbound.user}:${s.inbound.pass}@${s.inbound.listen}:${s.inbound.socksPort}", sensitive = true)
-            }) { Text(stringResource(R.string.copy_link)) }
-            Button(enabled = dirty, onClick = {
-                val ns = s.copy(
-                    inbound = s.inbound.copy(
-                        socksPort = port.toIntOrNull() ?: 0, user = user, pass = pass, udp = udp, listen = listen,
-                        httpPort = if (httpOn) httpPort.toIntOrNull() ?: 0 else 0,
-                    ),
-                )
-                scope.act(ctx, snackbar, ok = res.getString(R.string.saved)) { Core.setSettings(ns) }
-            }) { Text(stringResource(R.string.save)) }
         }
 
         VpnSettings(nav, s)
 
         Section(stringResource(R.string.app_settings)) {
-            SwitchRow(stringResource(R.string.start_on_boot), startOnBoot, stringResource(R.string.start_on_boot_hint)) {
-                startOnBoot = it
-                prefs.startOnBoot = it
+            Column(verticalArrangement = Arrangement.spacedBy(GroupGap)) {
+                val wallpaperAvailable = android.os.Build.VERSION.SDK_INT >= 31
+                val n = if (wallpaperAvailable) 2 else 1
+                GroupRow(0, n) {
+                    RowText(stringResource(R.string.start_on_boot), Modifier.weight(1f), subtitle = stringResource(R.string.start_on_boot_hint))
+                    Switch(startOnBoot, {
+                        startOnBoot = it
+                        prefs.startOnBoot = it
+                    })
+                }
+                if (wallpaperAvailable) GroupRow(1, n) {
+                    RowText(stringResource(R.string.wallpaper_colors), Modifier.weight(1f), subtitle = stringResource(R.string.wallpaper_colors_hint))
+                    Switch(wallpaper, {
+                        wallpaper = it
+                        prefs.wallpaperColors = it
+                        UiPrefs.wallpaperColors.value = it
+                    })
+                }
             }
             if (servers.isNotEmpty()) {
                 Text(stringResource(R.string.fetch_via))
@@ -175,13 +248,26 @@ fun SettingsScreen(nav: NavController) {
             ) { lvl -> scope.act(ctx, snackbar) { Core.setSettings(s.copy(options = s.options.copy(logLevel = lvl))) } }
         }
 
-        listOf(
-            Routes.AMNEZIA to R.string.title_amnezia,
-            Routes.HEALTH to R.string.title_health,
-            Routes.LOGS to R.string.title_logs,
-            Routes.ABOUT to R.string.title_about,
-        ).forEach { (r, label) -> Tile(stringResource(label)) { nav.navigate(r) } }
-        Tile(stringResource(R.string.forget), danger = true) { forget = true }
+        Island {
+            val tiles = listOf(
+                Routes.AMNEZIA to R.string.title_amnezia,
+                Routes.HEALTH to R.string.title_health,
+                Routes.LOGS to R.string.title_logs,
+                Routes.ABOUT to R.string.title_about,
+            )
+            tiles.forEachIndexed { i, (r, label) ->
+                GroupRow(i, tiles.size, onClick = { nav.navigate(r) }) {
+                    Text(stringResource(label), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        OutlinedButton(
+            onClick = { forget = true },
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        ) { Text(stringResource(R.string.forget)) }
     }
 
     if (forget) {
@@ -197,16 +283,6 @@ fun SettingsScreen(nav: NavController) {
                 }) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = { TextButton(onClick = { forget = false }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
-}
-
-@Composable
-private fun Tile(title: String, danger: Boolean = false, onClick: () -> Unit) {
-    Card(onClick, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-        Text(
-            title, Modifier.padding(horizontal = 16.dp, vertical = 20.dp), style = MaterialTheme.typography.titleMedium,
-            color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -277,4 +353,39 @@ private fun VpnProtectionCheck() {
     OutlinedButton(onClick = {
         runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_VPN_SETTINGS)) }
     }) { Text(stringResource(R.string.vpn_protection_open)) }
+}
+
+/** Material "casino" (a die), for "random". */
+val DiceIcon: ImageVector by lazy {
+    ImageVector.Builder("Dice", 24.dp, 24.dp, 24f, 24f).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(19f, 3f); horizontalLineTo(5f); curveTo(3.9f, 3f, 3f, 3.9f, 3f, 5f); verticalLineTo(19f)
+            curveTo(3f, 20.1f, 3.9f, 21f, 5f, 21f); horizontalLineTo(19f); curveTo(20.1f, 21f, 21f, 20.1f, 21f, 19f)
+            verticalLineTo(5f); curveTo(21f, 3.9f, 20.1f, 3f, 19f, 3f); close()
+            moveTo(7.5f, 18f); curveTo(6.67f, 18f, 6f, 17.33f, 6f, 16.5f); curveTo(6f, 15.67f, 6.67f, 15f, 7.5f, 15f)
+            curveTo(8.33f, 15f, 9f, 15.67f, 9f, 16.5f); curveTo(9f, 17.33f, 8.33f, 18f, 7.5f, 18f); close()
+            moveTo(7.5f, 9f); curveTo(6.67f, 9f, 6f, 8.33f, 6f, 7.5f); curveTo(6f, 6.67f, 6.67f, 6f, 7.5f, 6f)
+            curveTo(8.33f, 6f, 9f, 6.67f, 9f, 7.5f); curveTo(9f, 8.33f, 8.33f, 9f, 7.5f, 9f); close()
+            moveTo(12f, 13.5f); curveTo(11.17f, 13.5f, 10.5f, 12.83f, 10.5f, 12f); curveTo(10.5f, 11.17f, 11.17f, 10.5f, 12f, 10.5f)
+            curveTo(12.83f, 10.5f, 13.5f, 11.17f, 13.5f, 12f); curveTo(13.5f, 12.83f, 12.83f, 13.5f, 12f, 13.5f); close()
+            moveTo(16.5f, 18f); curveTo(15.67f, 18f, 15f, 17.33f, 15f, 16.5f); curveTo(15f, 15.67f, 15.67f, 15f, 16.5f, 15f)
+            curveTo(17.33f, 15f, 18f, 15.67f, 18f, 16.5f); curveTo(18f, 17.33f, 17.33f, 18f, 16.5f, 18f); close()
+            moveTo(16.5f, 9f); curveTo(15.67f, 9f, 15f, 8.33f, 15f, 7.5f); curveTo(15f, 6.67f, 15.67f, 6f, 16.5f, 6f)
+            curveTo(17.33f, 6f, 18f, 6.67f, 18f, 7.5f); curveTo(18f, 8.33f, 17.33f, 9f, 16.5f, 9f); close()
+        }
+    }.build()
+}
+
+/** Material "visibility" (an eye), for show/hide password. */
+val EyeIcon: ImageVector by lazy {
+    ImageVector.Builder("Eye", 24.dp, 24.dp, 24f, 24f).apply {
+        addPath(
+            androidx.compose.ui.graphics.vector.PathParser().parsePathString(
+                "M12,4.5C7,4.5 2.73,7.61 1,12c1.73,4.39 6,7.5 11,7.5s9.27,-3.11 11,-7.5c-1.73,-4.39 -6,-7.5 -11,-7.5z" +
+                    "M12,17c-2.76,0 -5,-2.24 -5,-5s2.24,-5 5,-5 5,2.24 5,5 -2.24,5 -5,5z" +
+                    "M12,9c-1.66,0 -3,1.34 -3,3s1.34,3 3,3 3,-1.34 3,-3 -1.34,-3 -3,-3z",
+            ).toNodes(),
+            fill = SolidColor(Color.Black),
+        )
+    }.build()
 }

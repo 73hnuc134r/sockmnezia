@@ -24,6 +24,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import io.nuc134r.sockmnezia.ui.theme.LocalLevels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -82,6 +84,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         runCatching { Core.init(applicationContext) }
+        io.nuc134r.sockmnezia.ui.theme.UiPrefs.wallpaperColors.value = io.nuc134r.sockmnezia.AppPrefs(this).wallpaperColors
         setContent { SockmneziaTheme { AppRoot() } }
     }
 
@@ -115,9 +118,13 @@ fun AppRoot() {
         else -> R.string.app_name
     }
     CompositionLocalProvider(LocalSnackbar provides snackbar) {
+        val levels = LocalLevels.current
         Scaffold(
+            containerColor = levels.screen,
             topBar = {
-                TopAppBar(
+                // Home has no title: the chain and the thumb row are all it shows (D43).
+                if (route != Routes.HOME) TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = levels.screen, scrolledContainerColor = levels.screen),
                     title = { Text(stringResource(title)) },
                     navigationIcon = {
                         if (route !in Routes.tabs) {
@@ -131,8 +138,8 @@ fun AppRoot() {
             bottomBar = {
                 if (route in Routes.tabs) {
                   Column {
-                    if (route == Routes.HOME) ConnectionBar(nav)
-                    NavigationBar {
+                    if (route == Routes.HOME) ThumbDock(nav)
+                    NavigationBar(containerColor = levels.nav) {
                         listOf(
                             Triple(Routes.HOME, Icons.Default.Home, R.string.tab_home),
                             Triple(Routes.STATS, Icons.Default.DateRange, R.string.tab_stats),

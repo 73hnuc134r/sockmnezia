@@ -6,6 +6,18 @@ import json, os, sys
 
 S = {  # key: (english, russian)
  "app_name": ("sockmnezia", "sockmnezia"),
+ # Material 3 redesign (D43)
+ "active_chain": ("Active chain", "Активная цепочка"), "chain_edit_full": ("Edit chain", "Изменить цепочку"),
+ "conn_tap_check": ("Tap to check the exit IP and country", "Нажмите, чтобы проверить выходной IP и страну"),
+ "mode_title": ("How apps use it", "Как приложения подключаются"),
+ "mode_proxy_long": ("Local proxy", "Локальный прокси"), "mode_vpn_long": ("Whole device (VPN)", "Всё устройство (VPN)"),
+ "off": ("Off", "Выкл."),
+ "chain_hops": ("Hops", "Узлы"),
+ "your_rules": ("Your rules", "Ваши правила"), "first_match_wins": ("first match wins", "срабатывает первое"),
+ "not_matched": ("Not matched by any rule", "Не подошло ни одно правило"),
+ "chain_fail_closed": ("If any hop fails, traffic stops. Nothing goes around the chain.", "Если какой-то узел не работает, трафик останавливается. В обход цепочки ничего не идёт."),
+ "wallpaper_colors": ("Colours from wallpaper", "Цвета обоев"),
+ "wallpaper_colors_hint": ("Use the system palette instead of the app's teal.", "Системная палитра вместо бирюзовой палитры приложения."),
  "channel_proxy": ("Proxy", "Прокси"),
  "back": ("Back", "Назад"),
  "tab_home": ("Home", "Главная"), "tab_stats": ("Stats", "Статистика"), "title_stats": ("Statistics", "Статистика"),
@@ -284,6 +296,8 @@ S = {  # key: (english, russian)
 }
 
 P = {  # plurals: key -> ({quantity: en}, {quantity: ru})
+ "servers_count": ({"one": "%1$d server", "other": "%1$d servers"},
+                   {"one": "%1$d сервер", "few": "%1$d сервера", "many": "%1$d серверов", "other": "%1$d сервера"}),
  "vpn_apps_chosen": ({"one": "%1$d app chosen", "other": "%1$d apps chosen"},
                      {"one": "Выбрано %1$d приложение", "few": "Выбрано %1$d приложения", "many": "Выбрано %1$d приложений", "other": "Выбрано %1$d приложения"}),
  "gateway_keys_found": ({"one": "Found %d key", "other": "Found %d keys"},

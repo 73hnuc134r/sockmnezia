@@ -6,16 +6,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -47,14 +42,24 @@ import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.core.Country
 import io.nuc134r.sockmnezia.core.FetchRequest
-import io.nuc134r.sockmnezia.core.Modes
 import io.nuc134r.sockmnezia.health.DeviceStateReader
 import io.nuc134r.sockmnezia.health.Severity
 import io.nuc134r.sockmnezia.health.evaluate
 import io.nuc134r.sockmnezia.health.worstActionable
 import io.nuc134r.sockmnezia.ui.ChainStepper
+import io.nuc134r.sockmnezia.ui.GroupRow
+import io.nuc134r.sockmnezia.ui.HopState
+import io.nuc134r.sockmnezia.ui.Island
+import io.nuc134r.sockmnezia.ui.RowText
+import io.nuc134r.sockmnezia.ui.TipRow
+import io.nuc134r.sockmnezia.ui.formatBytes
+import io.nuc134r.sockmnezia.ui.theme.LocalLevels
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import io.nuc134r.sockmnezia.ui.Hint
-import io.nuc134r.sockmnezia.ui.rememberStarter
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Routes
 import io.nuc134r.sockmnezia.ui.Section
@@ -97,52 +102,49 @@ fun HomeScreen(nav: NavController) {
         DeviceStateReader.unusedRestrictions(ctx) { u -> health = evaluate(DeviceStateReader.read(ctx, u)).worstActionable() }
         onPauseOrDispose { }
     }
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+    var servers by remember { mutableStateOf(emptyList<io.nuc134r.sockmnezia.core.OwnServer>()) }
+    LaunchedEffect(revision) { runCatching { servers = Core.ownServers() } }
+
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 12.dp, bottom = 8.dp)) {
         status.lastError?.takeIf { !status.running }?.let {
-            Section { Hint(errorText(ctx, it), warn = true) }
+            Island { TipRow(errorText(ctx, it), warn = true) }
         }
         if (status.authFailures > 0) {
-            Section {
-                Hint(pluralStringResource(R.plurals.auth_failures, status.authFailures.toInt(), status.authFailures.toInt()), warn = true)
-            }
+            Island { TipRow(pluralStringResource(R.plurals.auth_failures, status.authFailures.toInt(), status.authFailures.toInt()), warn = true) }
         }
 
-        val start = rememberStarter()
-        Section {
-            // Proxy (apps set up for SOCKS/HTTP) or VPN (the whole phone or chosen apps; the ports stay open).
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf(Modes.PROXY to R.string.mode_proxy, Modes.VPN to R.string.mode_vpn).forEachIndexed { i, (m, label) ->
-                    SegmentedButton(
-                        selected = status.mode == m,
-                        onClick = {
-                            if (status.mode != m) scope.act(ctx, snackbar) {
-                                Core.setSettings(Core.settings().let { it.copy(options = it.options.copy(mode = m)) })
-                                if (status.running) start() // restart in the new mode (asks for VPN consent first)
-                            }
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(i, 2),
-                    ) { Text(stringResource(label)) }
-                }
-            }
-            Hint(stringResource(if (status.mode == Modes.VPN) R.string.mode_vpn_hint else R.string.mode_proxy_hint))
-        }
-        Section {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    status.chainName ?: stringResource(R.string.chain),
-                    style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f),
-                )
-                OutlinedButton(onClick = { nav.navigate(Routes.SELECT) }) { Text(stringResource(R.string.chain_switch)) }
-                status.chainId?.let { id ->
-                    TextButton(onClick = { nav.navigate(Routes.chain(id)) }) { Text(stringResource(R.string.chain_edit)) }
-                }
-            }
+        // The active chain (or single server): name, then the hops with country, ping and pills.
+        Section(stringResource(R.string.active_chain)) {
             if (status.chainId == null && status.serverId == null) {
                 Hint(stringResource(R.string.chain_none))
                 FilledTonalButton(onClick = { nav.navigate(Routes.chain(Routes.NEW)) }) { Text(stringResource(R.string.chain_new)) }
             } else {
-                ChainStepper(status.hops)
-                status.chainError?.let { Hint(errorText(ctx, it), warn = true) }
+                Text(status.chainName ?: stringResource(R.string.chain), style = MaterialTheme.typography.titleLarge)
+                ChainStepper(status.hops, Modifier.padding(top = 4.dp)) { i ->
+                    val h = status.hops[i]
+                    val last = servers.firstOrNull { it.id == h.server }?.last
+                    HopState(
+                        country = status.chainCountries.getOrNull(i)?.takeIf { it.isNotBlank() } ?: h.country.takeIf { it.isNotBlank() },
+                        ms = last?.takeIf { it.ok }?.ms,
+                        failed = last != null && !last.ok,
+                    )
+                }
+                status.chainError?.let { TipRow(errorText(ctx, it), warn = true) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    status.chainId?.let { id ->
+                        FilledTonalButton(onClick = { nav.navigate(Routes.chain(id)) }) { Text(stringResource(R.string.chain_edit_full)) }
+                    }
+                    status.serverId?.let { id ->
+                        FilledTonalButton(onClick = { nav.navigate(Routes.server(id)) }) { Text(stringResource(R.string.chain_edit)) }
+                    }
+                }
+            }
+        }
+
+        if (status.running) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TrafficTile("↑ " + stringResource(R.string.stats_sent), formatBytes(status.up), Modifier.weight(1f))
+                TrafficTile("↓ " + stringResource(R.string.stats_received), formatBytes(status.down), Modifier.weight(1f))
             }
         }
 
@@ -160,7 +162,7 @@ fun HomeScreen(nav: NavController) {
                             try { Core.fetch(FetchRequest(country = code)) } finally { busy = false }
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         CountryPicker(status.country, status.countryName, countries, enabled = !busy, onPick = onPick)
                         OutlinedButton(enabled = !busy && countries.isNotEmpty(), onClick = { showPingDialog = true }) {
                             Text(stringResource(R.string.location_find_fastest))
@@ -190,13 +192,23 @@ fun HomeScreen(nav: NavController) {
             Section(stringResource(R.string.updates)) { UpdateCard() }
         }
         if (health != Severity.OK) {
-            Section(stringResource(R.string.title_health)) {
-                Hint(stringResource(R.string.health_summary_bad), warn = health == Severity.PROBLEM)
-                FilledTonalButton(onClick = { nav.navigate(Routes.HEALTH) }) { Text(stringResource(R.string.health_open)) }
+            Island {
+                GroupRow(0, 1, onClick = { nav.navigate(Routes.HEALTH) }) {
+                    RowText(stringResource(R.string.title_health), Modifier.weight(1f), subtitle = stringResource(R.string.health_summary_bad))
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = if (health == Severity.PROBLEM) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
-        // Room for the switch and start/stop buttons that stick out above the connection bar.
-        Spacer(Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun TrafficTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp)).background(LocalLevels.current.island).padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium)
     }
 }
 

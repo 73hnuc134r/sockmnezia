@@ -25,6 +25,11 @@ class AppPrefs(context: Context) {
         get() = p.getBoolean("booted_once", false)
         set(v) = p.edit { putBoolean("booted_once", v) }
 
+    /** Colours from the wallpaper (Android 12+) instead of the app's teal scheme (D43). */
+    var wallpaperColors: Boolean
+        get() = p.getBoolean("wallpaper_colors", false)
+        set(v) = p.edit { putBoolean("wallpaper_colors", v) }
+
     var checkUpdates: Boolean
         get() = p.getBoolean("check_updates", true)
         set(v) = p.edit { putBoolean("check_updates", v) }

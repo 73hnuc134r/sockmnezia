@@ -81,6 +81,15 @@ import io.nuc134r.sockmnezia.ui.ChainShareSheet
 import io.nuc134r.sockmnezia.ui.act
 import io.nuc134r.sockmnezia.ui.errorText
 import io.nuc134r.sockmnezia.ui.hopName
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
+import io.nuc134r.sockmnezia.ui.CountryPing
+import io.nuc134r.sockmnezia.ui.TipRow
+import io.nuc134r.sockmnezia.ui.theme.LocalLevels
 
 /** Builds or edits a chain: ordered hops (phone first, exit last), validated live by the core. */
 @Composable
@@ -146,7 +155,8 @@ fun ChainEditScreen(nav: NavController, id: String) {
         hops = l
     }
 
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 96.dp)) {
         Section {
             // Empty name = the hop names, shown as the placeholder and kept current by the core.
             val autoName = hops.map { hopName(info(it)) }.joinToString(" → ")
@@ -157,7 +167,7 @@ fun ChainEditScreen(nav: NavController, id: String) {
             )
             Hint(stringResource(R.string.chain_name_hint))
         }
-        Section {
+        Section(stringResource(R.string.chain_hops)) {
             Hint(stringResource(R.string.chain_editor_hint))
             // Drag the handle to reorder. Each hop is keyed, so the dragged row keeps its gesture while it moves
             // through the list; it swaps with a neighbour once it has passed half of that neighbour's height.
@@ -174,11 +184,20 @@ fun ChainEditScreen(nav: NavController, id: String) {
                         Modifier
                             .onSizeChanged { heights[k] = it.height }
                             .zIndex(if (dragging) 1f else 0f)
-                            .graphicsLayer { if (dragging) translationY = dragOffset }
+                            .graphicsLayer {
+                                if (dragging) {
+                                    translationY = dragOffset
+                                    shadowElevation = 12f
+                                    shape = RoundedCornerShape(16.dp)
+                                    clip = true
+                                }
+                            }
+                            .padding(bottom = if (i < hops.lastIndex) 4.dp else 0.dp)
                             .background(
-                                if (dragging) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent,
-                                RoundedCornerShape(8.dp),
+                                if (dragging) MaterialTheme.colorScheme.surfaceContainerHighest else LocalLevels.current.row,
+                                RoundedCornerShape(16.dp),
                             )
+                            .padding(vertical = 6.dp)
                             // Screen readers can't drag: the moves are offered as actions instead.
                             .semantics {
                                 customActions = listOfNotNull(
@@ -219,9 +238,19 @@ fun ChainEditScreen(nav: NavController, id: String) {
                                     .padding(8.dp),
                             )
                             HopDot(hi.isAmnezia, if (hi.isAmnezia) "A" else "${i + 1}")
-                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                                Text(hopName(hi), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                HopTags(hi, Modifier.padding(top = 2.dp), withPort = true)
+                            Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(hopName(hi), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                }
+                                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    HopTags(hi, withPort = true)
+                                    val sv = servers.firstOrNull { it.id == h.server }
+                                    val last = sv?.last
+                                    CountryPing(
+                                        (if (hi.isAmnezia) hi.country else sv?.hostCountry)?.takeIf { it.isNotBlank() },
+                                        last?.takeIf { it.ok }?.ms, failed = last != null && !last.ok,
+                                    )
+                                }
                             }
                             IconButton(onClick = { hops = hops.filterIndexed { j, _ -> j != i } }) {
                                 Icon(Icons.Default.Close, stringResource(R.string.chain_remove_hop))
@@ -232,47 +261,55 @@ fun ChainEditScreen(nav: NavController, id: String) {
                 }
             }
             error?.takeIf { hops.isNotEmpty() && it.field?.startsWith("hop") != true }?.let { Hint(errorText(ctx, it), warn = true) }
-            OutlinedButton(enabled = hops.size < MaxHops, onClick = {
+            OutlinedButton(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), enabled = hops.size < MaxHops, onClick = {
                 val amz = when {
                     hops.any { it.kind == HopKind.AMNEZIA } -> "used"
                     status.hasKey && status.hasGatewayKey -> "ready"
                     else -> "setup"
                 }
                 nav.navigate(Routes.pickHop(amz))
-            }) { Text(stringResource(R.string.chain_add_hop)) }
+            }) {
+                Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.chain_add_hop))
+            }
+            TipRow(stringResource(R.string.chain_fail_closed))
         }
-        // Two rows so nothing wraps mid-word on a phone: Share / Delete (apart from Save), then the main actions.
+        // Secondary actions here; Save is the button at the bottom right, under the thumb (D43).
         if (!isNew) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { sharing = true }) { Text(stringResource(R.string.share)) }
-                Spacer(Modifier.weight(1f))
+            androidx.compose.foundation.layout.FlowRow(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (status.chainId != id) {
+                    FilledTonalButton(enabled = error == null && hops.isNotEmpty(), onClick = {
+                        scope.act(ctx, snackbar) {
+                            Core.saveChain(Chain(id, name, hops))
+                            Core.setActiveChain(id)
+                            nav.popBackStack()
+                        }
+                    }) { Text(stringResource(R.string.chain_use), maxLines = 1) }
+                }
+                OutlinedButton(onClick = { sharing = true }) { Text(stringResource(R.string.share)) }
                 TextButton(onClick = { deleting = true }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             }
         }
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (!isNew && status.chainId != id) {
-                OutlinedButton(modifier = Modifier.weight(1f), enabled = error == null && hops.isNotEmpty(), onClick = {
-                    scope.act(ctx, snackbar) {
-                        Core.saveChain(Chain(id, name, hops))
-                        Core.setActiveChain(id)
-                        nav.popBackStack()
-                    }
-                }) { Text(stringResource(R.string.chain_use), maxLines = 1) }
-            } else {
-                Spacer(Modifier.weight(1f))
+    }
+    val canSave = loaded && error == null && hops.isNotEmpty()
+    ExtendedFloatingActionButton(
+        onClick = {
+            if (canSave) scope.act(ctx, snackbar, ok = res.getString(R.string.chain_saved)) {
+                val saved = Core.saveChain(Chain(if (isNew) null else id, name, hops))
+                if (isNew) Core.setActiveChain(saved) // a chain just built is the one the user wants
+                nav.popBackStack()
             }
-            Button(modifier = Modifier.weight(1f), enabled = loaded && error == null && hops.isNotEmpty(), onClick = {
-                scope.act(ctx, snackbar, ok = res.getString(R.string.chain_saved)) {
-                    val saved = Core.saveChain(Chain(if (isNew) null else id, name, hops))
-                    if (isNew) Core.setActiveChain(saved) // a chain just built is the one the user wants
-                    nav.popBackStack()
-                }
-            }) { Text(stringResource(R.string.save), maxLines = 1) }
-        }
+        },
+        icon = { Icon(Icons.Default.Check, null) },
+        text = { Text(stringResource(R.string.save)) },
+        containerColor = if (canSave) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = if (canSave) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+    )
     }
 
     if (sharing) {

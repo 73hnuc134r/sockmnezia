@@ -1,7 +1,6 @@
 package io.nuc134r.sockmnezia.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,23 +25,15 @@ import androidx.compose.ui.unit.sp
 import io.nuc134r.sockmnezia.R
 import io.nuc134r.sockmnezia.core.HopInfo
 
-/** Amnezia hops are marked "A" in a warm colour; own servers by their position in the chain. */
-@Composable
-fun hopColor(amnezia: Boolean): Color =
-    if (amnezia) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
-
+/** A hop's number in a filled circle: own servers in the secondary container, Amnezia ("A") in the tertiary. */
 @Composable
 fun HopDot(amnezia: Boolean, label: String, modifier: Modifier = Modifier) {
-    val c = hopColor(amnezia)
+    val cs = MaterialTheme.colorScheme
     Box(
-        modifier
-            .size(24.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .border(2.dp, c, CircleShape),
+        modifier.size(32.dp).clip(CircleShape).background(if (amnezia) cs.tertiaryContainer else cs.secondaryContainer),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = c, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = if (amnezia) cs.onTertiaryContainer else cs.onSecondaryContainer, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -50,51 +41,37 @@ fun HopDot(amnezia: Boolean, label: String, modifier: Modifier = Modifier) {
 @Composable
 fun hopName(h: HopInfo): String = if (h.missing) stringResource(R.string.hop_missing) else h.name
 
-/** Phone → hops → internet, as a vertical stepper. The last hop is marked as the exit. */
+/** What is known about one hop for display: its country and last ping. */
+data class HopState(val country: String? = null, val ms: Long? = null, val failed: Boolean = false)
+
+/** The hops top to bottom as a numbered rail: number, name, country+ping, then the pills (D43). Amnezia is "A". */
 @Composable
-fun ChainStepper(hops: List<HopInfo>, modifier: Modifier = Modifier) {
+fun ChainStepper(hops: List<HopInfo>, modifier: Modifier = Modifier, state: (Int) -> HopState = { HopState() }) {
+    val cs = MaterialTheme.colorScheme
     Column(modifier.fillMaxWidth()) {
-        StepRow(first = true, last = false, dot = { EndDot() }) { Text(stringResource(R.string.chain_phone), style = MaterialTheme.typography.bodyMedium) }
         hops.forEachIndexed { i, h ->
-            StepRow(first = false, last = false, dot = { HopDot(h.isAmnezia, if (h.isAmnezia) "A" else "${i + 1}") }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(hopName(h), style = MaterialTheme.typography.bodyMedium)
-                        HopTags(h, Modifier.padding(top = 2.dp))
+            if (i > 0) Box(Modifier.padding(start = 15.dp, top = 4.dp, bottom = 4.dp).width(2.dp).height(14.dp).background(cs.outlineVariant))
+            val st = state(i)
+            Row(verticalAlignment = Alignment.Top) {
+                Box(
+                    Modifier.padding(top = 2.dp).size(32.dp).clip(CircleShape)
+                        .background(if (h.isAmnezia) cs.tertiaryContainer else cs.secondaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        if (h.isAmnezia) "A" else "${i + 1}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        color = if (h.isAmnezia) cs.onTertiaryContainer else cs.onSecondaryContainer,
+                    )
+                }
+                Column(Modifier.weight(1f).padding(start = 14.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(hopName(h), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        CountryPing(st.country ?: h.country.takeIf { it.isNotBlank() }, st.ms, failed = st.failed)
                     }
-                    if (i == hops.lastIndex) {
-                        Text(
-                            stringResource(R.string.chain_exit).uppercase(),
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
+                    HopTags(h)
                 }
             }
         }
-        StepRow(first = false, last = true, dot = { EndDot() }) { Text(stringResource(R.string.chain_internet), style = MaterialTheme.typography.bodyMedium) }
-    }
-}
-
-@Composable
-private fun EndDot() {
-    Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline))
-    }
-}
-
-/** One stepper row: a dot on a vertical line (the line stops at the first and last row), then [content]. */
-@Composable
-private fun StepRow(first: Boolean, last: Boolean, dot: @Composable () -> Unit, content: @Composable () -> Unit) {
-    val line = MaterialTheme.colorScheme.outlineVariant
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.width(2.dp).height(6.dp).background(if (first) Color.Transparent else line))
-                dot()
-                Box(Modifier.width(2.dp).height(6.dp).background(if (last) Color.Transparent else line))
-            }
-        }
-        Box(Modifier.weight(1f).padding(start = 12.dp)) { content() }
     }
 }
 
@@ -110,56 +87,49 @@ fun Tag(text: String, color: Color, modifier: Modifier = Modifier) {
     )
 }
 
-/** Tag colours: one hue per protocol and per security, light and dark variants for contrast. */
+/** Protocol, security, transport and port as pills ("ss" for shadowsocks to keep it short; the port without ":").
+ * No encryption is shown in the error colours so it stands out. */
 @Composable
-private fun tagColor(light: Long, dark: Long): Color =
-    Color(if (androidx.compose.foundation.isSystemInDarkTheme()) dark else light)
-
-@Composable
-fun protocolColor(protocol: String): Color = when (protocol) {
-    "vless" -> tagColor(0xFF2F6FC8, 0xFF8DB8FF)
-    "vmess" -> tagColor(0xFF8048BD, 0xFFC9A6F2)
-    "trojan" -> tagColor(0xFFB8452E, 0xFFF2A08E)
-    "shadowsocks" -> tagColor(0xFF237A4B, 0xFF8FD8A8)
-    "socks" -> tagColor(0xFF7A6A1E, 0xFFE0CF7A)
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
-}
-
-/** Reality and TLS in their own colours; no encryption in the error colour, so it stands out. */
-@Composable
-fun securityColor(security: String): Color = when (security) {
-    "reality" -> tagColor(0xFF137A6C, 0xFF7FE0D0)
-    "tls" -> tagColor(0xFF4A58C2, 0xFFAEB8FF)
-    else -> MaterialTheme.colorScheme.error
-}
-
-/** Protocol, security, transport and port as tiny tags ("ss" for shadowsocks to keep it short). */
-@Composable
-fun ServerTags(protocol: String, security: String, network: String, port: Int, modifier: Modifier = Modifier) {
-    val neutral = MaterialTheme.colorScheme.onSurfaceVariant
-    // Wraps to a second line rather than cutting the last tags off when the row is narrow.
+fun ServerTags(protocol: String, security: String, network: String, port: Int, modifier: Modifier = Modifier, onPrimary: Boolean = false) {
+    val cs = MaterialTheme.colorScheme
+    val tonal = if (onPrimary) Color.White.copy(alpha = 0.6f) else cs.secondaryContainer
+    val onTonal = if (onPrimary) cs.onPrimaryContainer else cs.onSecondaryContainer
+    val neutral = if (onPrimary) Color.White.copy(alpha = 0.6f) else cs.surfaceContainerHigh
+    val onNeutral = if (onPrimary) cs.onPrimaryContainer else cs.onSurfaceVariant
+    // Wraps to a second line rather than cutting the last pills off when the row is narrow.
     androidx.compose.foundation.layout.FlowRow(
         modifier,
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
     ) {
-        if (protocol.isNotBlank()) Tag(if (protocol == "shadowsocks") "ss" else protocol, protocolColor(protocol))
-        if (security.isNotBlank()) Tag(security, securityColor(security))
-        if (network.isNotBlank() && network != "tcp" && network != "raw") Tag(network, neutral)
-        if (port > 0) Tag(":$port", neutral)
+        if (protocol.isNotBlank()) Pill(protocolLabel(protocol), tonal, onTonal)
+        when {
+            security == "reality" || security == "tls" -> Pill(securityLabel(security), tonal, onTonal)
+            security.isNotBlank() -> Pill(security, cs.errorContainer, cs.onErrorContainer)
+        }
+        if (network.isNotBlank() && network != "tcp" && network != "raw") Pill(networkLabel(network), tonal, onTonal)
+        if (port > 0) Pill("$port", neutral, onNeutral)
     }
 }
 
-/** Tags for a hop: "amnezia" and its location, or the server's protocol, security and transport (and the port
- * where servers are listed side by side, to tell them apart). */
+fun protocolLabel(p: String) = when (p) {
+    "vless" -> "VLESS"; "vmess" -> "VMess"; "trojan" -> "Trojan"; "shadowsocks" -> "SS"; "socks" -> "SOCKS"; "http" -> "HTTP"
+    else -> p
+}
+
+fun securityLabel(s: String) = when (s) { "reality" -> "Reality"; "tls" -> "TLS"; else -> s }
+
+fun networkLabel(n: String) = when (n) {
+    "ws" -> "WS"; "grpc" -> "gRPC"; "xhttp" -> "XHTTP"; "httpupgrade" -> "HTTPUpgrade"; "kcp" -> "mKCP"; "h2", "http" -> "H2"
+    else -> n
+}
+
+/** Pills for a hop: "amnezia" for Amnezia, otherwise the server's protocol, security, transport and port. */
 @Composable
-fun HopTags(h: HopInfo, modifier: Modifier = Modifier, withPort: Boolean = false) {
+fun HopTags(h: HopInfo, modifier: Modifier = Modifier, withPort: Boolean = true, onPrimary: Boolean = false) {
     if (h.isAmnezia) {
-        Row(modifier, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
-            Tag("amnezia", tagColor(0xFF8A6200, 0xFFF5C26B))
-            if (h.country.isNotBlank()) Tag(h.country.uppercase(), MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Pill("amnezia", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, modifier)
     } else if (!h.missing) {
-        ServerTags(h.protocol, h.security, h.network, if (withPort) h.port else 0, modifier)
+        ServerTags(h.protocol, h.security, h.network, if (withPort) h.port else 0, modifier, onPrimary)
     }
 }

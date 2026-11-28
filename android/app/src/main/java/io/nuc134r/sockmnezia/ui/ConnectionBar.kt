@@ -1,24 +1,19 @@
 package io.nuc134r.sockmnezia.ui
 
-import android.os.Build
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.FloatingActionButton
-import androidx.navigation.NavController
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,10 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,152 +29,143 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.nuc134r.sockmnezia.R
-import io.nuc134r.sockmnezia.core.ChainResult
 import io.nuc134r.sockmnezia.core.Core
 import io.nuc134r.sockmnezia.core.Probe
 import io.nuc134r.sockmnezia.service.ProxyService
+import java.util.Locale
 
-/** Height of the start/stop and switch buttons. Its centre sits on the top edge of the bar, so its lower half overlaps
- * the first line of the connection-check block (which leaves room for it) and its upper half the content above. */
-private val StartStopButtonHeight = 56.dp
+private val DockButton = 64.dp
+private val DockShape = RoundedCornerShape(20.dp)
 
-/** Bottom bar of the home screen: start/stop button and a compact connection-check block. Line 1 is the
- * state and the check result (ping); below it the whole route, wrapped rather than cut, with the exit address. */
+/** The home screen's thumb row (D43), right above the navigation bar: the connection status (tap = check the exit
+ * address and country), the chain/server switcher, and start/stop in the bottom-right corner. */
 @Composable
-fun ConnectionBar(nav: NavController) {
+fun ThumbDock(nav: androidx.navigation.NavController) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = LocalSnackbar.current
-    val density = LocalDensity.current
     val status by Core.status.collectAsState()
     val probe by Core.probe.collectAsState()
-    var fabWidth by remember { mutableStateOf(0.dp) }
     val start = rememberStarter()
     val testing = probe == Probe.Testing
-    // At least four lines tall (status + three route lines) so the block is easy to tap for a check.
-    val typo = MaterialTheme.typography
-    val minHeight = with(density) { typo.labelLarge.lineHeight.toDp() + typo.bodySmall.lineHeight.toDp() * 3 } + 16.dp
+    val cs = MaterialTheme.colorScheme
+    val done = probe as? Probe.Done
+    val (bg, fg) = when {
+        probe == Probe.Failed -> cs.errorContainer to cs.onErrorContainer
+        status.running -> cs.primaryContainer to cs.onPrimaryContainer
+        else -> cs.surfaceContainerHighest to cs.onSurface
+    }
 
-    // The FAB must live outside the Surface: Surface clips its content to its bounds, which cropped the
-    // half of the button meant to stick out above it.
-    Box(Modifier.fillMaxWidth()) {
-        Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-                    .heightIn(min = minHeight)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable(enabled = !testing) {
-                        scope.act(ctx, snackbar) { Core.runProbe() }
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Surface(
+            onClick = { scope.act(ctx, snackbar) { Core.runProbe() } },
+            enabled = !testing,
+            shape = DockShape, color = bg, contentColor = fg,
+            modifier = Modifier.weight(1f).height(DockButton),
+        ) {
+            Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                val dot = when {
+                    probe == Probe.Failed -> cs.error
+                    status.running -> cs.primary
+                    else -> cs.outline
+                }
+                Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    val state = stringResource(if (status.running) R.string.conn_connected else R.string.conn_stopped)
+                    val detail = when (val p = probe) {
+                        Probe.Testing -> stringResource(R.string.conn_testing)
+                        Probe.Failed -> stringResource(R.string.conn_failed)
+                        is Probe.Done -> stringResource(R.string.conn_ping, p.result.ms.toInt())
+                        Probe.Idle -> null
                     }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            ) {
-                // Line 1 ends before the button, which overlaps this corner of the block.
-                Row(
-                    Modifier.fillMaxWidth().padding(end = (fabWidth - 4.dp).coerceAtLeast(0.dp)),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val dot = when {
-                        probe == Probe.Failed -> MaterialTheme.colorScheme.error
-                        status.running -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.outline
-                    }
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
                     Text(
-                        buildAnnotatedString {
-                            append(stringResource(if (status.running) R.string.conn_connected else R.string.conn_stopped))
-                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Normal)) {
-                                append(" · ")
-                                append(
-                                    when (val p = probe) {
-                                        Probe.Testing -> stringResource(R.string.conn_testing)
-                                        Probe.Failed -> stringResource(R.string.conn_failed)
-                                        is Probe.Done -> stringResource(R.string.conn_ping, p.result.ms.toInt())
-                                        Probe.Idle -> stringResource(R.string.conn_tap_to_test)
-                                    },
-                                )
+                        if (detail != null) "$state · $detail" else state,
+                        style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    if (done != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val code = done.result.country
+                            if (code.isNotBlank()) {
+                                CountryCode(code, container = Color.White.copy(alpha = 0.7f), content = cs.onPrimaryContainer)
                             }
-                        },
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
+                            Text(
+                                listOfNotNull(countryName(code), done.result.ip).joinToString(" · "),
+                                style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                color = fg.copy(alpha = 0.8f),
+                            )
+                        }
+                    } else {
+                        Text(
+                            if (probe == Probe.Idle) stringResource(R.string.conn_tap_check) else routeText(status.chain, status.chainCountries),
+                            style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            color = fg.copy(alpha = 0.8f),
+                        )
+                    }
                 }
-                val route = routeText(status.chain, status.chainCountries, (probe as? Probe.Done)?.result)
-                if (route.isNotEmpty()) {
-                    Text(
-                        route,
-                        style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Icon(Icons.Default.Refresh, null, Modifier.size(20.dp))
             }
         }
-        // Switch (chain / server selector) and start/stop: two same-size icon buttons side by side, start/stop
-        // on the right, straddling the top edge of the bar. Labels are their content descriptions.
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(end = 16.dp)
-                .offset(y = -(StartStopButtonHeight / 2))
-                .onSizeChanged { fabWidth = with(density) { it.width.toDp() } },
+        Surface(
+            onClick = { nav.navigate(Routes.SELECT) },
+            shape = DockShape, color = cs.secondaryContainer, contentColor = cs.onSecondaryContainer,
+            modifier = Modifier.size(DockButton),
         ) {
-            FloatingActionButton(
-                onClick = { nav.navigate(Routes.SELECT) },
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            ) { Icon(SwapIcon, stringResource(R.string.chain_switch)) }
-            FloatingActionButton(onClick = {
-                if (status.running) ProxyService.stop(ctx) else start()
-            }) {
+            Box(contentAlignment = Alignment.Center) { Icon(SwapIcon, stringResource(R.string.chain_switch), Modifier.size(26.dp)) }
+        }
+        Surface(
+            onClick = { if (status.running) ProxyService.stop(ctx) else start() },
+            shape = DockShape, color = cs.primary, contentColor = cs.onPrimary, shadowElevation = 3.dp,
+            modifier = Modifier.size(DockButton),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    if (status.running) Icons.Default.Close else Icons.Default.PlayArrow,
+                    if (status.running) StopIcon else Icons.Default.PlayArrow,
                     stringResource(if (status.running) R.string.action_stop else R.string.action_start),
+                    Modifier.size(28.dp),
                 )
             }
         }
     }
 }
 
-/** The route, phone first, then the exit address once the check has run: "exit ✓" when it is the last hop's
- * address, otherwise "→ exit <ip>". Wraps instead of being cut. */
-@Composable
-private fun routeText(chain: List<String>, countries: List<String>, exit: ChainResult?): String {
-    val hops = chain.mapIndexed { i, addr -> withCountry(addr, countries.getOrNull(i)) }
-    return buildString {
-        append(hops.joinToString(" → "))
-        if (exit != null) {
-            if (chain.lastOrNull() == exit.ip) {
-                append(" ").append(stringResource(R.string.conn_exit_same))
-            } else {
-                if (isNotEmpty()) append(" → ")
-                append(stringResource(R.string.conn_exit, withCountry(exit.ip, exit.country)))
-            }
-        }
-    }
-}
+/** The country's name in the UI language, from its two-letter code; null when unknown. */
+fun countryName(code: String): String? =
+    code.takeIf { it.length == 2 }?.let { Locale("", it.uppercase()).getDisplayCountry(Locale.getDefault()) }?.takeIf { it.isNotBlank() && it.length > 2 }
+
+/** The hops' addresses with their countries: "203.0.113.5 [DE] → …". */
+private fun routeText(chain: List<String>, countries: List<String>): String =
+    chain.mapIndexed { i, addr -> withCountry(addr, countries.getOrNull(i)) }.joinToString(" → ")
 
 /** Material "swap_horiz" (left/right arrows); the core icon set does not include it. */
-private val SwapIcon: ImageVector by lazy {
+val SwapIcon: ImageVector by lazy {
     ImageVector.Builder("SwapHoriz", 24.dp, 24.dp, 24f, 24f).apply {
         path(fill = SolidColor(Color.Black)) {
             moveTo(6.99f, 11f); lineTo(3f, 15f); lineTo(6.99f, 19f); verticalLineTo(16f)
             horizontalLineTo(14f); verticalLineTo(14f); horizontalLineTo(6.99f); close()
             moveTo(21f, 9f); lineTo(17.01f, 5f); verticalLineTo(8f); horizontalLineTo(10f)
             verticalLineTo(10f); horizontalLineTo(17.01f); verticalLineTo(13f); close()
+        }
+    }.build()
+}
+
+/** A rounded square, Material "stop"; not in the core icon set. */
+val StopIcon: ImageVector by lazy {
+    ImageVector.Builder("Stop", 24.dp, 24.dp, 24f, 24f).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(8f, 6f); horizontalLineTo(16f)
+            curveTo(17.1f, 6f, 18f, 6.9f, 18f, 8f); verticalLineTo(16f)
+            curveTo(18f, 17.1f, 17.1f, 18f, 16f, 18f); horizontalLineTo(8f)
+            curveTo(6.9f, 18f, 6f, 17.1f, 6f, 16f); verticalLineTo(8f)
+            curveTo(6f, 6.9f, 6.9f, 6f, 8f, 6f); close()
         }
     }.build()
 }

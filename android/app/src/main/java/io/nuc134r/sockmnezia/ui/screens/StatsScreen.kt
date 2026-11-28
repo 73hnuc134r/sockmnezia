@@ -53,6 +53,10 @@ import io.nuc134r.sockmnezia.core.StatsDay
 import io.nuc134r.sockmnezia.ui.Hint
 import io.nuc134r.sockmnezia.ui.LocalSnackbar
 import io.nuc134r.sockmnezia.ui.Section
+import io.nuc134r.sockmnezia.ui.GroupRow
+import io.nuc134r.sockmnezia.ui.Island
+import io.nuc134r.sockmnezia.ui.TipRow
+import androidx.compose.material3.LinearProgressIndicator
 import io.nuc134r.sockmnezia.ui.act
 import io.nuc134r.sockmnezia.ui.formatBytes
 import kotlinx.coroutines.delay
@@ -140,19 +144,29 @@ fun StatsScreen() {
                 }
             }
         }
-        Section(stringResource(R.string.stats_by_endpoint)) {
-            if (byKey.isEmpty()) Hint(stringResource(R.string.stats_empty))
-            byKey.forEach { (e, up, down) ->
+        Island(title = stringResource(R.string.stats_by_endpoint)) {
+            if (byKey.isEmpty()) TipRow(stringResource(R.string.stats_empty))
+            val top = byKey.maxOfOrNull { it.second + it.third }?.coerceAtLeast(1) ?: 1
+            byKey.forEachIndexed { i, (e, up, down) ->
                 val name = when {
                     e.kind == "direct" -> stringResource(R.string.stats_direct_name)
                     e.deleted -> stringResource(R.string.stats_deleted, e.name)
                     else -> e.name
                 }
-                // Name on its own line, the numbers under it: long names are not cut.
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(Modifier.padding(top = 6.dp).size(10.dp).background(if (e.kind == "direct") directColor else chainColor, CircleShape))
-                    Column(Modifier.weight(1f)) {
-                        Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                GroupRow(i, byKey.size) {
+                    // Name on its own line, the numbers under it: long names are not cut.
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            Text(formatBytes(up + down), style = MaterialTheme.typography.labelLarge)
+                        }
+                        LinearProgressIndicator(
+                            progress = { (up + down).toFloat() / top },
+                            color = if (e.kind == "direct") directColor else chainColor,
+                            trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            drawStopIndicator = {},
+                            modifier = Modifier.fillMaxWidth().height(6.dp),
+                        )
                         Text(
                             "↓ ${formatBytes(down)}   ↑ ${formatBytes(up)}",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -202,7 +216,7 @@ private fun Legend(color: Color, text: String) {
 private fun DayDetail(day: StatsDay?, chainColor: Color, directColor: Color) {
     Column(
         Modifier.fillMaxWidth().height(56.dp)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(12.dp))
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.Center,
     ) {

@@ -16,6 +16,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -138,98 +149,139 @@ fun SelectScreen(nav: NavController, pickHop: String? = null) {
     val labelShare = stringResource(R.string.share)
     val labelDelete = stringResource(R.string.delete)
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(enabled = running.isEmpty(), onClick = { testAll() }) { Text(stringResource(R.string.test_all)) }
-            Spacer(Modifier.weight(1f))
+    val hostCountryOf = servers.associate { it.id to it.hostCountry }
+    var addMenu by remember { mutableStateOf(false) }
+
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 96.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             listOf("name" to R.string.sort_name, "ping" to R.string.sort_ping).forEach { (k, label) ->
                 FilterChip(
                     selected = sort == k, onClick = { sort = k; prefs.listSort = k },
-                    label = { Text(stringResource(label)) }, modifier = Modifier.padding(start = 6.dp),
+                    label = { Text(stringResource(label)) }, modifier = Modifier.padding(end = 8.dp),
                 )
+            }
+            Spacer(Modifier.weight(1f))
+            if (!picking && (servers.isNotEmpty() || chains.isNotEmpty())) {
+                IconButton(onClick = { shareAll = true }) { Icon(Icons.Default.Share, stringResource(R.string.share_all)) }
             }
         }
 
         if (pickHop != null) {
-            AmneziaPickRow(pickHop) { pick("amnezia") }
-            HorizontalDivider(Modifier.padding(vertical = 4.dp))
-        } else {
-            ListHeader(stringResource(R.string.selector_chains))
+            Island(title = "Amnezia") { AmneziaPickRow(pickHop) { pick("amnezia") } }
+        } else if (chains.isNotEmpty()) {
             val shownChains = if (sort == "ping") chains.sortedBy { pingKey(it.last) } else chains
-            shownChains.forEach { c ->
-                SwipeRow(onTest = { testChain(c) }, onDelete = { deleteChain = c }) {
-                    SelectRow(
-                        selected = c.active,
-                        title = c.name,
-                        subtitle = c.hops.joinToString(" → ") { if (it.missing) deleted else it.name },
-                        warning = if (c.error != null) stringResource(R.string.chain_cannot_run) else null,
-                        last = c.last, hostCountry = "", testing = running["c:${c.id}"] == true,
-                        onSelect = {
+            Island(title = stringResource(R.string.selector_chains), trailing = {
+                Text("${chains.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }) {
+                shownChains.forEachIndexed { i, c ->
+                    val shape = groupShape(i, shownChains.size)
+                    SwipeRow(shape, onTest = { testChain(c) }, onDelete = { deleteChain = c }) {
+                        GroupRow(i, shownChains.size, selected = c.active, onClick = {
                             scope.act(ctx, snackbar) { Core.setActiveChain(c.id) }
                             onDone()
-                        },
-                        onTest = { testChain(c) },
-                        menu = listOf(
-                            MenuAction(labelEdit) { nav.navigate(Routes.chain(c.id)) },
-                            MenuAction(labelShare) { shareChain = c },
-                            MenuAction(labelDelete) { deleteChain = c },
-                        ),
-                    )
+                        }) {
+                            Avatar(c.name, c.active)
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(c.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                ChainPath(c, hostCountryOf, deleted, onPrimary = c.active)
+                                if (c.error != null) {
+                                    Text(stringResource(R.string.chain_cannot_run), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                            PingPill(c.last, "", running["c:${c.id}"] == true, onPrimary = c.active) { testChain(c) }
+                            RowMenu(listOf(
+                                MenuAction(labelEdit) { nav.navigate(Routes.chain(c.id)) },
+                                MenuAction(labelShare) { shareChain = c },
+                                MenuAction(labelDelete) { deleteChain = c },
+                            ))
+                        }
+                    }
                 }
             }
-            TextButton(onClick = { nav.navigate(Routes.chain(Routes.NEW)) }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                Text(stringResource(R.string.chain_new))
-            }
-            HorizontalDivider(Modifier.padding(vertical = 4.dp))
         }
-        ListHeader(stringResource(R.string.selector_servers))
+
         if (servers.isEmpty()) {
-            Hint(stringResource(R.string.selector_no_servers), modifier = Modifier.padding(horizontal = 16.dp))
+            Island { TipRow(stringResource(R.string.selector_no_servers)) }
         }
-        // Grouped by host (domain or IP): in the order hosts first appear, or by their fastest server.
+        // One island per host (domain or IP): in the order hosts first appear, or by their fastest server.
         val groups = servers.groupBy { it.address }.entries.toList().let { g ->
             if (sort == "ping") g.sortedBy { e -> e.value.minOf { pingKey(it.last) } } else g
         }
         groups.forEach { (host, group) ->
-            Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(host, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                group.first().hostCountry.takeIf { it.isNotBlank() }?.let { Tag(it, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(start = 6.dp)) }
-            }
             val rows = if (sort == "ping") group.sortedBy { pingKey(it.last) } else group
-            rows.forEach { s ->
-                SwipeRow(onTest = { testServer(s) }, onDelete = { deleteServer = s }) {
-                    SelectRow(
-                        selected = if (picking) null else s.active,
-                        title = s.name,
-                        subtitle = "",
-                        tags = { ServerTags(s.protocol, s.security, s.network, s.port, Modifier.padding(top = 2.dp)) },
-                        warning = null,
-                        last = s.last, hostCountry = s.hostCountry, testing = running["s:${s.id}"] == true,
-                        onSelect = {
+            val country = group.first().hostCountry
+            Island {
+                Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(DnsIcon, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                        Text(host, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            pluralStringResource(R.plurals.servers_count, group.size, group.size),
+                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    CountryPing(country.takeIf { it.isNotBlank() }, null, text = countryName(country))
+                }
+                rows.forEachIndexed { i, sv ->
+                    val selected = !picking && sv.active
+                    SwipeRow(groupShape(i, rows.size), onTest = { testServer(sv) }, onDelete = { deleteServer = sv }) {
+                        GroupRow(i, rows.size, selected = selected, onClick = {
                             if (picking) {
-                                pick("server:${s.id}")
+                                pick("server:${sv.id}")
                             } else {
-                                scope.act(ctx, snackbar) { Core.setActiveServer(s.id) }
+                                scope.act(ctx, snackbar) { Core.setActiveServer(sv.id) }
                                 onDone()
                             }
-                        },
-                        onTest = { testServer(s) },
-                        menu = listOf(
-                            MenuAction(labelEdit) { nav.navigate(Routes.server(s.id)) },
-                            MenuAction(labelShare) { shareServer = s },
-                            MenuAction(labelDelete) { deleteServer = s },
-                        ),
-                    )
+                        }) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(sv.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                ServerTags(sv.protocol, sv.security, sv.network, sv.port, onPrimary = selected)
+                            }
+                            PingPill(sv.last, sv.hostCountry, running["s:${sv.id}"] == true, onPrimary = selected) { testServer(sv) }
+                            RowMenu(listOf(
+                                MenuAction(labelEdit) { nav.navigate(Routes.server(sv.id)) },
+                                MenuAction(labelShare) { shareServer = sv },
+                                MenuAction(labelDelete) { deleteServer = sv },
+                            ))
+                        }
+                    }
                 }
             }
         }
-        Row(Modifier.padding(horizontal = 8.dp)) {
-            TextButton(onClick = { nav.navigate(Routes.server(Routes.NEW)) }) { Text(stringResource(R.string.add_server)) }
-            TextButton(onClick = { adding = true }) { Text(stringResource(R.string.import_links)) }
-            if (!picking && (servers.isNotEmpty() || chains.isNotEmpty())) {
-                TextButton(onClick = { shareAll = true }) { Text(stringResource(R.string.share_all)) }
+    }
+
+    // Thumb actions at the bottom right (D43): test everything, add.
+    Row(
+        Modifier.align(Alignment.BottomEnd).padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FloatingActionButton(
+            onClick = { if (running.isEmpty()) testAll() },
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) { Icon(Icons.Default.Refresh, stringResource(R.string.test_all)) }
+        Box {
+            ExtendedFloatingActionButton(
+                onClick = { addMenu = true },
+                icon = { Icon(Icons.Default.Add, null) },
+                text = { Text(stringResource(R.string.add)) },
+            )
+            DropdownMenu(addMenu, onDismissRequest = { addMenu = false }) {
+                if (!picking) DropdownMenuItem(text = { Text(stringResource(R.string.chain_new)) }, onClick = {
+                    addMenu = false; nav.navigate(Routes.chain(Routes.NEW))
+                })
+                DropdownMenuItem(text = { Text(stringResource(R.string.add_server)) }, onClick = {
+                    addMenu = false; nav.navigate(Routes.server(Routes.NEW))
+                })
+                DropdownMenuItem(text = { Text(stringResource(R.string.import_links)) }, onClick = { addMenu = false; adding = true })
             }
         }
+    }
     }
 
     deleteChain?.let { c ->
@@ -255,28 +307,70 @@ fun SelectScreen(nav: NavController, pickHop: String? = null) {
 private fun AmneziaPickRow(state: String, onPick: () -> Unit) {
     val status by Core.status.collectAsState()
     val enabled = state == "ready"
-    Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onPick).padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    GroupRow(0, 1, onClick = if (enabled) onPick else null) {
         HopDot(true, "A")
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+        Column(Modifier.weight(1f)) {
             val ink = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-            Text("Amnezia", style = MaterialTheme.typography.bodyLarge, color = ink)
+            Text("Amnezia Premium", style = MaterialTheme.typography.bodyLarge, color = ink)
             when (state) {
                 "used" -> Hint(stringResource(R.string.hop_amnezia_used))
                 "setup" -> Hint(stringResource(R.string.hop_amnezia_not_set_up))
-                else -> status.countryName.ifBlank { status.country.uppercase() }.takeIf { it.isNotBlank() }?.let {
-                    Tag(it, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(top = 2.dp))
-                }
+                else -> Pill("amnezia", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, Modifier.padding(top = 4.dp))
             }
+        }
+        if (enabled) CountryPing(status.country.takeIf { it.isNotBlank() }, null, text = status.countryName.takeIf { it.isNotBlank() })
+    }
+}
+
+/** A chain's letter (or a check when selected) in a circle. */
+@Composable
+private fun Avatar(name: String, selected: Boolean) {
+    val cs = MaterialTheme.colorScheme
+    Box(
+        Modifier.size(40.dp).clip(CircleShape).background(if (selected) cs.primary else cs.secondaryContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) Icon(Icons.Default.Check, null, tint = cs.onPrimary, modifier = Modifier.size(22.dp))
+        else Text(name.trim().take(1).uppercase(), color = cs.onSecondaryContainer, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** "[DE] → [NL] · VLESS · Reality": the hops' countries (Amnezia: its location) and the protocols used. */
+@Composable
+private fun ChainPath(c: ChainInfo, hostCountryOf: Map<String, String>, deleted: String, onPrimary: Boolean) {
+    val fg = if (onPrimary) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val countries = c.hops.map { h -> if (h.isAmnezia) h.country else hostCountryOf[h.server].orEmpty() }
+    val protocols = c.hops.filter { !it.missing && !it.isAmnezia }.map { protocolLabel(it.protocol) }.distinct() +
+        (if (c.hops.any { it.isAmnezia }) listOf("Amnezia") else emptyList())
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (countries.any { it.isNotBlank() }) {
+            countries.forEachIndexed { i, cc ->
+                if (i > 0) Text("→", color = fg, fontSize = 12.sp)
+                if (cc.isNotBlank()) CountryCode(cc) else Text(if (c.hops[i].missing) deleted else "?", color = fg, fontSize = 12.sp)
+            }
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(protocols.joinToString(" · "), color = fg, fontSize = 12.sp, maxLines = 1)
+    }
+}
+
+@Composable
+private fun RowMenu(menu: List<MenuAction>) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.MoreVert, stringResource(R.string.more_actions)) }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            menu.forEach { a -> DropdownMenuItem(text = { Text(a.label) }, onClick = { open = false; a.onClick() }) }
         }
     }
 }
 
 /** Swipe right = test, swipe left = delete (asks first); the row always springs back. */
 @Composable
-private fun SwipeRow(onTest: () -> Unit, onDelete: () -> Unit, content: @Composable () -> Unit) {
+private fun SwipeRow(shape: androidx.compose.ui.graphics.Shape, onTest: () -> Unit, onDelete: () -> Unit, content: @Composable () -> Unit) {
     val state = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
         when (v) {
             SwipeToDismissBoxValue.StartToEnd -> onTest()
@@ -287,6 +381,7 @@ private fun SwipeRow(onTest: () -> Unit, onDelete: () -> Unit, content: @Composa
     })
     SwipeToDismissBox(
         state = state,
+        modifier = Modifier.clip(shape),
         backgroundContent = {
             val toEnd = state.dismissDirection == SwipeToDismissBoxValue.StartToEnd
             val (bg, fg) = if (toEnd) {
@@ -302,101 +397,31 @@ private fun SwipeRow(onTest: () -> Unit, onDelete: () -> Unit, content: @Composa
             }
         },
     ) {
-        Box(Modifier.background(MaterialTheme.colorScheme.surface)) { content() }
+        content()
     }
 }
 
+/** The last Test as a country+ping pill (the exit's country when it differs from the host's); tapping it runs a
+ * test. A failure shows its reason in a snackbar when tapped. */
 @Composable
-private fun ListHeader(text: String) {
-    Text(
-        text.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 2.dp),
-    )
-}
-
-@Composable
-private fun SelectRow(
-    /** null: no radio button (hop picker). */
-    selected: Boolean?,
-    title: String,
-    subtitle: String,
-    warning: String?,
-    last: TestResult?,
-    hostCountry: String,
-    testing: Boolean,
-    tags: (@Composable () -> Unit)? = null,
-    onSelect: () -> Unit,
-    onTest: () -> Unit,
-    menu: List<MenuAction>,
-) {
-    var menuOpen by remember { mutableStateOf(false) }
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onSelect).padding(start = 4.dp, end = 0.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (selected != null) RadioButton(selected = selected, onClick = onSelect) else Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            tags?.invoke()
-            if (subtitle.isNotBlank()) {
-                Text(
-                    subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
-            warning?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-        }
-        PingPill(last, hostCountry, testing, onTest)
-        Box {
-            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more_actions)) }
-            DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
-                menu.forEach { a ->
-                    DropdownMenuItem(text = { Text(a.label) }, onClick = { menuOpen = false; a.onClick() })
-                }
-            }
-        }
-    }
-}
-
-/** The last Test as a small pill ("212 ms", "380 ms · DE" when the exit country differs from the host's),
- * coloured by speed; tapping it runs a test. A failure shows its reason when tapped again in a snackbar. */
-@Composable
-private fun PingPill(last: TestResult?, hostCountry: String, testing: Boolean, onTest: () -> Unit) {
+private fun PingPill(last: TestResult?, hostCountry: String, testing: Boolean, onPrimary: Boolean = false, onTest: () -> Unit) {
     val ctx = LocalContext.current
     val snackbar = LocalSnackbar.current
     val scope = rememberCoroutineScope()
-    val (text, color) = when {
-        testing -> stringResource(R.string.conn_testing) to MaterialTheme.colorScheme.primary
-        last == null -> stringResource(R.string.ping_untested) to MaterialTheme.colorScheme.onSurfaceVariant
-        !last.ok -> stringResource(R.string.ping_failed) to MaterialTheme.colorScheme.error
-        else -> {
-            val country = last.country.takeIf { it.isNotBlank() && it != hostCountry }
-            (stringResource(R.string.conn_ping, last.ms.toInt()) + (country?.let { " · $it" } ?: "")) to pingColor(last.ms)
+    val country = last?.country?.takeIf { it.isNotBlank() && it != hostCountry }
+    Box(
+        Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !testing) {
+            val err = last?.error
+            if (err != null && !testing) scope.launch { snackbar.showSnackbar(errorText(ctx, CoreError(code = err)), withDismissAction = true) }
+            onTest()
+        },
+    ) {
+        when {
+            testing -> CountryPing(null, null, text = stringResource(R.string.conn_testing), onPrimary = onPrimary)
+            last == null -> CountryPing(null, null, text = stringResource(R.string.ping_untested), onPrimary = onPrimary)
+            !last.ok -> CountryPing(country, null, failed = true, text = stringResource(R.string.ping_failed))
+            else -> CountryPing(country, last.ms, onPrimary = onPrimary)
         }
-    }
-    Text(
-        text,
-        modifier = Modifier
-            .padding(start = 4.dp)
-            .border(1.dp, color.copy(alpha = 0.45f), RoundedCornerShape(50))
-            .clickable(enabled = !testing) {
-                val err = last?.error
-                if (err != null && !testing) scope.launch { snackbar.showSnackbar(errorText(ctx, CoreError(code = err)), withDismissAction = true) }
-                onTest()
-            }
-            .padding(horizontal = 8.dp, vertical = 3.dp),
-        color = color, fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, maxLines = 1,
-    )
-}
-
-/** Green under 300 ms, amber under 800, red above (light and dark shades). */
-@Composable
-private fun pingColor(ms: Long): Color {
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
-    return when {
-        ms < 300 -> Color(if (dark) 0xFF8FD8A8 else 0xFF237A4B)
-        ms < 800 -> Color(if (dark) 0xFFF2CF7A else 0xFF8A6A00)
-        else -> Color(if (dark) 0xFFF2A08E else 0xFFB8452E)
     }
 }
 
