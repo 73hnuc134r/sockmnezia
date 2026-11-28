@@ -106,7 +106,7 @@
         <span class="dot" class:amz={hi.kind === "amnezia"}>{hi.kind === "amnezia" ? "A" : i + 1}</span>
         <span class="grow info">
           <span class="ellipsis" class:warnc={hi.missing}>{hi.missing ? t("hop_missing") : hi.name}</span>
-          {#if hi.kind === "amnezia"}<span><Tag text="amnezia" color="var(--t-amz)" />{#if hi.country}&nbsp;<Tag text={hi.country.toUpperCase()} />{/if}</span>
+          {#if hi.kind === "amnezia"}<span><Tag text="Amnezia" tone="blue" />{#if hi.country}&nbsp;<span class="cc">{hi.country.toUpperCase()}</span>{/if}</span>
           {:else if !hi.missing}<ServerTags protocol={hi.protocol} security={hi.security} network={hi.network} port={hi.port ?? 0} />{/if}
         </span>
         <span class="moves">
@@ -126,7 +126,7 @@
     {#if picking}
       <div class="picker">
         <button disabled={hasAmnezia || !amneziaReady} onclick={() => add({ kind: "amnezia", server: "" })}>
-          <Tag text="amnezia" color="var(--t-amz)" /><span class="grow ellipsis">{t("amnezia")}</span>
+          <Tag text="Amnezia" tone="blue" /><span class="grow ellipsis">{t("amnezia")}</span>
           {#if hasAmnezia}<span class="dim note">{t("hop_amnezia_used")}</span>{:else if !amneziaReady}<span class="dim note">{t("hop_amnezia_not_set_up")}</span>{/if}
         </button>
         {#each [...store.servers].sort((a, b) => a.name.localeCompare(b.name)) as s (s.id)}
@@ -152,17 +152,17 @@
   .hops { display: grid; gap: 2px; }
   .end { display: flex; gap: 10px; align-items: center; color: var(--dim); font-size: 12px; padding: 4px 6px; }
   .enddot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); margin: 0 9px 0 31px; }
-  .hop { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 8px; border: 1px solid transparent; background: var(--card2); }
+  .hop { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 16px; border: 2px solid transparent; background: var(--s); padding: 8px; }
   .hop.over { border-color: var(--accent); }
   .hop.dragging { opacity: 0.4; }
   .handle { cursor: grab; color: var(--dim); display: grid; place-items: center; width: 18px; }
-  .dot { width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 600 11px/1 var(--ui); border: 2px solid var(--accent); color: var(--accent); }
-  .dot.amz { border-color: var(--amz); color: var(--amz); }
+  .dot { width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 600 11px/1 var(--ui); background: var(--secondary-c); color: var(--on-secondary-c); }
+  .dot.amz { background: var(--tertiary-c); color: var(--on-tertiary-c); }
   .info { display: grid; gap: 2px; min-width: 0; }
   .moves { display: flex; }
   .indent { padding-left: 58px; }
   .pickwrap { position: relative; }
-  .picker { margin-top: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 5px; box-shadow: var(--shadow); display: grid; max-height: 300px; overflow: auto; }
+  .picker { margin-top: 6px; background: var(--s-low); border-radius: 16px; padding: 6px; box-shadow: var(--shadow-dlg); display: grid; max-height: 300px; overflow: auto; }
   .picker button { display: flex; gap: 8px; align-items: center; padding: 7px 9px; border-radius: 6px; background: transparent; border: 0; cursor: pointer; text-align: left; min-width: 0; }
   .picker button:hover:not(:disabled) { background: var(--hover); }
   .picker button:disabled { opacity: 0.5; cursor: default; }

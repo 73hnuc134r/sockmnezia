@@ -3,12 +3,12 @@
   import { Core, Desktop, type engine } from "../lib/api";
   import { store } from "../lib/store.svelte";
   import { t, tp } from "../lib/i18n";
-  import { bytes, duration, flag, rate } from "../lib/format";
+  import { bytes, countryName, duration, rate } from "../lib/format";
   import { coreError, errorText } from "../lib/errors";
   import Icon from "../components/Icon.svelte";
-  import Stepper from "../components/Stepper.svelte";
+  import ServerTags from "../components/ServerTags.svelte";
+  import Tag from "../components/Tag.svelte";
   import Spark from "../components/Spark.svelte";
-  import Ping from "../components/Ping.svelte";
 
   const st = $derived(store.status);
   let busy = $state(false);
@@ -78,6 +78,9 @@
     await store.reload();
   }
 
+  // Uptime, refreshed with the status (every second).
+  const uptime = $derived(st?.running && st.started_at ? duration(Date.now() - new Date(st.started_at).getTime()) : "");
+
   async function copy(text: string) {
     await Clipboard.SetText(text);
     store.toast(t("share_copied"));
@@ -92,112 +95,161 @@
       <button class="btn small flat" onclick={() => (store.update = null)}>{t("d_close")}</button>
     </div>
   {/if}
-  <div class="card">
-    <div class="row nowrap">
-      <span class="cap grow ellipsis">{st?.hops?.length ? t("d_connected_through", title) : t("chain_none")}</span>
-      <button class="btn" onclick={() => (store.page = "servers")}><Icon name="swap" />{t("chain_switch")}</button>
-    </div>
-    {#if st?.hops?.length}
-      <Stepper hops={st.hops} exit={probe.state === "done" ? `${probe.ip}${probe.country ? " " + flag(probe.country) : ""}` : ""} />
-    {/if}
-    {#if st?.chain_error}
-      <div class="hint warn">{errorText(st.chain_error)}</div>
-    {/if}
-  </div>
+  <h1>{t("d_nav_connect")}</h1>
 
-  <div class="row controls">
-    <button class="btn p big" disabled={busy || (!st?.running && !!st?.chain_error)} onclick={toggle}>
-      <Icon name={st?.running ? "stop" : "play"} size={14} />{st?.running ? t("action_stop") : t("action_start")}
-    </button>
-    <div class="modebox">
-      <span class="cap">{t("d_mode")}</span>
-      <div class="seg">
+  <div class="grid">
+    <section class="island chain">
+      <div class="row nowrap">
+        <span class="cap grow">{st?.server_id ? t("d_active_server") : t("d_active_chain")}</span>
+        {#if st?.chain_id && !st.server_id}
+          <button class="btn" onclick={() => (store.page = "servers")}><Icon name="edit" size={18} />{t("chain_edit")}</button>
+        {/if}
+      </div>
+      {#if st?.hops?.length}
+        <h2 class="ellipsis">{title}</h2>
+        <div class="hops">
+          {#each st.hops as h, i}
+            {#if i > 0}<div class="rail"></div>{/if}
+            <div class="hop">
+              <span class="num" class:amz={h.kind === "amnezia"}>{i + 1}</span>
+              <span class="grow hinfo">
+                <span class="ellipsis" class:warnc={h.missing}>{h.missing ? t("hop_missing") : h.name}</span>
+                {#if h.kind === "amnezia"}
+                  <span class="tags"><Tag text="Amnezia" tone="blue" /></span>
+                {:else if !h.missing}
+                  <ServerTags protocol={h.protocol} security={h.security} network={h.network} port={h.port ?? 0} />
+                {/if}
+              </span>
+              {#if h.country}<span class="ccpill"><span class="cc">{h.country.toUpperCase()}</span>{countryName(h.country)}</span>{/if}
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="hint">{t("chain_none")}</div>
+      {/if}
+      {#if st?.chain_error}<div class="hint warn">{errorText(st.chain_error)}</div>{/if}
+      <span class="grow"></span>
+      <div class="tiles">
+        <div class="tile"><span class="tl">↓ {t("d_download")}</span><b>{st?.running ? rate(lastDown) : "—"}</b><Spark values={store.downRate} color="var(--primary)" /></div>
+        <div class="tile"><span class="tl">↑ {t("d_upload")}</span><b>{st?.running ? rate(lastUp) : "—"}</b><Spark values={store.upRate} color="var(--tertiary)" /></div>
+        <div class="tile"><span class="tl">{t("d_session")}</span><b>{st?.running ? bytes(st.up + st.down) : "—"}</b><span class="tl">{uptime ? t("d_running_for", uptime) : ""}</span></div>
+      </div>
+    </section>
+
+    <section class="island">
+      <span class="cap">{t("d_how_apps")}</span>
+      <div class="radios">
         {#each [["", "d_mode_off"], ["system", "d_mode_system"], ["tun", "d_mode_tun"]] as [v, label]}
-          <button class:on={mode === v} disabled={modeBusy} onclick={() => setMode(v)}>{t(label)}</button>
+          <label class="radio" class:on={mode === v} class:disabled={modeBusy}>
+            <input type="radio" name="mode" checked={mode === v} disabled={modeBusy} onchange={() => setMode(v)} />
+            <span>{t(label)}</span>
+          </label>
         {/each}
       </div>
-    </div>
-    <span class="grow"></span>
-    <button class="exitbox" disabled={!st?.running || probe.state === "testing"} onclick={test} title={t("d_click_to_test")}>
-      <span class="cap">{t("d_exit_click")}</span>
-      {#if !st?.running}
-        <span class="dim">{t("conn_stopped")}</span>
-      {:else if probe.state === "done"}
-        <span class="row nowrap"><span class="mono okc selectable">{probe.ip}</span>{#if probe.country}<span>{flag(probe.country)} {probe.country}</span>{/if}<Ping ms={probe.ms} /></span>
-      {:else if probe.state === "testing"}
-        <Ping testing />
-      {:else if probe.state === "failed"}
-        <span class="warnc">{t("conn_failed")}</span>
-      {:else}
-        <span class="dim">{t("d_click_to_test")}</span>
-      {/if}
-    </button>
-  </div>
-
-  {#if st}
-    <div class="modeinfo">
-      <div class="hint">{t(mode === "tun" ? "d_mode_tun_hint" : mode === "system" ? "d_mode_system_hint" : "d_mode_off_hint")}</div>
-      {#if mode === "tun"}
-        <div class="hint">{t("d_mode_tun_service")}</div>
-        {#if dnsWarning}<div class="hint warn">{t("d_tun_dns_warning")}</div>{/if}
-        {#if !st.running}<div class="hint warn">{t("d_tun_blocking")}</div>{/if}
-      {:else}
-        <div class="hint">{t("d_mode_tun_admin")}</div>
-      {/if}
-      {#if mode === "system"}
-        <div class="hint warn">{t("d_mode_warning")}</div>
-        {#if sys && !sys.supported}
-          <div class="hint warn selectable">{t("d_mode_unsupported", st.system_proxy_port)}</div>
-        {:else if sys?.error}
-          <div class="hint warn">{t("d_mode_failed", sys.error)}</div>
-        {:else if sys?.applied}
-          <div class="hint okc">✓ {t("d_mode_applied")} · <span class="mono">127.0.0.1:{st.system_proxy_port}</span></div>
-        {/if}
-        <div class="hint">{t("d_mode_restore")}</div>
-      {/if}
-    </div>
-  {/if}
-
-  <div class="stats">
-    <div class="card stat"><span class="cap">{t("d_download")}</span><b>{st?.running ? rate(lastDown) : "—"}</b><Spark values={store.downRate} color="var(--accent)" /></div>
-    <div class="card stat"><span class="cap">{t("d_upload")}</span><b>{st?.running ? rate(lastUp) : "—"}</b><Spark values={store.upRate} color="var(--ok)" /></div>
-    <div class="card stat">
-      <span class="cap">{t("d_session")}</span>
-      <b>{st?.running ? bytes(st.up + st.down) : "—"}</b>
-      <span class="muted">{st?.running && st.started_at ? t("d_running_for", duration(Date.now() - new Date(st.started_at).getTime())) : ""}</span>
-    </div>
-  </div>
-
-  {#if settings}
-    <div class="card">
-      <span class="cap">{t("d_local_proxy")}</span>
-      <div class="row nowrap">
-        <span class="mono grow ellipsis selectable">{socks}</span>
-        <button class="btn icon flat" title={showPass ? t("hide") : t("show")} onclick={() => (showPass = !showPass)}><Icon name={showPass ? "eyeoff" : "eye"} /></button>
-        <button class="btn small" onclick={() => copy(socksFull)}><Icon name="copy" size={14} />{t("copy")}</button>
-      </div>
-      {#if http}
-        <div class="row nowrap">
-          <span class="mono grow ellipsis selectable">{http} <span class="dim">{t("d_same_credentials")}</span></span>
-          <button class="btn small" onclick={() => copy(http)}><Icon name="copy" size={14} />{t("copy")}</button>
+      {#if st}
+        <div class="modeinfo">
+          <div class="hint">{t(mode === "tun" ? "d_mode_tun_hint" : mode === "system" ? "d_mode_system_hint" : "d_mode_off_hint")}</div>
+          {#if mode === "tun"}
+            <div class="hint">{t("d_mode_tun_service")}</div>
+            {#if dnsWarning}<div class="hint warn">{t("d_tun_dns_warning")}</div>{/if}
+            {#if !st.running}<div class="hint warn">{t("d_tun_blocking")}</div>{/if}
+          {:else}
+            <div class="hint">{t("d_mode_tun_admin")}</div>
+          {/if}
+          {#if mode === "system"}
+            <div class="hint warn">{t("d_mode_warning")}</div>
+            {#if sys && !sys.supported}
+              <div class="hint warn selectable">{t("d_mode_unsupported", st.system_proxy_port)}</div>
+            {:else if sys?.error}
+              <div class="hint warn">{t("d_mode_failed", sys.error)}</div>
+            {:else if sys?.applied}
+              <div class="hint okc">✓ {t("d_mode_applied")} · <span class="mono">127.0.0.1:{st.system_proxy_port}</span></div>
+            {/if}
+            <div class="hint">{t("d_mode_restore")}</div>
+          {/if}
         </div>
       {/if}
-      {#if st && st.auth_failures > 0}<div class="hint warn">{tp("auth_failures", st.auth_failures)}</div>{/if}
-    </div>
-  {/if}
+    </section>
+
+    {#if settings}
+      <section class="island">
+        <span class="cap">{t("d_local_proxy")}</span>
+        <div class="kv"><span>SOCKS5</span><span class="mono selectable">{settings.inbound.listen}:{settings.inbound.socks_port}</span></div>
+        {#if http}<div class="kv"><span>HTTP</span><span class="mono selectable">{settings.inbound.listen}:{settings.inbound.http_port}</span></div>{/if}
+        <div class="row nowrap">
+          <span class="mono grow ellipsis selectable dim">{socks}</span>
+          <button class="btn icon flat" title={showPass ? t("hide") : t("show")} onclick={() => (showPass = !showPass)}><Icon name={showPass ? "eyeoff" : "eye"} size={18} /></button>
+        </div>
+        <div class="row">
+          <button class="btn outline small" onclick={() => copy(socksFull)}><Icon name="copy" size={16} />SOCKS5</button>
+          {#if http}<button class="btn outline small" title={t("d_same_credentials")} onclick={() => copy(http)}><Icon name="copy" size={16} />HTTP</button>{/if}
+        </div>
+        {#if st && st.auth_failures > 0}<div class="hint warn">{tp("auth_failures", st.auth_failures)}</div>{/if}
+      </section>
+    {/if}
+  </div>
+
+  <div class="bar">
+    <button class="status" class:on={st?.running && probe.state === "done"} class:bad={probe.state === "failed"}
+      disabled={!st?.running || probe.state === "testing"} onclick={test} title={t("d_click_to_check")}>
+      <span class="led" class:lit={st?.running}></span>
+      {#if !st?.running}
+        <span class="sl">{t("d_not_running")}</span>
+      {:else if probe.state === "done"}
+        <span class="sl">{t("conn_connected")} · {t("conn_ping", probe.ms)}</span>
+        <span class="sub">{#if probe.country}<span class="cc">{probe.country.toUpperCase()}</span>{countryName(probe.country)} ·{/if} <span class="selectable">{probe.ip}</span></span>
+        {#if uptime}<span class="sub">· {uptime}</span>{/if}
+      {:else if probe.state === "testing"}
+        <span class="sl">{t("d_running")}</span><span class="sub">{t("conn_testing")}</span>
+      {:else if probe.state === "failed"}
+        <span class="sl">{t("conn_failed")}</span><span class="sub">{t("d_click_to_check")}</span>
+      {:else}
+        <span class="sl">{t("d_running")}</span><span class="sub">{t("d_click_to_check")}</span>
+      {/if}
+      {#if st?.running}<Icon name="refresh" size={18} />{/if}
+    </button>
+    <span class="grow"></span>
+    <button class="fab" onclick={() => (store.page = "servers")}><Icon name="swap" size={20} />{t("chain_switch")}</button>
+    <button class="fab p" disabled={busy || (!st?.running && !!st?.chain_error)} onclick={toggle}>
+      <Icon name={st?.running ? "stop" : "play"} size={18} />{st?.running ? t("action_stop") : t("action_start")}
+    </button>
+  </div>
 </div>
 
 <style>
-  .page { display: grid; gap: 14px; align-content: start; }
-  .controls { gap: 16px; align-items: stretch; }
-  .big { padding: 14px 26px; font-size: 15px; border-radius: 12px; min-width: 130px; justify-content: center; }
-  .exitbox { display: grid; gap: 6px; justify-items: end; align-content: center; background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 6px 10px; cursor: pointer; text-align: right; }
-  .exitbox:hover:not(:disabled) { border-color: var(--line); background: var(--hover); }
-  .exitbox:disabled { cursor: default; }
-  .banner { background: var(--sel); border-radius: 10px; padding: 8px 12px; }
-  .modebox { display: grid; gap: 6px; align-content: center; }
-  .modeinfo { display: grid; gap: 4px; margin-top: -4px; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .stat { gap: 6px; padding: 12px 14px; }
-  .stat b { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .page { display: flex; flex-direction: column; gap: 20px; min-height: 100%; }
+  .banner { background: var(--secondary-c); color: var(--on-secondary-c); border-radius: 16px; padding: 8px 8px 8px 16px; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; flex: 1; align-content: start; }
+  .chain { grid-column: span 2; grid-row: span 2; }
+  @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } .chain { grid-column: auto; grid-row: auto; } }
+  .hops { display: grid; }
+  .hop { display: flex; gap: 14px; align-items: center; padding: 6px 0; min-width: 0; }
+  .rail { width: 2px; height: 10px; background: var(--outline-v); margin-left: 19px; }
+  .num { width: 40px; height: 40px; flex: none; border-radius: 20px; background: var(--secondary-c); color: var(--on-secondary-c); display: grid; place-items: center; font-weight: 600; }
+  .num.amz { background: var(--tertiary-c); color: var(--on-tertiary-c); }
+  .hinfo { display: grid; gap: 4px; min-width: 0; font-size: 16px; }
+  .tags { display: inline-flex; gap: 4px; }
+  .ccpill { display: inline-flex; gap: 5px; align-items: center; font: 500 12px/16px var(--ui); background: var(--s-high); color: var(--muted); border-radius: 8px; padding: 3px 8px 3px 4px; white-space: nowrap; }
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .tile { background: var(--s); border-radius: 16px; padding: 10px 14px; display: grid; gap: 2px; min-width: 0; }
+  .tile b { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .tl { font-size: 12px; color: var(--muted); }
+  .radios { display: grid; gap: 4px; }
+  .radio { display: flex; gap: 12px; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 12px; cursor: pointer; }
+  .radio:hover { background: var(--state); }
+  .radio.on { background: var(--secondary-c); color: var(--on-secondary-c); font-weight: 500; }
+  .radio.disabled { opacity: 0.5; cursor: default; }
+  .modeinfo { display: grid; gap: 6px; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; }
+  .bar { position: sticky; bottom: 0; display: flex; gap: 12px; align-items: center; padding: 14px 0 4px; background: var(--surface); z-index: 5; }
+  .status { height: 56px; border: 0; border-radius: 16px; background: var(--s-high); color: var(--ink); display: flex; gap: 10px; align-items: center; padding: 0 18px;
+    cursor: pointer; min-width: 0; max-width: 62%; white-space: nowrap; overflow: hidden; }
+  .status:hover:not(:disabled) { box-shadow: inset 0 0 0 100px var(--state); }
+  .status:disabled { cursor: default; }
+  .status.on { background: var(--primary-c); color: var(--on-primary-c); }
+  .status.bad { background: var(--error-c); color: var(--on-error-c); }
+  .sl { font-weight: 500; }
+  .sub { display: inline-flex; gap: 6px; align-items: center; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; }
+  .led { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--outline); flex: none; }
+  .led.lit { background: var(--primary); border-color: var(--primary); }
 </style>

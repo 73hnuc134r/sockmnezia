@@ -301,6 +301,11 @@ P = {  # plurals: key -> ({quantity: en}, {quantity: ru})
 # Desktop-only strings (desktop/frontend). Placeholders as above: %1$s, %d.
 D = {
  "d_this_pc": ("This PC", "Этот компьютер"),
+ "d_active_chain": ("Active chain", "Активная цепочка"), "d_active_server": ("Active server", "Активный сервер"),
+ "d_how_apps": ("How apps use it", "Как приложения его используют"),
+ "d_not_running": ("Not running", "Не запущен"), "d_click_to_check": ("Click to check the exit", "Нажмите, чтобы проверить выход"),
+ "d_chains_title": ("Chains", "Цепочки"), "d_everything_else": ("Everything else", "Всё остальное"),
+ "d_where_goes": ("Where does it go?", "Куда это пойдёт?"),
  "d_nav_connect": ("Connect", "Подключение"), "d_nav_servers": ("Servers & chains", "Серверы и цепочки"),
  "d_connected_through": ("Connected through · %1$s", "Подключение через · %1$s"),
  "d_exit_click": ("Exit · click to test", "Выход · нажмите для проверки"),

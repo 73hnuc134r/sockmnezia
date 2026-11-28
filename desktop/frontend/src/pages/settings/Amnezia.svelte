@@ -167,7 +167,7 @@
 
 <style>
   .locs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
-  .loc { display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card2); cursor: pointer; text-align: left; min-width: 0; }
+  .loc { display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 12px; border: 0; background: var(--s); cursor: pointer; text-align: left; min-width: 0; }
   .loc.on { border-color: var(--accent); background: var(--sel); }
   .loc:disabled { opacity: 0.6; cursor: default; }
   .cap-img { max-width: 100%; height: 100px; object-fit: contain; background: #fff; border-radius: 6px; }

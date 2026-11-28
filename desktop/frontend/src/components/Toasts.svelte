@@ -10,6 +10,6 @@
 
 <style>
   .toasts { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); display: grid; gap: 8px; z-index: 50; width: min(520px, 90vw); }
-  .toast { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow); white-space: pre-line; }
-  .toast.error { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); }
+  .toast { background: var(--on-surface); color: var(--s); border-radius: 8px; padding: 12px 16px; box-shadow: var(--shadow-dlg); white-space: pre-line; }
+  .toast.error { background: var(--error-c); color: var(--on-error-c); }
 </style>

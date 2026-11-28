@@ -1,3 +1,5 @@
+import { lang } from "./i18n";
+
 export function bytes(b: number): string {
   if (b < 1024) return `${b} B`;
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
@@ -29,4 +31,16 @@ export function flag(cc?: string): string {
   const A = 0x1f1e6;
   const up = cc.toUpperCase();
   return String.fromCodePoint(A + up.charCodeAt(0) - 65, A + up.charCodeAt(1) - 65);
+}
+
+let regions: Intl.DisplayNames | null = null;
+/** Country code → its name in the UI language (the code itself when unknown). */
+export function countryName(cc?: string): string {
+  if (!cc) return "";
+  try {
+    regions ??= new Intl.DisplayNames([lang], { type: "region" });
+    return regions.of(cc.toUpperCase()) ?? cc.toUpperCase();
+  } catch {
+    return cc.toUpperCase();
+  }
 }
