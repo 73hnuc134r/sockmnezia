@@ -3,6 +3,17 @@
 Each `## <version>` section becomes the GitHub release notes for that tag (tool/changelog.sh) and is
 shown in the app's update card. Write for people using the app, not for developers.
 
+## 1.1.9
+
+- New Material 3 look: teal colours in light and dark, rounded blocks instead of cards. On Android 12+ you can
+  switch to colours from your wallpaper in Settings.
+- Home: no big title; the status, Switch and Start/Stop sit together at the bottom right, under your thumb. Tap
+  the status to check the exit IP and its country.
+- The Proxy/VPN choice moved to Settings ("How apps use it").
+- Servers: chains first, then one block per host with its servers. Every server and hop shows its protocol,
+  security and port, and pings come with the country.
+- Routing: "Where does it go?" on top; rules show their conditions and a coloured Proxy / Direct / Block label.
+
 ## 1.1.8
 
 - "Share all" (under the server list): every server and chain in one text. Import it into sockmnezia on another

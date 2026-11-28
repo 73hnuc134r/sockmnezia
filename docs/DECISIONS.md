@@ -436,3 +436,26 @@ change `Connections\DefaultConnectionSettings`, which the Settings app, Edge, Ch
 went direct. The desktop now uses `InternetSetOption(INTERNET_OPTION_PER_CONNECTION_OPTION)` on the LAN
 connection (flags, server, bypass, auto-config URL), as v2rayN does, and `InternetQueryOption` to save the
 previous settings; settings saved in the old registry form are still restored. Not yet verified on Windows.
+
+## D43 · Material 3 redesign: seeded teal, islands, thumb row (2026-11-28)
+
+Both apps follow one set of tokens, approved as mockups first.
+
+- **Colour.** A fixed Material 3 tonal scheme generated from the brand teal `#00695C`, light and dark. Android 12+
+  wallpaper colours (dynamic colour) are off by default and offered as a switch in Settings: wallpaper palettes
+  made the app look muddy and unlike itself, and the security cues (red "none" pill, Block) need stable colours.
+- **Font.** The system font (Roboto on Android, Segoe UI / system sans on desktop); nothing bundled, so no size
+  cost.
+- **Layout.** "Islands": rounded (28) blocks on a slightly darker screen colour, holding groups of rows with tight
+  inner corners (20/6). Surfaces lighten towards the front in both themes (`LocalLevels` on Android, CSS variables
+  on desktop) instead of using card shadows.
+- **Thumb row.** The three most common actions sit together at the bottom right for one-handed use: the
+  connection status (tap = check exit IP and country), Switch, and Start/Stop in the corner. Screens with a main
+  action (Save, Add, Test all, Presets) put it there too. Home has no title bar.
+- **Mode switch.** Proxy / VPN moved from Home to Settings: it is set once, and Home stays for the thumb actions.
+- **Server list.** Chains first, then one island per host with its servers (a host's servers share an address, so
+  they share a country). Protocol, security, transport and port are pills everywhere; ports have no leading ":".
+  Pings are shown with the country code.
+- **Country.** From the local geo database only (core `geo.LookupCountry`), never an online service; so a host
+  given as a domain name has no country until a test reports the exit's.
+
