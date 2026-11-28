@@ -428,3 +428,11 @@ with the status and when the proxy stops or restarts; through-the-proxy = inboun
 would count every byte once per hop. Stored in `stats.json` next to the state (not secret: IDs, names and
 byte counts), a year long, deleted by Reset and by "Delete all data". A deleted chain/server keeps the name it
 had. Traffic Xray makes itself (DNS-over-HTTPS in VPN/TUN mode, tests) isn't counted.
+
+## D42 · Windows system proxy through the per-connection WinINET options (2026-11-28)
+
+Writing `ProxyEnable` / `ProxyServer` under `Internet Settings` plus `INTERNET_OPTION_SETTINGS_CHANGED` does not
+change `Connections\DefaultConnectionSettings`, which the Settings app, Edge, Chrome and WinHTTP read: those apps
+went direct. The desktop now uses `InternetSetOption(INTERNET_OPTION_PER_CONNECTION_OPTION)` on the LAN
+connection (flags, server, bypass, auto-config URL), as v2rayN does, and `InternetQueryOption` to save the
+previous settings; settings saved in the old registry form are still restored. Not yet verified on Windows.

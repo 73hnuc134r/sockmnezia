@@ -8,6 +8,8 @@ using the app.
 
 - "Share all" on the Servers & chains page: every server and chain in one text, for sockmnezia on another
   computer or phone (already saved ones are not duplicated).
+- Windows: the system proxy is now set the way Windows' own Settings, Edge and Chrome read it (it is shown in
+  Settings → Network → Proxy); before, only older registry values were written, which many apps ignored.
 - The app and tray icons are the sock from the Android app.
 - Settings → Local proxy and App no longer flicker every second.
 - Security: updated two libraries Xray uses with known vulnerabilities (zstd decompression could crash on bad
